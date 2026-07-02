@@ -13,7 +13,7 @@ import { ArrowRight, Mic, Users } from "lucide-react";
 export const Route = createFileRoute("/home")({
   head: () => ({
     meta: [
-      { title: "Home — Kotoba" },
+      { title: "Home — Live-Interpret" },
       { name: "description", content: "Start a new interpretation session or join one with a code." },
     ],
   }),
@@ -42,6 +42,7 @@ const LANGS = [
   { code: "de", label: "German" },
   { code: "zh", label: "Chinese" },
   { code: "ko", label: "Korean" },
+  { code: "kh", label: "Khmer" },
 ];
 
 function randomCode() {

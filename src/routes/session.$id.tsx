@@ -12,8 +12,8 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/session/$id")({
   head: () => ({
     meta: [
-      { title: "Live session — Kotoba" },
-      { name: "description", content: "Live AI-interpreted conversation." },
+      { title: "TOKOBA — live speech translation" },
+      { name: "description", content: "Live AI-interpreted conversation for TOKOBA." },
     ],
   }),
   component: () => (
@@ -54,6 +54,8 @@ function SessionPage() {
   const [transcripts, setTranscripts] = useState<TranscriptRow[]>([]);
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
+  const [liveTranscript, setLiveTranscript] = useState<{ text: string; lang: string } | null>(null);
+  const [liveTranslation, setLiveTranslation] = useState<{ text: string; lang: string } | null>(null);
   const [speakLang, setSpeakLang] = useState<"source" | "target">("source");
   const [participantCount, setParticipantCount] = useState(1);
   const recognizerRef = useRef<ReturnType<typeof createRecognizer> | null>(null);
@@ -139,6 +141,7 @@ function SessionPage() {
   const handleFinal = async (text: string) => {
     if (!session || !user || !text.trim()) return;
     setInterim("");
+    setLiveTranscript(null);
     const sourceLang = speakLang === "source" ? session.source_lang : session.target_lang;
     const targetLang = speakLang === "source" ? session.target_lang : session.source_lang;
 
@@ -164,6 +167,7 @@ function SessionPage() {
       const { translation } = await translateUtterance({
         data: { text, sourceLang, targetLang },
       });
+      setLiveTranslation({ text: translation, lang: targetLang.toUpperCase() });
       await supabase
         .from("transcripts")
         .update({ translated_text: translation })
@@ -171,6 +175,7 @@ function SessionPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Translation failed";
       toast.error(msg);
+      setLiveTranslation({ text: `[error: ${msg}]`, lang: targetLang.toUpperCase() });
       await supabase
         .from("transcripts")
         .update({ translated_text: `[error: ${msg}]` })
@@ -194,14 +199,23 @@ function SessionPage() {
     const lang = speakLang === "source" ? session.source_lang : session.target_lang;
     try {
       recognizerRef.current = createRecognizer(lang, {
-        onFinal: handleFinal,
-        onInterim: setInterim,
+        onFinal: async (text) => {
+          setLiveTranscript({ text, lang: activeLang.toUpperCase() });
+          await handleFinal(text);
+        },
+        onInterim: (text) => {
+          setInterim(text);
+          setLiveTranscript({ text, lang: activeLang.toUpperCase() });
+          setLiveTranslation(null);
+        },
         onError: (m) => {
           if (m !== "no-speech" && m !== "aborted") toast.error(`Mic: ${m}`);
         },
         onEnd: () => {
           setListening(false);
           setInterim("");
+          setLiveTranscript(null);
+          setLiveTranslation(null);
         },
       });
       recognizerRef.current.start();
@@ -241,7 +255,7 @@ function SessionPage() {
             <Link to="/home"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
-            <h1 className="font-display text-2xl font-semibold">{session.name ?? "Live session"}</h1>
+            <h1 className="font-display text-2xl font-semibold">{session.name ?? "TOKOBA live session"}</h1>
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span className="uppercase">{session.source_lang} ⇄ {session.target_lang}</span>
               <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {participantCount}</span>
@@ -264,13 +278,29 @@ function SessionPage() {
         </div>
       </div>
 
-      <div ref={scrollRef} className="glass-card h-[52vh] overflow-y-auto p-6 space-y-4">
-        {transcripts.length === 0 && !interim && (
+      <div ref={scrollRef} className="glass-card relative h-[52vh] overflow-y-auto p-6 space-y-4">
+        {liveTranslation && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/40 p-6">
+            <div className="w-full max-w-3xl rounded-3xl border border-primary/20 bg-background/95 p-8 shadow-2xl backdrop-blur-md">
+              <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-primary">
+                <span>{`${liveTranslation.lang} • translated`}</span>
+                <span>Interpreted text</span>
+              </div>
+              <p className="mt-4 text-center text-3xl font-semibold leading-snug text-foreground">
+                {liveTranslation.text}
+              </p>
+              <p className="mt-3 text-center text-sm text-muted-foreground">
+                Spoken in {activeLang.toUpperCase()}, shown as interpretation.
+              </p>
+            </div>
+          </div>
+        )}
+        {transcripts.length === 0 && !interim && !liveTranscript && !liveTranslation && (
           <div className="flex h-full items-center justify-center text-center text-muted-foreground">
             <div>
               <Mic className="mx-auto mb-2 h-8 w-8 opacity-50" />
               <p>Press the microphone to start speaking.</p>
-              <p className="text-xs mt-1">Everything you say is transcribed and translated in real time.</p>
+              <p className="text-xs mt-1">TOKOBA transcribes and translates your words as soon as you speak.</p>
             </div>
           </div>
         )}
@@ -291,13 +321,6 @@ function SessionPage() {
             </div>
           );
         })}
-        {interim && (
-          <div className="flex justify-end">
-            <div className="max-w-[85%] rounded-2xl border border-dashed border-border p-4 opacity-70">
-              <p className="text-lg italic">{interim}</p>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="glass-card flex flex-col items-center gap-4 p-6">
