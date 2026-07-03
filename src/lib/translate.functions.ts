@@ -3,12 +3,12 @@ import { generateText } from "ai";
 
 const openAiKey = import.meta.env.VITE_OPENAI_API_KEY || "";
 const provider = createOpenAICompatible({
-  provider: "openai",
-  url: ({ path }) => `https://api.openai.com/v1/${path}`,
-  headers: () => ({
-    Authorization: openAiKey ? `Bearer ${openAiKey}` : undefined,
+  name: "openai",
+  baseURL: "https://api.openai.com/v1",
+  headers: {
+    Authorization: openAiKey ? `Bearer ${openAiKey}` : "",
     "Content-Type": "application/json",
-  }),
+  },
 });
 
 type TranslateUtterancePayload = {
@@ -33,14 +33,21 @@ export async function translateUtterance({ data }: TranslateUtterancePayload) {
   const prompt = `Translate the following text from ${sourceLang.toUpperCase()} to ${targetLang.toUpperCase()}:\n\n${text}\n\nRespond only with the translated text.`;
 
   if (!openAiKey) {
+    try {
+      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`);
+      const json = await response.json();
+      if (json?.responseData?.translatedText) {
+        return { translation: json.responseData.translatedText };
+      }
+    } catch (e) {
+      console.error("Translation API failed", e);
+    }
     return { translation: `[${sourceLang} → ${targetLang}] ${text}` };
   }
 
   const result = await generateText({
-    model: "gpt-4o-mini",
-    provider,
-    input: prompt,
-    max_length: 1024,
+    model: provider("gpt-4o-mini"),
+    prompt: prompt,
   });
 
   return { translation: result.text.trim() };

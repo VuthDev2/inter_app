@@ -42,21 +42,64 @@ function ProfilePage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("profiles")
-      .select("display_name, preferred_language")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        setDisplayName(data?.display_name ?? "");
-        setPreferred(data?.preferred_language ?? "en");
-      });
+    const loadProfile = async () => {
+      if (!user) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const backendResponse = await fetch("/api/profile", {
+          headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+        });
+        if (backendResponse.ok) {
+          const backendProfile = await backendResponse.json();
+          if (backendProfile?.profile?.displayName) {
+            setDisplayName(backendProfile.profile.displayName);
+          }
+          if (backendProfile?.profile?.language) {
+            setPreferred(backendProfile.profile.language);
+          }
+        }
+      } catch {
+        // fall back to Supabase profile if the backend is unavailable
+      }
+
+      supabase
+        .from("profiles")
+        .select("display_name, preferred_language")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          setDisplayName(data?.display_name ?? "");
+          setPreferred(data?.preferred_language ?? "en");
+        });
+    };
+
+    loadProfile();
   }, [user]);
 
   const save = async () => {
     if (!user) return;
     setBusy(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          displayName,
+          preferredLanguage: preferred,
+        }),
+      });
+    } catch {
+      toast.error("Backend is unavailable");
+      setBusy(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .upsert({ id: user.id, display_name: displayName, preferred_language: preferred });
