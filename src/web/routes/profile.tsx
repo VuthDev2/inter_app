@@ -25,7 +25,7 @@ export const Route = createFileRoute("/profile")({
 });
 
 const LANGS = [
-  { code: "kh", label: "Khmer"},
+  { code: "kh", label: "Khmer" },
   { code: "en", label: "English" },
   { code: "ja", label: "Japanese" },
   { code: "es", label: "Spanish" },
@@ -131,7 +131,7 @@ function ProfilePage() {
               </div>
               <div>
                 <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                  <Sparkles className="h-4 w-4" />
+
                   Personal profile
                 </div>
                 <h1 className="mt-1 font-display text-3xl font-semibold">Make the experience feel like yours</h1>

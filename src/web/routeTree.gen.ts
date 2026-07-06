@@ -9,16 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as LocalSessionRouteImport } from './routes/local-session'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SessionIdRouteImport } from './routes/session.$id'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LocalSessionRoute = LocalSessionRouteImport.update({
+  id: '/local-session',
+  path: '/local-session',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -52,7 +64,9 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
   '/session/$id': typeof SessionIdRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +74,9 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
   '/session/$id': typeof SessionIdRoute
 }
 export interface FileRoutesById {
@@ -69,21 +85,41 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
   '/session/$id': typeof SessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/history' | '/home' | '/profile' | '/session/$id'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/history'
+    | '/home'
+    | '/local-session'
+    | '/profile'
+    | '/settings'
+    | '/session/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/history' | '/home' | '/profile' | '/session/$id'
+  to:
+    | '/'
+    | '/auth'
+    | '/history'
+    | '/home'
+    | '/local-session'
+    | '/profile'
+    | '/settings'
+    | '/session/$id'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/history'
     | '/home'
+    | '/local-session'
     | '/profile'
+    | '/settings'
     | '/session/$id'
   fileRoutesById: FileRoutesById
 }
@@ -92,17 +128,33 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
+  LocalSessionRoute: typeof LocalSessionRoute
   ProfileRoute: typeof ProfileRoute
+  SettingsRoute: typeof SettingsRoute
   SessionIdRoute: typeof SessionIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/local-session': {
+      id: '/local-session'
+      path: '/local-session'
+      fullPath: '/local-session'
+      preLoaderRoute: typeof LocalSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -148,7 +200,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
+  LocalSessionRoute: LocalSessionRoute,
   ProfileRoute: ProfileRoute,
+  SettingsRoute: SettingsRoute,
   SessionIdRoute: SessionIdRoute,
 }
 export const routeTree = rootRouteImport

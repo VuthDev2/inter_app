@@ -264,137 +264,128 @@ function SessionPage() {
 
 
   return (
-    <div className="flex h-screen flex-col bg-[#0d1017] text-white">
+    <div className="flex h-screen flex-col bg-background text-foreground">
       {/* Top Bar */}
-      <header className="flex items-center justify-between px-6 py-4">
-        <button className="rounded-full p-2 hover:bg-white/10 transition-colors" aria-label="Menu" onClick={() => router.navigate({ to: "/home" })}>
-          <Menu className="h-6 w-6" />
-        </button>
-        <span className="font-display text-lg font-semibold tracking-wide">Kotoba</span>
-        <button className="rounded-full p-2 hover:bg-white/10 transition-colors" aria-label="Options">
-          <MoreHorizontal className="h-6 w-6" />
-        </button>
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-secondary/20 backdrop-blur-sm z-10">
+        <div className="flex items-center gap-4">
+          <button className="rounded-full p-2 hover:bg-secondary transition-colors" aria-label="Leave" onClick={() => router.navigate({ to: "/home" })}>
+            <Menu className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="font-display font-semibold">{session.name || "Remote Meeting"}</h1>
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              Code: <span className="font-mono tracking-widest">{session.code}</span>
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <Select value={targetLang} onValueChange={setTargetLang} disabled={listening}>
+            <SelectTrigger className="h-9 border-border bg-background shadow-sm">
+               <span className="mr-2">{getFlag(targetLang)}</span>
+               <span className="hidden sm:inline text-sm">
+                 Translate to: {LANGS.find(l => l.code === targetLang)?.label}
+               </span>
+            </SelectTrigger>
+            <SelectContent>
+              {LANGS.map((l) => (
+                <SelectItem key={l.code} value={l.code}>
+                  <span className="mr-2">{l.flag}</span>
+                  {l.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </header>
 
-      {/* Main Translation Display Area */}
-      <div className="flex flex-1 flex-col justify-center px-8 py-6 pb-20 relative">
-        <div className="flex-1 w-full max-w-2xl mx-auto flex flex-col justify-end">
-          
-          <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-4 scrollbar-hide" ref={scrollRef}>
-            {/* The primary translated text (Target Language) */}
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <p className="font-sans text-[2.5rem] leading-tight font-medium tracking-tight text-white/95">
-                {displayTargetText}
-              </p>
+      {/* Main Translation Display Area (Chat Feed) */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 space-y-6 scrollbar-hide" ref={scrollRef}>
+        <div className="max-w-3xl mx-auto space-y-6">
+          {transcripts.length === 0 && !interim && !liveTranscript && (
+            <div className="flex flex-col items-center justify-center h-40 text-center opacity-50">
+              <Headphones className="h-12 w-12 mb-4" />
+              <p>Waiting for someone to speak...</p>
             </div>
+          )}
 
-            {/* The original text (Source Language) */}
-            {displaySourceText && (
-              <div className="animate-in fade-in duration-500 delay-100 mt-8">
-                <p className="font-sans text-xl leading-relaxed text-white/60">
-                  {displaySourceText}
+          {transcripts.map((t) => {
+            const isMe = t.speaker_id === user?.id;
+            return (
+              <div key={t.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-5 py-4 ${
+                  isMe 
+                    ? 'bg-primary text-primary-foreground rounded-br-sm' 
+                    : 'bg-secondary text-secondary-foreground rounded-bl-sm border border-border/50'
+                }`}>
+                  <p className="font-display text-lg sm:text-xl font-medium leading-snug">
+                    {t.translated_text || <span className="opacity-70 italic">Translating...</span>}
+                  </p>
+                  <p className={`mt-2 text-sm ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                    {t.original_text}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Live Interim Transcript */}
+          {(interim || liveTranscript) && (
+            <div className="flex flex-col items-end animate-in fade-in">
+              <div className="max-w-[85%] md:max-w-[75%] rounded-2xl px-5 py-4 bg-primary/20 text-foreground rounded-br-sm border border-primary/30">
+                <p className="font-display text-lg sm:text-xl font-medium leading-snug opacity-80">
+                  {interimTranslation || "..."}
+                </p>
+                <p className="mt-2 text-sm text-primary/70 animate-pulse">
+                  {interim || liveTranscript?.text}
                 </p>
               </div>
-            )}
-          </div>
-
+            </div>
+          )}
         </div>
       </div>
 
       {/* Bottom Controls Area */}
-      <div className="relative pb-10 pt-16 flex flex-col items-center">
-        {/* Visualizer (absolute positioned slightly above the controls) */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 h-16 pointer-events-none">
-          {Array.from({ length: 15 }).map((_, i) => {
-            const isCenter = Math.abs(i - 7) < 3;
-            const height = isCenter ? "h-12" : "h-6";
-            const delay = `${Math.random() * 0.5}s`;
-            const duration = `${0.8 + Math.random() * 0.8}s`;
-            return (
-              <div
-                key={i}
-                className={`w-1.5 rounded-full bg-gradient-to-t from-cyan-400 to-indigo-500 transition-opacity ${listening ? 'opacity-100 visualizer-bar' : 'opacity-20'}`}
-                style={{ 
-                  animationDelay: listening ? delay : '0s',
-                  animationDuration: listening ? duration : '0s',
-                  height: listening ? '100%' : '1.5rem',
-                  opacity: listening ? undefined : 0.2
-                }}
-              />
-            );
-          })}
-        </div>
-
-        {/* Record Button (overlapping visualizer) */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <button
-            onClick={toggleListen}
-            className={`flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full shadow-xl transition-transform active:scale-95 ${
-              listening 
-                ? "bg-red-500/20 text-red-500 backdrop-blur-md border border-red-500/50" 
-                : "bg-[#1c212b] text-white hover:bg-[#252b36]"
-            }`}
-          >
-            {listening ? <Pause className="h-8 w-8 fill-current" /> : <Mic className="h-8 w-8" />}
-          </button>
-        </div>
-
-        {/* Control Bar Pill */}
-        <div className="mt-8 flex items-center gap-4 rounded-[2rem] bg-[#1c212b]/80 px-6 py-4 backdrop-blur-xl border border-white/5 shadow-2xl">
-          {/* Source Lang */}
+      <div className="p-4 border-t border-border/50 bg-background/80 backdrop-blur-md flex justify-center pb-8">
+        <div className="flex items-center gap-4 max-w-lg w-full bg-secondary/30 p-2 rounded-full border border-border/50">
           <Select value={sourceLang} onValueChange={setSourceLang} disabled={listening}>
-            <SelectTrigger className="border-0 bg-transparent shadow-none focus:ring-0 p-0 h-auto flex items-center gap-2 hover:opacity-80 transition-opacity [&>svg]:hidden">
-               <span className="text-xl">{getFlag(sourceLang)}</span>
-               <span className="text-sm font-medium text-white/70">
-                 {LANGS.find(l => l.code === sourceLang)?.label || sourceLang.toUpperCase()}
-               </span>
+            <SelectTrigger className="border-0 bg-transparent shadow-none w-auto focus:ring-0">
+               <span className="mr-2 text-xl">{getFlag(sourceLang)}</span>
             </SelectTrigger>
-            <SelectContent className="bg-[#1c212b] text-white border-white/10">
+            <SelectContent side="top">
               {LANGS.map((l) => (
-                <SelectItem key={l.code} value={l.code} className="focus:bg-white/10 focus:text-white cursor-pointer">
-                  <span className="mr-2">{l.flag}</span>
-                  {l.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Swap */}
-          <button 
-            onClick={handleSwap}
-            disabled={listening}
-            className="rounded-full p-2 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all disabled:opacity-30"
-          >
-            <ArrowRightLeft className="h-4 w-4" />
-          </button>
-
-          {/* Target Lang */}
-          <Select value={targetLang} onValueChange={setTargetLang} disabled={listening}>
-            <SelectTrigger className="border-0 bg-transparent shadow-none focus:ring-0 p-0 h-auto flex items-center gap-2 hover:opacity-80 transition-opacity [&>svg]:hidden">
-               <span className="text-xl">{getFlag(targetLang)}</span>
-               <span className="text-sm font-medium text-white/70">
-                 {LANGS.find(l => l.code === targetLang)?.label || targetLang.toUpperCase()}
-               </span>
-            </SelectTrigger>
-            <SelectContent className="bg-[#1c212b] text-white border-white/10">
-              {LANGS.map((l) => (
-                <SelectItem key={l.code} value={l.code} className="focus:bg-white/10 focus:text-white cursor-pointer">
-                  <span className="mr-2">{l.flag}</span>
+                <SelectItem key={l.code} value={l.code}>
                   {l.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           
-          <div className="w-px h-6 bg-white/10 mx-2" />
+          <div className="flex-1 text-center text-sm text-muted-foreground">
+            {listening ? (
+              <span className="text-primary animate-pulse flex items-center justify-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                Listening...
+              </span>
+            ) : "Tap to speak"}
+          </div>
 
-          {/* Headphones */}
-          <button className="p-2 text-white/50 hover:text-white transition-colors">
-            <Headphones className="h-5 w-5" />
+          <button
+            onClick={toggleListen}
+            className={`flex h-12 w-12 items-center justify-center rounded-full shadow-md transition-all active:scale-95 flex-shrink-0 ${
+              listening 
+                ? "bg-destructive text-destructive-foreground animate-pulse" 
+                : "bg-primary text-primary-foreground hover:opacity-90"
+            }`}
+          >
+            {listening ? <Pause className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </button>
         </div>
       </div>
-      
     </div>
   );
 }
