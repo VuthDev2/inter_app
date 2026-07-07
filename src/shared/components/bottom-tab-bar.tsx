@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, History, User, Settings } from "lucide-react";
+import { Home, History, User, Settings, MonitorSmartphone } from "lucide-react";
 import type { ReactNode } from "react";
 
 type Tab = {
@@ -10,6 +10,7 @@ type Tab = {
 
 const TABS: Tab[] = [
   { to: "/home", label: "Home", icon: <Home className="h-5 w-5" /> },
+  { to: "/remote", label: "Remote", icon: <MonitorSmartphone className="h-5 w-5" /> },
   { to: "/history", label: "History", icon: <History className="h-5 w-5" /> },
   { to: "/profile", label: "Profile", icon: <User className="h-5 w-5" /> },
   { to: "/settings", label: "Settings", icon: <Settings className="h-5 w-5" /> },

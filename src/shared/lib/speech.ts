@@ -98,3 +98,29 @@ export function createRecognizer(lang: string, events: SpeechEvents) {
     },
   };
 }
+
+export function speakText(text: string, lang: string) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  
+  // Cancel any ongoing speech
+  window.speechSynthesis.cancel();
+  
+  if (!text.trim()) return;
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  const locale = LOCALE[lang] ?? lang;
+  utterance.lang = locale;
+  
+  // Find a voice matching the language if possible
+  const voices = window.speechSynthesis.getVoices();
+  const voice = voices.find(v => 
+    v.lang.toLowerCase() === locale.toLowerCase() || 
+    v.lang.toLowerCase().startsWith(locale.toLowerCase().split("-")[0])
+  );
+  if (voice) {
+    utterance.voice = voice;
+  }
+  
+  window.speechSynthesis.speak(utterance);
+}
+

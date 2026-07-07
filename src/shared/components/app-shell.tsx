@@ -1,7 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { Languages, History, User as UserIcon, LogOut } from "lucide-react";
+import { Languages, History, User as UserIcon, LogOut, MonitorSmartphone } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
 
@@ -34,6 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <nav className="flex items-center gap-1">
             <NavLink to="/home" label="Home" />
+            <NavLink to="/remote" label="Remote" icon={<MonitorSmartphone className="h-4 w-4" />} />
             <NavLink to="/history" label="History" icon={<History className="h-4 w-4" />} />
             <NavLink to="/profile" label="Profile" icon={<UserIcon className="h-4 w-4" />} />
             <NavLink to="/settings" label="Settings" />

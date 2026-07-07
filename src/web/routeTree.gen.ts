@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RemoteRouteImport } from './routes/remote'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LocalSessionRouteImport } from './routes/local-session'
 import { Route as HomeRouteImport } from './routes/home'
@@ -21,6 +22,11 @@ import { Route as SessionIdRouteImport } from './routes/session.$id'
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemoteRoute = RemoteRouteImport.update({
+  id: '/remote',
+  path: '/remote',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof HomeRoute
   '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
+  '/remote': typeof RemoteRoute
   '/settings': typeof SettingsRoute
   '/session/$id': typeof SessionIdRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
+  '/remote': typeof RemoteRoute
   '/settings': typeof SettingsRoute
   '/session/$id': typeof SessionIdRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
+  '/remote': typeof RemoteRoute
   '/settings': typeof SettingsRoute
   '/session/$id': typeof SessionIdRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/local-session'
     | '/profile'
+    | '/remote'
     | '/settings'
     | '/session/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/local-session'
     | '/profile'
+    | '/remote'
     | '/settings'
     | '/session/$id'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/local-session'
     | '/profile'
+    | '/remote'
     | '/settings'
     | '/session/$id'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   LocalSessionRoute: typeof LocalSessionRoute
   ProfileRoute: typeof ProfileRoute
+  RemoteRoute: typeof RemoteRoute
   SettingsRoute: typeof SettingsRoute
   SessionIdRoute: typeof SessionIdRoute
 }
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/remote': {
+      id: '/remote'
+      path: '/remote'
+      fullPath: '/remote'
+      preLoaderRoute: typeof RemoteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRoute,
   LocalSessionRoute: LocalSessionRoute,
   ProfileRoute: ProfileRoute,
+  RemoteRoute: RemoteRoute,
   SettingsRoute: SettingsRoute,
   SessionIdRoute: SessionIdRoute,
 }
