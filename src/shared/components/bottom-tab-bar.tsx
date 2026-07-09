@@ -9,10 +9,10 @@ type Tab = {
 };
 
 const TABS: Tab[] = [
-  { to: "/home", label: "Home", icon: <Home className="h-5 w-5" /> },
-  { to: "/remote", label: "Remote", icon: <MonitorSmartphone className="h-5 w-5" /> },
+  { to: "/live", label: "Live", icon: <Home className="h-5 w-5" /> },
+  { to: "/translate", label: "Translate", icon: <MonitorSmartphone className="h-5 w-5" /> },
   { to: "/history", label: "History", icon: <History className="h-5 w-5" /> },
-  { to: "/profile", label: "Profile", icon: <User className="h-5 w-5" /> },
+  { to: "/extension", label: "Extension", icon: <User className="h-5 w-5" /> },
   { to: "/settings", label: "Settings", icon: <Settings className="h-5 w-5" /> },
 ];
 
@@ -35,8 +35,8 @@ export function BottomTabBar() {
       <div className="flex items-stretch">
         {TABS.map((tab) => {
           const isActive =
-            tab.to === "/home"
-              ? location === "/home"
+            tab.to === "/live"
+              ? location === "/live"
               : location.startsWith(tab.to);
 
           return (

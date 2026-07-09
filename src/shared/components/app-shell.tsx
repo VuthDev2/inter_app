@@ -33,10 +33,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             QuickVoice
           </Link>
           <nav className="flex items-center gap-1">
-            <NavLink to="/home" label="Home" />
-            <NavLink to="/remote" label="Remote" icon={<MonitorSmartphone className="h-4 w-4" />} />
+            <NavLink to="/live" label="Live" />
+            <NavLink to="/transcribe" label="Transcribe" icon={<MonitorSmartphone className="h-4 w-4" />} />
             <NavLink to="/history" label="History" icon={<History className="h-4 w-4" />} />
-            <NavLink to="/profile" label="Profile" icon={<UserIcon className="h-4 w-4" />} />
+            <NavLink to="/extension" label="Extension" icon={<UserIcon className="h-4 w-4" />} />
             <NavLink to="/settings" label="Settings" />
             <Button
               variant="ghost"
@@ -75,12 +75,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Main content — extra bottom padding on mobile so content clears the tab bar */}
       <main className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 pb-24 sm:pb-8">
         {children}
       </main>
-
-      {/* Bottom tab bar — only on mobile */}
+      
       <BottomTabBar />
     </div>
   );
