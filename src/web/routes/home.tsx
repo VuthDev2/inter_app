@@ -1,124 +1,141 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Mic, Languages } from "lucide-react";
+import { Activity, BookOpen, Chrome, Clock, Mic, MonitorSmartphone, Radio } from "lucide-react";
 
 export const Route = createFileRoute("/home")({
   head: () => ({
     meta: [
-      { title: "Home — QuickVoice" },
-      { name: "description", content: "Start a face-to-face interpretation session." },
+      { title: "Dashboard - QuickVoice" },
+      { name: "description", content: "Quick starts, recent work, usage, and connected devices." },
     ],
   }),
   component: () => (
     <AppShell>
-      <HomePage />
+      <DashboardPage />
     </AppShell>
   ),
 });
 
-const LANGS = [
-  { code: "en", label: "English" },
-  { code: "ja", label: "Japanese" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "zh", label: "Chinese" },
-  { code: "ko", label: "Korean" },
-  { code: "kh", label: "Khmer" },
+const recentSessions = [
+  { title: "English to Japanese standup", type: "Live", time: "Today, 09:40", minutes: 8 },
+  { title: "Lecture interpretation draft", type: "Speech", time: "Yesterday", minutes: 42 },
+  { title: "Conference Q&A", type: "Speech", time: "Monday", minutes: 26 },
 ];
 
-function HomePage() {
-  const router = useRouter();
-  const [source, setSource] = useState("en");
-  const [target, setTarget] = useState("ja");
-
-  const startLocalSession = () => {
-    router.navigate({ to: "/local-session", search: { source, target } });
-  };
-
+function DashboardPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-10">
-      <div className="text-center space-y-3 pt-6">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 mb-4">
-          <Languages className="h-8 w-8" />
+    <div className="space-y-8">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-primary">Productivity platform</p>
+          <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">Dashboard</h1>
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Start interpretation quickly, pick up recent sessions, and keep your browser extension connected.
+          </p>
         </div>
-        <h1 className="font-display text-4xl font-bold tracking-tight">Instant Interpretation</h1>
-        <p className="text-lg text-muted-foreground mx-auto max-w-xl">
-          Talk with someone sitting right across from you. Works offline with a seamless split-screen interface.
-        </p>
+        <Button asChild>
+          <Link to="/live">
+            <Radio className="mr-2 h-4 w-4" />
+            Start Live
+          </Link>
+        </Button>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <QuickStartCard
+          icon={<Radio className="h-5 w-5" />}
+          title="Live conversation"
+          description="Short English to Japanese conversations with microphone input."
+          to="/live"
+        />
+        <QuickStartCard
+          icon={<Mic className="h-5 w-5" />}
+          title="Long speech"
+          description="Presentation, lecture, and conference interpretation with transcripts."
+          to="/speech"
+        />
+        <QuickStartCard
+          icon={<Chrome className="h-5 w-5" />}
+          title="Chrome extension"
+          description="Install or update the extension and check connection health."
+          to="/extension"
+        />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="rounded-lg border bg-card p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-xl font-semibold">Recent Sessions</h2>
+              <p className="text-sm text-muted-foreground">Live sessions, speech sessions, and transcripts.</p>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/library">
+                <BookOpen className="mr-2 h-4 w-4" />
+                Library
+              </Link>
+            </Button>
+          </div>
+          <div className="divide-y">
+            {recentSessions.map((session) => (
+              <div key={session.title} className="flex items-center justify-between gap-4 py-3">
+                <div>
+                  <div className="font-medium">{session.title}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {session.type} · {session.time}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  {session.minutes}m
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4">
+          <MetricCard icon={<Activity className="h-5 w-5" />} label="Usage this week" value="76 min" />
+          <MetricCard icon={<BookOpen className="h-5 w-5" />} label="Saved transcripts" value="18" />
+          <MetricCard icon={<MonitorSmartphone className="h-5 w-5" />} label="Connected devices" value="2 active" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function QuickStartCard({
+  icon,
+  title,
+  description,
+  to,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  to: "/live" | "/speech" | "/extension";
+}) {
+  return (
+    <Link to={to} className="rounded-lg border bg-card p-5 transition-colors hover:bg-accent">
+      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+        {icon}
       </div>
+      <h2 className="font-display text-lg font-semibold">{title}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+    </Link>
+  );
+}
 
-      <div className="glass-card p-8 shadow-xl shadow-primary/5 ring-1 ring-border/50 rounded-2xl border-t border-t-white/10 dark:border-t-white/5">
-        <div className="mb-6 flex items-center gap-3 border-b border-border/50 pb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <Mic className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="font-display text-xl font-semibold">Face-to-Face Mode</h2>
-            <p className="text-sm text-muted-foreground">Select languages for both speakers</p>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Your Language</Label>
-              <Select value={source} onValueChange={setSource}>
-                <SelectTrigger className="h-12 bg-background/50 focus:ring-primary">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGS.map((l) => (
-                    <SelectItem key={l.code} value={l.code}>
-                      {l.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Their Language</Label>
-              <Select value={target} onValueChange={setTarget}>
-                <SelectTrigger className="h-12 bg-background/50 focus:ring-primary">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGS.map((l) => (
-                    <SelectItem key={l.code} value={l.code}>
-                      {l.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {source === target && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive border border-destructive/20">
-              Please select two different languages for face-to-face interpretation.
-            </div>
-          )}
-
-          <Button 
-            className="w-full h-14 text-lg font-medium shadow-lg hover:shadow-xl transition-all mt-4" 
-            size="lg"
-            onClick={startLocalSession} 
-            disabled={source === target}
-            style={{
-              background: "linear-gradient(135deg, oklch(0.65 0.15 255), oklch(0.55 0.15 255))",
-              color: "white",
-              border: "none",
-            }}
-          >
-            Start Conversation <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
-        </div>
+function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-card p-5">
+      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+        {icon}
       </div>
+      <div className="text-2xl font-semibold">{value}</div>
+      <div className="text-sm text-muted-foreground">{label}</div>
     </div>
   );
 }

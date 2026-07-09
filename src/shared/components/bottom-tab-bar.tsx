@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, History, User, Settings, MonitorSmartphone } from "lucide-react";
+import { BookOpen, HistoryIcon, Mic, Radio, Settings } from "lucide-react";
 import type { ReactNode } from "react";
 
 type Tab = {
@@ -9,11 +9,10 @@ type Tab = {
 };
 
 const TABS: Tab[] = [
-  { to: "/live", label: "Live", icon: <Home className="h-5 w-5" /> },
-  { to: "/translate", label: "Translate", icon: <MonitorSmartphone className="h-5 w-5" /> },
-  { to: "/history", label: "History", icon: <History className="h-5 w-5" /> },
-  { to: "/extension", label: "Extension", icon: <User className="h-5 w-5" /> },
-  { to: "/settings", label: "Settings", icon: <Settings className="h-5 w-5" /> },
+  { to: "/live", label: "Live", icon: <Radio className="h-6 w-6" strokeWidth={2} /> },
+  { to: "/record", label: "Record", icon: <Mic className="h-6 w-6" strokeWidth={2} /> },
+  { to: "/history", label: "History", icon: <HistoryIcon className="h-6 w-6" strokeWidth={2} /> },
+  { to: "/settings", label: "Settings", icon: <Settings className="h-6 w-6" strokeWidth={2} /> },
 ];
 
 export function BottomTabBar() {
@@ -25,19 +24,19 @@ export function BottomTabBar() {
       aria-label="Main navigation"
       className="fixed bottom-0 left-0 right-0 z-50 sm:hidden"
       style={{
-        background: "color-mix(white, transparent)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderTop: "1px solid oklch(0.3 0.02 255 / 50%)",
+        background: "white",
+        borderTop: "1px solid oklch(0 0 0 / 18%)",
+        borderLeft: "1px solid oklch(0 0 0 / 14%)",
+        borderRight: "1px solid oklch(0 0 0 / 14%)",
+        borderTopLeftRadius: "3rem",
+        borderTopRightRadius: "3rem",
+        boxShadow: "0 -10px 24px oklch(0 0 0 / 8%)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <div className="flex items-stretch">
+      <div className="grid grid-cols-4 items-center px-3 pb-1 pt-[-1.5]">
         {TABS.map((tab) => {
-          const isActive =
-            tab.to === "/live"
-              ? location === "/live"
-              : location.startsWith(tab.to);
+          const isActive = tab.to === "/live" ? location === "/live" : location.startsWith(tab.to);
 
           return (
             <Link
@@ -46,45 +45,15 @@ export function BottomTabBar() {
               id={`tab-${tab.label.toLowerCase()}`}
               aria-label={tab.label}
               aria-current={isActive ? "page" : undefined}
-              className="relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 transition-all duration-200"
+              className="flex min-w-0 flex-col items-center justify-center gap-1 transition-colors duration-200"
               style={{
-                color: isActive
-                  ? "oklch(0.78 0.16 200)"
-                  : "oklch(0.55 0.02 255)",
+                color: isActive ? "oklch(0.57 0.22 250)" : "oklch(0 0 0)",
               }}
             >
-              {/* Active glow pill */}
-              {isActive && (
-                <span
-                  aria-hidden
-                  className="absolute top-0 left-1/2 -translate-x-1/2 h-[2px] w-8 rounded-full"
-                  style={{
-                    background: "oklch(0.78 0.16 200)",
-                    boxShadow: "0 0 10px 2px oklch(0.78 0.16 200 / 60%)",
-                  }}
-                />
-              )}
-
-              {/* Icon wrapper */}
+              <span className="flex h-9 w-12 items-center justify-center">{tab.icon}</span>
               <span
-                className="flex items-center justify-center rounded-xl transition-all duration-200"
+                className="block max-w-full truncate text-center text-[13px] font-light leading-tight transition-colors duration-200"
                 style={{
-                  width: "2.25rem",
-                  height: "2.25rem",
-                  background: isActive
-                    ? "oklch(0.78 0.16 200 / 12%)"
-                    : "transparent",
-                  transform: isActive ? "scale(1.08)" : "scale(1)",
-                }}
-              >
-                {tab.icon}
-              </span>
-
-              {/* Label */}
-              <span
-                className="text-[10px] font-medium leading-none tracking-wide transition-all duration-200"
-                style={{
-                  opacity: isActive ? 1 : 0.7,
                   fontFamily: "var(--font-sans)",
                 }}
               >

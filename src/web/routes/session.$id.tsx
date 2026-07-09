@@ -4,7 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { createRecognizer, isSpeechRecognitionSupported, speakText } from "@/lib/speech";
 import { translateUtterance } from "@/lib/translate.functions";
-import { ArrowLeftRight, ChevronDown, Headphones, LayoutList, Menu, MoreHorizontal, Pause, Volume2, VolumeX, Zap } from "lucide-react";
+import {
+  ArrowLeftRight,
+  ChevronDown,
+  Headphones,
+  LayoutList,
+  Menu,
+  MoreHorizontal,
+  Pause,
+  Volume2,
+  VolumeX,
+  Zap,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/session/$id")({
@@ -41,18 +52,22 @@ type TranscriptRow = {
 };
 
 const LANGS = [
-  { code: "en", label: "English",  flag: "🇺🇸" },
+  { code: "en", label: "English", flag: "🇺🇸" },
   { code: "ja", label: "Japanese", flag: "🇯🇵" },
-  { code: "es", label: "Spanish",  flag: "🇪🇸" },
-  { code: "fr", label: "French",   flag: "🇫🇷" },
-  { code: "de", label: "German",   flag: "🇩🇪" },
-  { code: "zh", label: "Chinese",  flag: "🇨🇳" },
-  { code: "ko", label: "Korean",   flag: "🇰🇷" },
-  { code: "kh", label: "Khmer",    flag: "🇰🇭" },
+  { code: "es", label: "Spanish", flag: "🇪🇸" },
+  { code: "fr", label: "French", flag: "🇫🇷" },
+  { code: "de", label: "German", flag: "🇩🇪" },
+  { code: "zh", label: "Chinese", flag: "🇨🇳" },
+  { code: "ko", label: "Korean", flag: "🇰🇷" },
+  { code: "kh", label: "Khmer", flag: "🇰🇭" },
 ];
 
-function getFlag(code: string) { return LANGS.find((l) => l.code === code)?.flag ?? "🌐"; }
-function getLabel(code: string) { return LANGS.find((l) => l.code === code)?.label ?? code; }
+function getFlag(code: string) {
+  return LANGS.find((l) => l.code === code)?.flag ?? "🌐";
+}
+function getLabel(code: string) {
+  return LANGS.find((l) => l.code === code)?.label ?? code;
+}
 
 /* ─── Inline dropdown pill ────────────────────────────────────── */
 function LangDropdown({
@@ -85,9 +100,10 @@ function LangDropdown({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all select-none
-          ${disabled
-            ? "opacity-40 cursor-not-allowed bg-[#2a2d3a] text-white/40"
-            : "bg-[#2a2d3a] hover:bg-[#33364a] active:scale-95 text-white cursor-pointer"
+          ${
+            disabled
+              ? "opacity-40 cursor-not-allowed bg-[#2a2d3a] text-white/40"
+              : "bg-[#2a2d3a] hover:bg-[#33364a] active:scale-95 text-white cursor-pointer"
           }`}
         style={{ minWidth: 90 }}
       >
@@ -98,7 +114,9 @@ function LangDropdown({
           <span className="text-lg leading-none flex-shrink-0">{getFlag(value)}</span>
         )}
         <span className="text-xs font-medium text-white/80">{getLabel(value)}</span>
-        <ChevronDown className={`h-3 w-3 text-white/40 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-3 w-3 text-white/40 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -109,7 +127,10 @@ function LangDropdown({
           {LANGS.map((l) => (
             <button
               key={l.code}
-              onClick={() => { onChange(l.code); setOpen(false); }}
+              onClick={() => {
+                onChange(l.code);
+                setOpen(false);
+              }}
               className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm hover:bg-white/6 transition-colors text-left
                 ${l.code === value ? "text-white font-semibold" : "text-white/60"}`}
             >
@@ -178,6 +199,7 @@ function SessionPage() {
   const [targetLang, setTargetLang] = useState("ja");
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [viewMode, setViewMode] = useState<"live" | "timeline">("live");
+  const [interpretationMode, setInterpretationMode] = useState<"one-way" | "two-way">("one-way");
 
   const recognizerRef = useRef<ReturnType<typeof createRecognizer> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -186,45 +208,77 @@ function SessionPage() {
 
   /* load session */
   useEffect(() => {
-    supabase.from("sessions").select("*").eq("id", id).maybeSingle().then(({ data }) => {
-      if (!data) { toast.error("Session not found"); router.navigate({ to: "/home" }); return; }
-      setSession(data);
-      setSourceLang(data.source_lang);
-      setTargetLang(data.target_lang);
-    });
+    supabase
+      .from("sessions")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) {
+          toast.error("Session not found");
+          router.navigate({ to: "/home" });
+          return;
+        }
+        setSession(data);
+        setSourceLang(data.source_lang);
+        setTargetLang(data.target_lang);
+      });
   }, [id, router]);
 
   /* debounced interim translation */
   useEffect(() => {
-    if (!interim.trim()) { setInterimTranslation(null); return; }
+    if (!interim.trim()) {
+      setInterimTranslation(null);
+      return;
+    }
     const t = setTimeout(async () => {
       try {
-        const { translation } = await translateUtterance({ data: { text: interim, sourceLang, targetLang } });
+        const { translation } = await translateUtterance({
+          data: { text: interim, sourceLang, targetLang },
+        });
         setInterimTranslation(translation);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     }, 600);
     return () => clearTimeout(t);
   }, [interim, sourceLang, targetLang]);
 
   /* load + subscribe transcripts */
   useEffect(() => {
-    supabase.from("transcripts").select("*").eq("session_id", id)
+    supabase
+      .from("transcripts")
+      .select("*")
+      .eq("session_id", id)
       .order("created_at", { ascending: true })
       .then(({ data }) => setTranscripts(data ?? []));
 
-    const ch = supabase.channel(`transcripts:${id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "transcripts", filter: `session_id=eq.${id}` }, (p) => {
-        setTranscripts((prev) => {
-          const row = p.new as TranscriptRow;
-          return prev.find((r) => r.id === row.id) ? prev : [...prev, row];
-        });
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "transcripts", filter: `session_id=eq.${id}` }, (p) => {
-        setTranscripts((prev) => prev.map((r) => r.id === (p.new as TranscriptRow).id ? (p.new as TranscriptRow) : r));
-      })
+    const ch = supabase
+      .channel(`transcripts:${id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "transcripts", filter: `session_id=eq.${id}` },
+        (p) => {
+          setTranscripts((prev) => {
+            const row = p.new as TranscriptRow;
+            return prev.find((r) => r.id === row.id) ? prev : [...prev, row];
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "transcripts", filter: `session_id=eq.${id}` },
+        (p) => {
+          setTranscripts((prev) =>
+            prev.map((r) => (r.id === (p.new as TranscriptRow).id ? (p.new as TranscriptRow) : r)),
+          );
+        },
+      )
       .subscribe();
 
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [id]);
 
   /* auto-speak incoming */
@@ -248,24 +302,48 @@ function SessionPage() {
   /* handle final utterance */
   const handleFinal = async (text: string) => {
     if (!session || !user || !text.trim()) return;
+    const activeSourceLang = sourceLang;
+    const activeTargetLang = targetLang;
     setInterim("");
-    const { data, error } = await supabase.from("transcripts").insert({
-      session_id: session.id, speaker_id: user.id,
-      source_lang: sourceLang, target_lang: targetLang,
-      original_text: text, translated_text: null,
-    }).select().single();
-    if (error || !data) { toast.error(error?.message ?? "Failed to save"); return; }
+    const { data, error } = await supabase
+      .from("transcripts")
+      .insert({
+        session_id: session.id,
+        speaker_id: user.id,
+        source_lang: activeSourceLang,
+        target_lang: activeTargetLang,
+        original_text: text,
+        translated_text: null,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      toast.error(error?.message ?? "Failed to save");
+      return;
+    }
 
     try {
-      const { translation } = await translateUtterance({ data: { text, sourceLang, targetLang } });
+      const { translation } = await translateUtterance({
+        data: { text, sourceLang: activeSourceLang, targetLang: activeTargetLang },
+      });
       setLiveTranslation(translation);
       setTranslationKey((k) => k + 1);
-      if (autoSpeak) { speakText(translation, targetLang); spokenTranscriptsRef.current.add(data.id); }
+      if (autoSpeak) {
+        speakText(translation, activeTargetLang);
+        spokenTranscriptsRef.current.add(data.id);
+      }
       await supabase.from("transcripts").update({ translated_text: translation }).eq("id", data.id);
+      if (interpretationMode === "two-way") {
+        setSourceLang(activeTargetLang);
+        setTargetLang(activeSourceLang);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Translation failed";
       toast.error(msg);
-      await supabase.from("transcripts").update({ translated_text: `[error: ${msg}]` }).eq("id", data.id);
+      await supabase
+        .from("transcripts")
+        .update({ translated_text: `[error: ${msg}]` })
+        .eq("id", data.id);
     }
   };
 
@@ -273,18 +351,34 @@ function SessionPage() {
   const toggleListen = () => {
     if (!session) return;
     if (listening) {
-      recognizerRef.current?.stop(); recognizerRef.current = null;
-      setListening(false); setInterim(""); return;
+      recognizerRef.current?.stop();
+      recognizerRef.current = null;
+      setListening(false);
+      setInterim("");
+      return;
     }
     if (!isSpeechRecognitionSupported()) {
-      toast.error("Speech recognition isn't supported here. Use Chrome, Edge, or Safari on desktop."); return;
+      toast.error(
+        "Speech recognition isn't supported here. Use Chrome, Edge, or Safari on desktop.",
+      );
+      return;
     }
     try {
       recognizerRef.current = createRecognizer(sourceLang, {
-        onFinal: async (text) => { await handleFinal(text); },
-        onInterim: (text) => { setInterim(text); setLiveTranslation(null); },
-        onError: (m) => { if (m !== "no-speech" && m !== "aborted") toast.error(`Mic: ${m}`); },
-        onEnd: () => { setListening(false); setInterim(""); },
+        onFinal: async (text) => {
+          await handleFinal(text);
+        },
+        onInterim: (text) => {
+          setInterim(text);
+          setLiveTranslation(null);
+        },
+        onError: (m) => {
+          if (m !== "no-speech" && m !== "aborted") toast.error(`Mic: ${m}`);
+        },
+        onEnd: () => {
+          setListening(false);
+          setInterim("");
+        },
       });
       recognizerRef.current.start();
       setListening(true);
@@ -293,12 +387,23 @@ function SessionPage() {
     }
   };
 
-  const handleSwap = () => { setSourceLang(targetLang); setTargetLang(sourceLang); };
+  const handleSwap = () => {
+    setSourceLang(targetLang);
+    setTargetLang(sourceLang);
+  };
 
-  useEffect(() => () => { recognizerRef.current?.stop(); }, []);
+  useEffect(
+    () => () => {
+      recognizerRef.current?.stop();
+    },
+    [],
+  );
 
   /* derived text */
-  const mostRecentComplete = transcripts.slice().reverse().find((t) => t.translated_text);
+  const mostRecentComplete = transcripts
+    .slice()
+    .reverse()
+    .find((t) => t.translated_text);
   const displayText =
     liveTranslation ??
     (interim ? (interimTranslation ?? null) : null) ??
@@ -307,7 +412,9 @@ function SessionPage() {
   const isInterim = !liveTranslation && !!interim && !interimTranslation;
   const displayOriginal =
     interim ||
-    (liveTranslation ? transcripts[transcripts.length - 1]?.original_text ?? "" : mostRecentComplete?.original_text ?? "");
+    (liveTranslation
+      ? (transcripts[transcripts.length - 1]?.original_text ?? "")
+      : (mostRecentComplete?.original_text ?? ""));
 
   /* ─── LOADING ─── */
   if (!session) {
@@ -334,9 +441,38 @@ function SessionPage() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <span className="text-white/90 font-medium text-base tracking-wide">
-          {session.name || "Kotoba"}
-        </span>
+        <div
+          className={`grid grid-cols-2 rounded-full bg-white/8 p-1 text-xs font-semibold ${
+            listening ? "opacity-40" : ""
+          }`}
+          role="group"
+          aria-label="Interpretation mode"
+        >
+          <button
+            type="button"
+            onClick={() => !listening && setInterpretationMode("one-way")}
+            disabled={listening}
+            className={`rounded-full px-3 py-1.5 transition-colors ${
+              interpretationMode === "one-way"
+                ? "bg-white text-[#0c0e17]"
+                : "text-white/55 hover:text-white"
+            }`}
+          >
+            1-way
+          </button>
+          <button
+            type="button"
+            onClick={() => !listening && setInterpretationMode("two-way")}
+            disabled={listening}
+            className={`rounded-full px-3 py-1.5 transition-colors ${
+              interpretationMode === "two-way"
+                ? "bg-indigo-500 text-white"
+                : "text-white/55 hover:text-white"
+            }`}
+          >
+            2-way
+          </button>
+        </div>
 
         <div className="flex items-center gap-1">
           {/* Timeline toggle */}
@@ -382,16 +518,22 @@ function SessionPage() {
             {transcripts.map((t) => {
               const isMe = t.speaker_id === user?.id;
               return (
-                <div key={t.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"} animate-in fade-in slide-in-from-bottom-2`}>
+                <div
+                  key={t.id}
+                  className={`flex flex-col ${isMe ? "items-end" : "items-start"} animate-in fade-in slide-in-from-bottom-2`}
+                >
                   <div
                     className={`max-w-[88%] rounded-2xl px-5 py-4
-                      ${isMe
-                        ? "bg-gradient-to-br from-indigo-600/80 to-violet-700/80 rounded-br-sm border border-indigo-400/20"
-                        : "bg-white/6 rounded-bl-sm border border-white/8"
+                      ${
+                        isMe
+                          ? "bg-gradient-to-br from-indigo-600/80 to-violet-700/80 rounded-br-sm border border-indigo-400/20"
+                          : "bg-white/6 rounded-bl-sm border border-white/8"
                       } text-white`}
                   >
                     <p className="text-base font-medium leading-snug">
-                      {t.translated_text || <span className="opacity-40 italic text-sm">Translating…</span>}
+                      {t.translated_text || (
+                        <span className="opacity-40 italic text-sm">Translating…</span>
+                      )}
                     </p>
                     <p className="mt-1.5 text-xs text-white/35 leading-snug">{t.original_text}</p>
                   </div>
@@ -401,7 +543,9 @@ function SessionPage() {
             {interim && (
               <div className="flex flex-col items-end animate-in fade-in">
                 <div className="max-w-[88%] rounded-2xl px-5 py-4 bg-indigo-600/25 rounded-br-sm border border-indigo-400/15 text-white">
-                  <p className="text-base font-medium leading-snug opacity-65">{interimTranslation || "…"}</p>
+                  <p className="text-base font-medium leading-snug opacity-65">
+                    {interimTranslation || "…"}
+                  </p>
                   <p className="mt-1.5 text-xs text-indigo-300/50 animate-pulse">{interim}</p>
                 </div>
               </div>
@@ -441,9 +585,7 @@ function SessionPage() {
       </div>
 
       {/* ══ BOTTOM CONTROL BAR ══ */}
-      <div
-        className="shrink-0 flex items-center justify-center gap-3 px-5 pb-8 pt-1"
-      >
+      <div className="shrink-0 flex items-center justify-center gap-3 px-5 pb-8 pt-1">
         {/* Source language pill — record dot + label */}
         <LangDropdown
           value={sourceLang}
@@ -477,17 +619,15 @@ function SessionPage() {
         <button
           onClick={() => setAutoSpeak((s) => !s)}
           className={`flex h-11 w-11 items-center justify-center rounded-full transition-all active:scale-90
-            ${autoSpeak
-              ? "bg-[#2a2d3a] text-white/80 hover:bg-[#33364a]"
-              : "bg-[#2a2d3a] text-white/25 hover:bg-[#33364a]"
+            ${
+              autoSpeak
+                ? "bg-[#2a2d3a] text-white/80 hover:bg-[#33364a]"
+                : "bg-[#2a2d3a] text-white/25 hover:bg-[#33364a]"
             }`}
           title={autoSpeak ? "Mute voice output" : "Enable voice output"}
           aria-label="Toggle audio"
         >
-          {autoSpeak
-            ? <Headphones className="h-4 w-4" />
-            : <VolumeX className="h-4 w-4" />
-          }
+          {autoSpeak ? <Headphones className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </button>
       </div>
     </div>

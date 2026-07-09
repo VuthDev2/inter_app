@@ -12,7 +12,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Kotoba" },
+      { title: "Sign in — QuickVoice" },
       { name: "description", content: "Sign in or create an account to host and join live AI interpretation sessions." },
     ],
   }),
@@ -74,7 +74,7 @@ function AuthPage() {
           <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
             <Languages className="h-7 w-7" />
           </div>
-          <h1 className="font-display text-3xl font-semibold">Kotoba</h1>
+          <h1 className="font-display text-3xl font-semibold">QuickVoice</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Real-time AI interpretation between two languages.
           </p>

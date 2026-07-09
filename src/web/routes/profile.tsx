@@ -13,7 +13,7 @@ import { Languages, Mail, ShieldCheck, Sparkles } from "lucide-react";
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
-      { title: "Profile — Kotoba" },
+      { title: "Profile — QuickVoice" },
       { name: "description", content: "Manage your display name and preferred language." },
     ],
   }),

@@ -2,7 +2,14 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { createRecognizer, isSpeechRecognitionSupported, speakText } from "@/lib/speech";
 import { translateUtterance } from "@/lib/translate.functions";
-import { ArrowLeftRight, ChevronDown, Headphones, Menu, MoreHorizontal, VolumeX } from "lucide-react";
+import {
+  ArrowLeftRight,
+  ChevronDown,
+  Headphones,
+  Menu,
+  MoreHorizontal,
+  VolumeX,
+} from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -15,7 +22,7 @@ export const Route = createFileRoute("/local-session")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Kotoba — Instant Interpretation" },
+      { title: "QuickVoice — Instant Interpretation" },
       { name: "description", content: "Instant voice interpretation." },
     ],
   }),
@@ -23,23 +30,35 @@ export const Route = createFileRoute("/local-session")({
 });
 
 const LANGS = [
-  { code: "en", label: "English",  flag: "🇺🇸" },
+  { code: "en", label: "English", flag: "🇺🇸" },
   { code: "ja", label: "Japanese", flag: "🇯🇵" },
-  { code: "es", label: "Spanish",  flag: "🇪🇸" },
-  { code: "fr", label: "French",   flag: "🇫🇷" },
-  { code: "de", label: "German",   flag: "🇩🇪" },
-  { code: "zh", label: "Chinese",  flag: "🇨🇳" },
-  { code: "ko", label: "Korean",   flag: "🇰🇷" },
-  { code: "kh", label: "Khmer",    flag: "🇰🇭" },
+  { code: "es", label: "Spanish", flag: "🇪🇸" },
+  { code: "fr", label: "French", flag: "🇫🇷" },
+  { code: "de", label: "German", flag: "🇩🇪" },
+  { code: "zh", label: "Chinese", flag: "🇨🇳" },
+  { code: "ko", label: "Korean", flag: "🇰🇷" },
+  { code: "kh", label: "Khmer", flag: "🇰🇭" },
 ];
 
-function getFlag(c: string) { return LANGS.find((l) => l.code === c)?.flag ?? "🌐"; }
-function getLabel(c: string) { return LANGS.find((l) => l.code === c)?.label ?? c; }
+function getFlag(c: string) {
+  return LANGS.find((l) => l.code === c)?.flag ?? "🌐";
+}
+function getLabel(c: string) {
+  return LANGS.find((l) => l.code === c)?.label ?? c;
+}
 
 /* ─── Language dropdown pill ──────────────────────────────────── */
 function LangDropdown({
-  value, onChange, disabled, showDot = false,
-}: { value: string; onChange: (v: string) => void; disabled: boolean; showDot?: boolean }) {
+  value,
+  onChange,
+  disabled,
+  showDot = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  showDot?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -57,18 +76,22 @@ function LangDropdown({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm transition-all select-none
-          ${disabled
-            ? "opacity-40 cursor-not-allowed bg-[#252836]"
-            : "bg-[#252836] hover:bg-[#2e3147] active:scale-95 cursor-pointer"
+          ${
+            disabled
+              ? "opacity-40 cursor-not-allowed bg-[#252836]"
+              : "bg-[#252836] hover:bg-[#2e3147] active:scale-95 cursor-pointer"
           } text-white`}
         style={{ minWidth: 88 }}
       >
-        {showDot
-          ? <span className="h-3.5 w-3.5 rounded-full bg-red-500 flex-shrink-0" />
-          : <span className="text-lg leading-none flex-shrink-0">{getFlag(value)}</span>
-        }
+        {showDot ? (
+          <span className="h-3.5 w-3.5 rounded-full bg-red-500 flex-shrink-0" />
+        ) : (
+          <span className="text-lg leading-none flex-shrink-0">{getFlag(value)}</span>
+        )}
         <span className="text-xs font-medium text-white/80">{getLabel(value)}</span>
-        <ChevronDown className={`h-3 w-3 text-white/35 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-3 w-3 text-white/35 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -76,7 +99,10 @@ function LangDropdown({
           {LANGS.map((l) => (
             <button
               key={l.code}
-              onClick={() => { onChange(l.code); setOpen(false); }}
+              onClick={() => {
+                onChange(l.code);
+                setOpen(false);
+              }}
               className={`flex items-center gap-3 w-full px-4 py-2.5 text-xs hover:bg-white/6 transition-colors text-left
                 ${l.code === value ? "text-white font-semibold" : "text-white/55"}`}
             >
@@ -94,7 +120,10 @@ function LangDropdown({
 const NUM_BARS = 44;
 const BAR_H = Array.from({ length: NUM_BARS }, (_, i) => {
   const dist = Math.abs(i - NUM_BARS / 2) / (NUM_BARS / 2);
-  return Math.max(0.06, Math.min(1, 0.15 + dist * 0.6 + Math.sin(i * 1.9) * 0.22 + Math.sin(i * 0.7) * 0.12));
+  return Math.max(
+    0.06,
+    Math.min(1, 0.15 + dist * 0.6 + Math.sin(i * 1.9) * 0.22 + Math.sin(i * 0.7) * 0.12),
+  );
 });
 const BAR_D = Array.from({ length: NUM_BARS }, (_, i) => (i * 0.038) % 0.78);
 
@@ -132,6 +161,7 @@ function LocalSessionPage() {
 
   const [sourceLang, setSourceLang] = useState(search.source);
   const [targetLang, setTargetLang] = useState(search.target);
+  const [mode, setMode] = useState<"one-way" | "two-way">("one-way");
 
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
@@ -145,12 +175,19 @@ function LocalSessionPage() {
 
   /* debounced interim translation */
   useEffect(() => {
-    if (!interim.trim()) { setInterimTranslation(null); return; }
+    if (!interim.trim()) {
+      setInterimTranslation(null);
+      return;
+    }
     const t = setTimeout(async () => {
       try {
-        const { translation } = await translateUtterance({ data: { text: interim, sourceLang, targetLang } });
+        const { translation } = await translateUtterance({
+          data: { text: interim, sourceLang, targetLang },
+        });
         setInterimTranslation(translation);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     }, 500);
     return () => clearTimeout(t);
   }, [interim, sourceLang, targetLang]);
@@ -164,7 +201,10 @@ function LocalSessionPage() {
   };
 
   const toggleListen = () => {
-    if (listening) { stopRecognizer(); return; }
+    if (listening) {
+      stopRecognizer();
+      return;
+    }
     if (!isSpeechRecognitionSupported()) {
       toast.error("Speech recognition isn't supported. Use Chrome, Edge, or Safari.");
       return;
@@ -177,22 +217,37 @@ function LocalSessionPage() {
 
     try {
       recognizerRef.current = createRecognizer(sourceLang, {
-        onInterim: (text) => { setInterim(text); },
+        onInterim: (text) => {
+          setInterim(text);
+        },
         onFinal: async (text) => {
+          const activeSourceLang = sourceLang;
+          const activeTargetLang = targetLang;
           setInterim("");
           setInterimTranslation(null);
           setOriginalText(text);
           try {
-            const { translation } = await translateUtterance({ data: { text, sourceLang, targetLang } });
+            const { translation } = await translateUtterance({
+              data: { text, sourceLang: activeSourceLang, targetLang: activeTargetLang },
+            });
             setFinalTranslation(translation);
             setTranslationKey((k) => k + 1);
-            if (autoSpeak) speakText(translation, targetLang);
+            if (autoSpeak) speakText(translation, activeTargetLang);
+            if (mode === "two-way") {
+              setSourceLang(activeTargetLang);
+              setTargetLang(activeSourceLang);
+            }
           } catch {
             setFinalTranslation("[Translation failed]");
           }
         },
-        onError: (m) => { if (m !== "no-speech" && m !== "aborted") toast.error(`Mic: ${m}`); },
-        onEnd: () => { setListening(false); setInterim(""); },
+        onError: (m) => {
+          if (m !== "no-speech" && m !== "aborted") toast.error(`Mic: ${m}`);
+        },
+        onEnd: () => {
+          setListening(false);
+          setInterim("");
+        },
       });
       recognizerRef.current.start();
       setListening(true);
@@ -209,10 +264,13 @@ function LocalSessionPage() {
     setOriginalText(null);
   };
 
-  useEffect(() => () => {
-    recognizerRef.current?.stop();
-    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-  }, []);
+  useEffect(
+    () => () => {
+      recognizerRef.current?.stop();
+      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    },
+    [],
+  );
 
   /* what text to show */
   const displayText = interimTranslation ?? finalTranslation ?? null;
@@ -233,7 +291,34 @@ function LocalSessionPage() {
           <Menu className="h-5 w-5" />
         </button>
 
-        <span className="text-white/85 font-medium text-base tracking-wide">Kotoba</span>
+        <div
+          className={`grid grid-cols-2 rounded-full bg-white/8 p-1 text-xs font-semibold ${
+            listening ? "opacity-40" : ""
+          }`}
+          role="group"
+          aria-label="Interpretation mode"
+        >
+          <button
+            type="button"
+            onClick={() => !listening && setMode("one-way")}
+            disabled={listening}
+            className={`rounded-full px-3 py-1.5 transition-colors ${
+              mode === "one-way" ? "bg-white text-[#0c0e17]" : "text-white/55 hover:text-white"
+            }`}
+          >
+            1-way
+          </button>
+          <button
+            type="button"
+            onClick={() => !listening && setMode("two-way")}
+            disabled={listening}
+            className={`rounded-full px-3 py-1.5 transition-colors ${
+              mode === "two-way" ? "bg-indigo-500 text-white" : "text-white/55 hover:text-white"
+            }`}
+          >
+            2-way
+          </button>
+        </div>
 
         <button className="flex h-9 w-9 items-center justify-center text-white/35 hover:text-white/65 transition-colors">
           <MoreHorizontal className="h-5 w-5" />
@@ -256,9 +341,7 @@ function LocalSessionPage() {
               {interim}
             </p>
           ) : (
-            <p
-              className="text-sm font-medium tracking-[0.2em] uppercase text-white/18 text-left mt-1"
-            >
+            <p className="text-sm font-medium tracking-[0.2em] uppercase text-white/18 text-left mt-1">
               {listening ? "Listening…" : "Tap \u25cf to speak"}
             </p>
           )}
@@ -271,7 +354,10 @@ function LocalSessionPage() {
         style={{ height: 80, paddingLeft: 16, paddingRight: 16 }}
       >
         {/* Waveform behind the button */}
-        <div className="absolute inset-0 flex items-center" style={{ paddingLeft: 16, paddingRight: 16 }}>
+        <div
+          className="absolute inset-0 flex items-center"
+          style={{ paddingLeft: 16, paddingRight: 16 }}
+        >
           <Waveform active={listening} />
         </div>
 
@@ -297,13 +383,16 @@ function LocalSessionPage() {
       </div>
 
       {/* ══ BOTTOM CONTROL BAR ══ */}
-      <div
-        className="shrink-0 flex items-center justify-center gap-3 px-5 pb-9 pt-2"
-      >
+      <div className="shrink-0 flex items-center justify-center gap-3 px-5 pb-9 pt-2">
         {/* Source pill */}
         <LangDropdown
           value={sourceLang}
-          onChange={(v) => { setSourceLang(v); stopRecognizer(); setFinalTranslation(null); setOriginalText(null); }}
+          onChange={(v) => {
+            setSourceLang(v);
+            stopRecognizer();
+            setFinalTranslation(null);
+            setOriginalText(null);
+          }}
           disabled={listening}
           showDot={true}
         />
@@ -322,7 +411,12 @@ function LocalSessionPage() {
         {/* Target pill */}
         <LangDropdown
           value={targetLang}
-          onChange={(v) => { setTargetLang(v); stopRecognizer(); setFinalTranslation(null); setOriginalText(null); }}
+          onChange={(v) => {
+            setTargetLang(v);
+            stopRecognizer();
+            setFinalTranslation(null);
+            setOriginalText(null);
+          }}
           disabled={listening}
           showDot={false}
         />
@@ -335,10 +429,11 @@ function LocalSessionPage() {
             ${autoSpeak ? "text-white/75" : "text-white/25"}`}
           aria-label={autoSpeak ? "Mute voice" : "Enable voice"}
         >
-          {autoSpeak
-            ? <Headphones className="h-[18px] w-[18px]" />
-            : <VolumeX className="h-[18px] w-[18px]" />
-          }
+          {autoSpeak ? (
+            <Headphones className="h-[18px] w-[18px]" />
+          ) : (
+            <VolumeX className="h-[18px] w-[18px]" />
+          )}
         </button>
       </div>
     </div>

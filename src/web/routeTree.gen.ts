@@ -10,23 +10,22 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as RemoteRouteImport } from './routes/remote'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LocalSessionRouteImport } from './routes/local-session'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as ExtensionRouteImport } from './routes/extension'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as RecordRouteImport } from './routes/Record'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RecordIndexRouteImport } from './routes/record/index'
 import { Route as SessionIdRouteImport } from './routes/session.$id'
+import { Route as RecordTypeRouteImport } from './routes/record.$type'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RemoteRoute = RemoteRouteImport.update({
-  id: '/remote',
-  path: '/remote',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -39,6 +38,11 @@ const LocalSessionRoute = LocalSessionRouteImport.update({
   path: '/local-session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -49,9 +53,19 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExtensionRoute = ExtensionRouteImport.update({
+  id: '/extension',
+  path: '/extension',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecordRoute = RecordRouteImport.update({
+  id: '/Record',
+  path: '/Record',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -59,92 +73,130 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecordIndexRoute = RecordIndexRouteImport.update({
+  id: '/record/',
+  path: '/record/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SessionIdRoute = SessionIdRouteImport.update({
   id: '/session/$id',
   path: '/session/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RecordTypeRoute = RecordTypeRouteImport.update({
+  id: '/record/$type',
+  path: '/record/$type',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/Record': typeof RecordRoute
   '/auth': typeof AuthRoute
+  '/extension': typeof ExtensionRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/live': typeof LiveRoute
   '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
-  '/remote': typeof RemoteRoute
   '/settings': typeof SettingsRoute
+  '/record/$type': typeof RecordTypeRoute
   '/session/$id': typeof SessionIdRoute
+  '/record/': typeof RecordIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/Record': typeof RecordRoute
   '/auth': typeof AuthRoute
+  '/extension': typeof ExtensionRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/live': typeof LiveRoute
   '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
-  '/remote': typeof RemoteRoute
   '/settings': typeof SettingsRoute
+  '/record/$type': typeof RecordTypeRoute
   '/session/$id': typeof SessionIdRoute
+  '/record': typeof RecordIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/Record': typeof RecordRoute
   '/auth': typeof AuthRoute
+  '/extension': typeof ExtensionRoute
   '/history': typeof HistoryRoute
   '/home': typeof HomeRoute
+  '/live': typeof LiveRoute
   '/local-session': typeof LocalSessionRoute
   '/profile': typeof ProfileRoute
-  '/remote': typeof RemoteRoute
   '/settings': typeof SettingsRoute
+  '/record/$type': typeof RecordTypeRoute
   '/session/$id': typeof SessionIdRoute
+  '/record/': typeof RecordIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/Record'
     | '/auth'
+    | '/extension'
     | '/history'
     | '/home'
+    | '/live'
     | '/local-session'
     | '/profile'
-    | '/remote'
     | '/settings'
+    | '/record/$type'
     | '/session/$id'
+    | '/record/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/Record'
     | '/auth'
+    | '/extension'
     | '/history'
     | '/home'
+    | '/live'
     | '/local-session'
     | '/profile'
-    | '/remote'
     | '/settings'
+    | '/record/$type'
     | '/session/$id'
+    | '/record'
   id:
     | '__root__'
     | '/'
+    | '/Record'
     | '/auth'
+    | '/extension'
     | '/history'
     | '/home'
+    | '/live'
     | '/local-session'
     | '/profile'
-    | '/remote'
     | '/settings'
+    | '/record/$type'
     | '/session/$id'
+    | '/record/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RecordRoute: typeof RecordRoute
   AuthRoute: typeof AuthRoute
+  ExtensionRoute: typeof ExtensionRoute
   HistoryRoute: typeof HistoryRoute
   HomeRoute: typeof HomeRoute
+  LiveRoute: typeof LiveRoute
   LocalSessionRoute: typeof LocalSessionRoute
   ProfileRoute: typeof ProfileRoute
-  RemoteRoute: typeof RemoteRoute
   SettingsRoute: typeof SettingsRoute
+  RecordTypeRoute: typeof RecordTypeRoute
   SessionIdRoute: typeof SessionIdRoute
+  RecordIndexRoute: typeof RecordIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -154,13 +206,6 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/remote': {
-      id: '/remote'
-      path: '/remote'
-      fullPath: '/remote'
-      preLoaderRoute: typeof RemoteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -177,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LocalSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/home': {
       id: '/home'
       path: '/home'
@@ -191,11 +243,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/extension': {
+      id: '/extension'
+      path: '/extension'
+      fullPath: '/extension'
+      preLoaderRoute: typeof ExtensionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/Record': {
+      id: '/Record'
+      path: '/Record'
+      fullPath: '/Record'
+      preLoaderRoute: typeof RecordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -205,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/record/': {
+      id: '/record/'
+      path: '/record'
+      fullPath: '/record/'
+      preLoaderRoute: typeof RecordIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/session/$id': {
       id: '/session/$id'
       path: '/session/$id'
@@ -212,19 +285,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/record/$type': {
+      id: '/record/$type'
+      path: '/record/$type'
+      fullPath: '/record/$type'
+      preLoaderRoute: typeof RecordTypeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RecordRoute: RecordRoute,
   AuthRoute: AuthRoute,
+  ExtensionRoute: ExtensionRoute,
   HistoryRoute: HistoryRoute,
   HomeRoute: HomeRoute,
+  LiveRoute: LiveRoute,
   LocalSessionRoute: LocalSessionRoute,
   ProfileRoute: ProfileRoute,
-  RemoteRoute: RemoteRoute,
   SettingsRoute: SettingsRoute,
+  RecordTypeRoute: RecordTypeRoute,
   SessionIdRoute: SessionIdRoute,
+  RecordIndexRoute: RecordIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

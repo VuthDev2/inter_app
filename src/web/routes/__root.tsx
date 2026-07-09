@@ -68,13 +68,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Kotoba — Live AI Interpreter" },
+      { title: "QuickVoice — Live AI Interpreter" },
       {
         name: "description",
         content:
           "Real-time voice interpretation between English and Japanese powered by AI. Host or join a live conversation and see every sentence translated instantly.",
       },
-      { property: "og:title", content: "Kotoba — Live AI Interpreter" },
+      { property: "og:title", content: "QuickVoice — Live AI Interpreter" },
       {
         property: "og:description",
         content: "Real-time bilingual conversations powered by AI.",
