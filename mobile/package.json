@@ -25,6 +25,7 @@
     "react-dom": "19.2.3",
     "react-native": "latest",
     "react-native-safe-area-context": "^5.8.0",
+    "react-native-svg": "15.15.4",
     "react-native-url-polyfill": "latest",
     "react-native-web": "^0.21.2"
   },

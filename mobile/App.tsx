@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { atoms } from "./src/atoms";
 import { AuthProvider, useAuth } from "./src/auth";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
@@ -12,7 +13,7 @@ import { LiveScreen } from "./src/screens/LiveScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { RecordScreen } from "./src/screens/RecordScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
-import { colors, radius, spacing } from "./src/theme";
+import { colors, spacing } from "./src/theme";
 
 export type Tab = "home" | "live" | "record" | "history" | "settings" | "profile";
 
@@ -44,11 +45,11 @@ function AppFrame() {
 
   if (!initialized) {
     return (
-      <SafeAreaView style={styles.splash}>
+      <SafeAreaView style={[atoms.bgBackground, atoms.flex1, atoms.itemsCenter, atoms.justifyCenter]}>
         <StatusBar style="dark" />
-        <Image source={require("./assets/logo.png")} style={styles.splashLogo} />
-        <Text style={styles.splashText}>
-          <Text style={styles.splashAccent}>Quick</Text>Voice
+        <Image source={require("./assets/logo.png")} style={{ borderRadius: 14, height: 56, width: 56 }} />
+        <Text style={{ color: colors.text, fontSize: 22, fontWeight: "700", letterSpacing: -0.3, marginTop: spacing.md }}>
+          <Text style={{ color: colors.primary }}>Quick</Text>Voice
         </Text>
       </SafeAreaView>
     );
@@ -64,22 +65,22 @@ function AppFrame() {
   const tabBarBottom = TAB_GAP + insets.bottom;
 
   return (
-    <View style={styles.root}>
+    <View style={[atoms.flex1, atoms.bgBackground]}>
       <StatusBar style="dark" />
 
       {/* ── Header ── */}
-      <SafeAreaView edges={["top"]} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <View style={styles.brand}>
-            <Image source={require("./assets/logo.png")} style={styles.logo} />
-            <Text style={styles.brandText}>
-              <Text style={styles.brandAccent}>Quick</Text>Voice
+      <SafeAreaView edges={["top"]} style={{ backgroundColor: colors.surface }}>
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, { borderBottomColor: colors.border, borderBottomWidth: 1, paddingHorizontal: spacing.lg, paddingVertical: 13 }]}>
+          <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 8 }]}>
+            <Image source={require("./assets/logo.png")} style={{ borderRadius: 6, height: 30, width: 30 }} />
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.3 }}>
+              <Text style={{ color: colors.primary }}>Quick</Text>Voice
             </Text>
           </View>
           <Pressable
             accessibilityLabel="Profile"
             onPress={() => setActiveTab("profile")}
-            style={styles.profileBtn}
+            style={{ padding: 2 }}
           >
             <Ionicons
               name="person-circle-outline"
@@ -92,10 +93,7 @@ function AppFrame() {
 
       {/* ── Content ── */}
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg },
-        ]}
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -108,8 +106,8 @@ function AppFrame() {
       </ScrollView>
 
       {/* ── Floating pill tab bar ── */}
-      <View style={[styles.tabBarOuter, { bottom: tabBarBottom }]} pointerEvents="box-none">
-        <View style={styles.tabBarPill}>
+      <View style={{ left: 16, position: "absolute", right: 16, bottom: tabBarBottom }} pointerEvents="box-none">
+        <View style={{ alignItems: "center", backgroundColor: colors.surface, borderRadius: 50, elevation: 16, flexDirection: "row", height: 68, justifyContent: "space-around", paddingHorizontal: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16 }}>
           {TABS.map((tab) => {
             const active = activeTab === tab.key;
             return (
@@ -119,14 +117,14 @@ function AppFrame() {
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={tab.label}
                 onPress={() => setActiveTab(tab.key)}
-                style={styles.tabBtn}
+                style={{ alignItems: "center", flex: 1, gap: 3, justifyContent: "center", paddingVertical: 6 }}
               >
                 <Ionicons
                   name={tab.icon}
                   size={24}
                   color={active ? colors.primary : colors.tabInactive}
                 />
-                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                <Text style={[{ color: colors.tabInactive, fontSize: 11, fontWeight: "500", letterSpacing: 0.1 }, active && { color: colors.primary, fontWeight: "600" }]}>
                   {tab.label}
                 </Text>
               </Pressable>
@@ -137,42 +135,3 @@ function AppFrame() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { backgroundColor: colors.background, flex: 1 },
-
-  splash: { alignItems: "center", backgroundColor: colors.background, flex: 1, justifyContent: "center" },
-  splashLogo: { borderRadius: radius.lg, height: 56, width: 56 },
-  splashText: { color: colors.text, fontSize: 22, fontWeight: "700", letterSpacing: -0.3, marginTop: spacing.md },
-  splashAccent: { color: colors.primary },
-
-  headerSafe: { backgroundColor: colors.surface },
-  header: { alignItems: "center", backgroundColor: colors.surface, borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingVertical: 13 },
-  brand: { alignItems: "center", flexDirection: "row", gap: 8 },
-  logo: { borderRadius: 6, height: 30, width: 30 },
-  brandText: { color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.3 },
-  brandAccent: { color: colors.primary },
-  profileBtn: { padding: 2 },
-
-  content: { padding: spacing.lg },
-
-  // Floating pill
-  tabBarOuter: { left: 16, position: "absolute", right: 16 },
-  tabBarPill: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 50,
-    elevation: 16,
-    flexDirection: "row",
-    height: 68,
-    justifyContent: "space-around",
-    paddingHorizontal: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-  },
-  tabBtn: { alignItems: "center", flex: 1, gap: 3, justifyContent: "center", paddingVertical: 6 },
-  tabLabel: { color: colors.tabInactive, fontSize: 11, fontWeight: "500", letterSpacing: 0.1 },
-  tabLabelActive: { color: colors.primary, fontWeight: "600" },
-});

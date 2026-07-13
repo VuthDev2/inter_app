@@ -11,12 +11,13 @@
  *  - Footer: "QuickVoice · v1.0" text-center text-xs muted
  */
 import { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 
 import type { Tab } from "../../App";
 import { useAuth } from "../auth";
 import { LinkRow, ScreenHeader, ToggleRow } from "../components/ui";
-import { colors, radius, spacing } from "../theme";
+import { atoms } from "../atoms";
+import { colors, spacing } from "../theme";
 
 export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => void }) {
   const { signOut } = useAuth();
@@ -35,7 +36,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
   };
 
   return (
-    <View style={styles.screen}>
+    <View style={[atoms.gapLg, { gap: spacing.md + 2 }]}>
       {/* Page header */}
       <ScreenHeader
         title="Settings"
@@ -50,7 +51,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           description="Get notified when someone joins your session"
           value={sessionAlerts}
           onValueChange={setSessionAlerts}
-          accent="#4B71C4"   // primary blue — matches web oklch(0.78 0.16 200) teal
+          accent="#4B71C4"
         />
         <ToggleRow
           icon="volume-high-outline"
@@ -81,7 +82,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
             setDarkMode(v);
             Alert.alert("Theme", v ? "Dark mode enabled" : "Light mode enabled");
           }}
-          accent="#7B8299"  // muted purple-gray — matches web oklch(0.75 0.12 260)
+          accent="#7B8299"
         />
         <ToggleRow
           icon="eye-outline"
@@ -89,7 +90,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           description="Denser layout for session transcripts"
           value={compactView}
           onValueChange={setCompactView}
-          accent="#10B981"  // emerald — matches web oklch(0.72 0.14 170)
+          accent="#10B981"
         />
       </SectionCard>
 
@@ -132,63 +133,19 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
       </SectionCard>
 
       {/* Footer */}
-      <Text style={styles.footer}>QuickVoice · v1.0</Text>
+      <Text style={[atoms.textCenter, atoms.textXs, atoms.textMuted, { marginTop: spacing.sm }]}>QuickVoice · v1.0</Text>
     </View>
   );
 }
 
 /**
  * SectionCard — mirrors web SectionCard component
- * rounded-2xl, title uppercase tracking-[0.12em], divide-y children
  */
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionContent}>{children}</View>
+    <View style={[atoms.bgSurface, { borderColor: colors.border, borderRadius: 22, borderWidth: 1, overflow: "hidden", shadowColor: colors.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }]}>
+      <Text style={[atoms.uppercase, atoms.textXs, atoms.fontSemibold, atoms.textMuted, { letterSpacing: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 4 }]}>{title}</Text>
+      <View style={{ paddingHorizontal: spacing.lg, paddingBottom: 4 }}>{children}</View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    gap: spacing.md + 2,
-  },
-
-  // SectionCard — rounded-2xl, white bg, subtle border
-  sectionCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.xxl,
-    borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sectionTitle: {
-    color: colors.muted,
-    // uppercase + tracking — matches web tracking-[0.12em]
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 1.0,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: 4,
-    textTransform: "uppercase",
-  },
-  sectionContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 4,
-  },
-
-  // Footer
-  footer: {
-    color: colors.muted,
-    fontSize: 12,
-    marginTop: spacing.sm,
-    textAlign: "center",
-  },
-});

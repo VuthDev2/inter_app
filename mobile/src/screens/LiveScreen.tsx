@@ -12,13 +12,13 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
-import { colors, radius, spacing } from "../theme";
+import { atoms } from "../atoms";
+import { colors, spacing } from "../theme";
 import { languages, type LanguageCode } from "../data";
 import { SessionScreen } from "./SessionScreen";
 
@@ -45,7 +45,7 @@ export function LiveScreen() {
 
   // ── Language picker card page ──────────────────────────────────────────────
   return (
-    <View style={styles.screen}>
+    <View style={atoms.gapLg}>
       {/* Full-screen dark session modal — covers everything including tab bar */}
       <Modal
         visible={sessionActive}
@@ -61,52 +61,52 @@ export function LiveScreen() {
         />
       </Modal>
       {/* Page heading */}
-      <View style={styles.heading}>
-        <Text style={styles.headingTitle}>Welcome!</Text>
-        <Text style={styles.headingSubtitle}>Real-time interpretation</Text>
+      <View style={{ gap: 6, paddingTop: 4 }}>
+        <Text style={{ color: colors.primary, fontSize: 40, fontWeight: "800", letterSpacing: -0.8, lineHeight: 46 }}>Welcome!</Text>
+        <Text style={{ color: colors.muted, fontSize: 15, lineHeight: 22 }}>Real-time interpretation</Text>
       </View>
 
       {/* Language Pair card */}
-      <View style={styles.card}>
+      <View style={atoms.cardXxl}>
         {/* Card header */}
-        <View style={styles.cardHeader}>
-          <View style={styles.cardIconBox}>
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.gapMd]}>
+          <View style={{ alignItems: "center", backgroundColor: colors.secondary, borderRadius: 8, height: 42, justifyContent: "center", width: 42 }}>
             <Ionicons name="language-outline" size={22} color={colors.muted} />
           </View>
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.cardTitle}>Language Pair</Text>
-            <Text style={styles.cardSubtitle}>
+          <View style={[atoms.flex1, { gap: 2 }]}>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.2 }}>Language Pair</Text>
+            <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18 }}>
               English to Japanese or Japanese to English.
             </Text>
           </View>
         </View>
 
-        <View style={styles.divider} />
+        <View style={{ backgroundColor: colors.border, height: 1, marginHorizontal: -spacing.lg }} />
 
         {/* Your Language */}
-        <View style={styles.selectorGroup}>
-          <Text style={styles.selectorLabel}>Your Language</Text>
+        <View style={{ gap: 7 }}>
+          <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>Your Language</Text>
           <Pressable
-            style={styles.selector}
+            style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 14, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: 13 }]}
             onPress={() => setPickerOpen("source")}
             accessibilityRole="button"
             accessibilityLabel={`Your language: ${sourceLang}`}
           >
-            <Text style={styles.selectorValue}>{sourceLang}</Text>
+            <Text style={{ color: colors.text, fontSize: 15 }}>{sourceLang}</Text>
             <Ionicons name="chevron-down" size={18} color={colors.muted} />
           </Pressable>
         </View>
 
         {/* Their Language */}
-        <View style={styles.selectorGroup}>
-          <Text style={styles.selectorLabel}>Their Language</Text>
+        <View style={{ gap: 7 }}>
+          <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>Their Language</Text>
           <Pressable
-            style={styles.selector}
+            style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 14, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: 13 }]}
             onPress={() => setPickerOpen("target")}
             accessibilityRole="button"
             accessibilityLabel={`Their language: ${targetLang}`}
           >
-            <Text style={styles.selectorValue}>{targetLang}</Text>
+            <Text style={{ color: colors.text, fontSize: 15 }}>{targetLang}</Text>
             <Ionicons name="chevron-down" size={18} color={colors.muted} />
           </Pressable>
         </View>
@@ -114,16 +114,16 @@ export function LiveScreen() {
         {/* Start Interpret */}
         <Pressable
           style={({ pressed }) => [
-            styles.startBtn,
-            source === target && styles.startBtnDisabled,
-            pressed && source !== target && styles.startBtnPressed,
+            atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { backgroundColor: colors.primary, borderRadius: 14, gap: 8, marginTop: 4, minHeight: 52, paddingHorizontal: spacing.lg },
+            source === target && { opacity: 0.45 },
+            pressed && source !== target && { backgroundColor: colors.primaryPressed },
           ]}
           onPress={() => setSessionActive(true)}
           disabled={source === target}
           accessibilityRole="button"
         >
           <Ionicons name="mic-outline" size={20} color="#fff" />
-          <Text style={styles.startBtnText}>Start Interpret</Text>
+          <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700", letterSpacing: 0.1 }}>Start Interpret</Text>
         </Pressable>
       </View>
 
@@ -162,10 +162,10 @@ function LanguagePickerModal({
       visible={visible}
       onRequestClose={onClose}
     >
-      <Pressable style={styles.modalBackdrop} onPress={onClose} />
-      <View style={styles.modalSheet}>
-        <View style={styles.modalHandle} />
-        <Text style={styles.modalTitle}>{title}</Text>
+      <Pressable style={{ backgroundColor: "rgba(0,0,0,0.35)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }} onPress={onClose} />
+      <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, bottom: 0, left: 0, maxHeight: "60%", paddingBottom: 34, paddingHorizontal: spacing.lg, paddingTop: spacing.md, position: "absolute", right: 0, shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 24 }}>
+        <View style={{ alignSelf: "center", backgroundColor: colors.border, borderRadius: 3, height: 4, marginBottom: spacing.md, width: 40 }} />
+        <Text style={{ color: colors.text, fontSize: 16, fontWeight: "700", letterSpacing: -0.2, marginBottom: spacing.md }}>{title}</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
           {languages.map((lang, i) => {
             const isSelected = lang.code === selected;
@@ -174,14 +174,14 @@ function LanguagePickerModal({
                 key={lang.code}
                 onPress={() => onSelect(lang.code as LanguageCode)}
                 style={[
-                  styles.modalItem,
-                  i < languages.length - 1 && styles.modalItemBorder,
+                  atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { paddingVertical: 15 },
+                  i < languages.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 },
                 ]}
                 activeOpacity={0.6}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: isSelected }}
               >
-                <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
+                <Text style={[{ color: colors.text, fontSize: 15 }, isSelected && { color: colors.primary, fontWeight: "600" }]}>
                   {lang.label}
                 </Text>
                 {isSelected && (
@@ -195,174 +195,3 @@ function LanguagePickerModal({
     </Modal>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  screen: {
-    gap: spacing.lg,
-  },
-
-  heading: {
-    gap: 6,
-    paddingTop: 4,
-  },
-  headingTitle: {
-    color: colors.primary,
-    fontSize: 40,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    lineHeight: 46,
-  },
-  headingSubtitle: {
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-
-  // Card
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.xxl,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.lg,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  cardIconBox: {
-    alignItems: "center",
-    backgroundColor: colors.secondary,
-    borderRadius: radius.md,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
-  },
-  cardHeaderText: { flex: 1, gap: 2 },
-  cardTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  cardSubtitle: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  divider: {
-    backgroundColor: colors.border,
-    height: 1,
-    marginHorizontal: -spacing.lg,
-  },
-
-  // Selectors
-  selectorGroup: { gap: 7 },
-  selectorLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  selector: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 50,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 13,
-  },
-  selectorValue: {
-    color: colors.text,
-    fontSize: 15,
-  },
-
-  // Start button
-  startBtn: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: radius.lg,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    marginTop: 4,
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
-  },
-  startBtnPressed: { backgroundColor: colors.primaryPressed },
-  startBtnDisabled: { opacity: 0.45 },
-  startBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.1,
-  },
-
-  // Modal
-  modalBackdrop: {
-    backgroundColor: "rgba(0,0,0,0.35)",
-    bottom: 0, left: 0, position: "absolute", right: 0, top: 0,
-  },
-  modalSheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    bottom: 0,
-    left: 0,
-    maxHeight: "60%",
-    paddingBottom: 34,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    position: "absolute",
-    right: 0,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 24,
-  },
-  modalHandle: {
-    alignSelf: "center",
-    backgroundColor: colors.border,
-    borderRadius: 3,
-    height: 4,
-    marginBottom: spacing.md,
-    width: 40,
-  },
-  modalTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-    marginBottom: spacing.md,
-  },
-  modalItem: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 15,
-  },
-  modalItemBorder: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-  },
-  modalItemText: {
-    color: colors.text,
-    fontSize: 15,
-  },
-  modalItemTextSelected: {
-    color: colors.primary,
-    fontWeight: "600",
-  },
-});

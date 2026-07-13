@@ -1,12 +1,13 @@
 /**
- * SessionScreen — native audio recording + Whisper transcription
+ * SessionScreen — real-time streaming interpretation
  *
  * Flow:
- *   1. User taps record → expo-av starts recording to a temp file
- *   2. User taps stop  → file sent to OpenAI Whisper /v1/audio/transcriptions
- *   3. Transcript → /api/translate (backend) or MyMemory fallback
+ *   1. User taps record → recording starts
+ *   2. While recording, audio is transcribed every ~2.5s for live subtitles
+ *   3. User taps stop → final transcription + translation
  *   4. Translation displayed + spoken via expo-speech
  *   5. 2-way mode: languages swap after each utterance
+ *   6. QR Connect mode: utterances broadcast via Supabase Realtime
  */
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -15,8 +16,8 @@ import {
   setAudioModeAsync,
   requestRecordingPermissionsAsync,
 } from "expo-audio";
+import * as FileSystem from "expo-file-system";
 import * as Speech from "expo-speech";
-import * as FileSystem from "expo-file-system/legacy";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -32,6 +33,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { atoms } from "../atoms";
 import { translateText } from "../api";
 import { languages, type LanguageCode } from "../data";
 import { saveLiveSession } from "../storage";
@@ -43,21 +45,21 @@ const LOCALES: Record<string, string> = {
 };
 
 // ─── Dark palette ─────────────────────────────────────────────────────────────
-const BG      = "#0c0e17";
+const BG = "#0c0e17";
 const SURFACE = "#252836";
-const INDIGO  = "#6366f1";
-const RED     = "#e53e3e";
-const WHITE   = "#FFFFFF";
-const DIM     = "rgba(255,255,255,0.55)";
-const FAINT   = "rgba(255,255,255,0.18)";
-const BDRY    = "rgba(255,255,255,0.08)";
+const INDIGO = "#6366f1";
+const RED = "#e53e3e";
+const WHITE = "#FFFFFF";
+const DIM = "rgba(255,255,255,0.55)";
+const FAINT = "rgba(255,255,255,0.18)";
+const BDRY = "rgba(255,255,255,0.08)";
 
 // ─── Language helpers ─────────────────────────────────────────────────────────
 const FLAGS: Record<string, string> = {
   en: "🇺🇸", ja: "🇯🇵", es: "🇪🇸", fr: "🇫🇷",
   de: "🇩🇪", zh: "🇨🇳", ko: "🇰🇷", kh: "🇰🇭",
 };
-const getFlag  = (c: string) => FLAGS[c] ?? "🌐";
+const getFlag = (c: string) => FLAGS[c] ?? "🌐";
 const getLabel = (c: string) => languages.find((l) => l.code === c)?.label ?? c;
 
 // ─── Waveform ─────────────────────────────────────────────────────────────────
@@ -153,32 +155,76 @@ function LangPill({ value, onChange, disabled, showDot = false }: {
 }
 
 const pl = StyleSheet.create({
-  pill:       { alignItems: "center", backgroundColor: SURFACE, borderRadius: 99, flexDirection: "row", gap: 6, paddingHorizontal: 14, paddingVertical: 11 },
-  pillOff:    { opacity: 0.4 },
-  dot:        { backgroundColor: RED, borderRadius: 99, height: 13, width: 13 },
-  flag:       { fontSize: 15 },
-  lbl:        { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "500" },
-  backdrop:   { backgroundColor: "rgba(0,0,0,0.55)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
-  sheet:      { backgroundColor: "#1c1f2e", borderTopLeftRadius: 24, borderTopRightRadius: 24, bottom: 0, left: 0, maxHeight: "62%", paddingBottom: 32, paddingHorizontal: 20, paddingTop: 12, position: "absolute", right: 0 },
-  handle:     { alignSelf: "center", backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 3, height: 4, marginBottom: 16, width: 40 },
+  pill: { alignItems: "center", backgroundColor: SURFACE, borderRadius: 99, flexDirection: "row", gap: 6, paddingHorizontal: 14, paddingVertical: 11 },
+  pillOff: { opacity: 0.4 },
+  dot: { backgroundColor: RED, borderRadius: 99, height: 13, width: 13 },
+  flag: { fontSize: 15 },
+  lbl: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "500" },
+  backdrop: { backgroundColor: "rgba(0,0,0,0.55)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
+  sheet: { backgroundColor: "#1c1f2e", borderTopLeftRadius: 24, borderTopRightRadius: 24, bottom: 0, left: 0, maxHeight: "62%", paddingBottom: 32, paddingHorizontal: 20, paddingTop: 12, position: "absolute", right: 0 },
+  handle: { alignSelf: "center", backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 3, height: 4, marginBottom: 16, width: 40 },
   sheetTitle: { color: WHITE, fontSize: 15, fontWeight: "700", marginBottom: 12 },
-  item:       { alignItems: "center", flexDirection: "row", gap: 12, paddingVertical: 14 },
+  item: { alignItems: "center", flexDirection: "row", gap: 12, paddingVertical: 14 },
   itemBorder: { borderBottomColor: BDRY, borderBottomWidth: 1 },
-  itemFlag:   { fontSize: 18 },
-  itemText:   { color: DIM, flex: 1, fontSize: 15 },
-  itemSel:    { color: WHITE, fontWeight: "600" },
+  itemFlag: { fontSize: 18 },
+  itemText: { color: DIM, flex: 1, fontSize: 15 },
+  itemSel: { color: WHITE, fontWeight: "600" },
 });
 
-// ─── Mock transcription for testing ─────────────────────────────────────────────
+// ─── Transcription (Gemini or mock fallback) ─────────────────────────────────
 async function transcribeAudio(fileUri: string, language: string): Promise<string> {
-  // Simulate network delay so it feels real
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  const geminiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-  if (LOCALES[language] === "ja") {
-    return "こんにちは！これはテストです。お疲れ様でした。";
+  if (geminiKey) {
+    try {
+      // Check if file exists and has content
+      const info = await FileSystem.getInfoAsync(fileUri);
+      if (!info.exists || (info as any).size < 1000) {
+        return ""; // too short, skip
+      }
+
+      const base64Data = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const langName = LOCALES[language] === "ja" ? "Japanese"
+        : LOCALES[language] === "zh" ? "Chinese"
+          : LOCALES[language] === "ko" ? "Korean"
+            : LOCALES[language] === "es" ? "Spanish"
+              : LOCALES[language] === "fr" ? "French"
+                : LOCALES[language] === "de" ? "German"
+                  : "English";
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: `Transcribe the following audio accurately in ${langName}. Respond ONLY with the spoken words, nothing else. If no speech is detected, respond with an empty string.` },
+                { inlineData: { mimeType: "audio/m4a", data: base64Data } },
+              ],
+            }],
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        return text.trim();
+      }
+    } catch {
+      // fall through to mock
+    }
   }
-  
-  return "Hello! This is a test transcription. You have worked so hard and you can finally rest now!";
+
+  // ── Mock fallback (no API key) ──
+  await new Promise(resolve => setTimeout(resolve, 800));
+  if (LOCALES[language] === "ja") return "こんにちは！これはテストです。";
+  return "Hello! This is a test transcription.";
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -202,29 +248,32 @@ export function SessionScreen({
   initialTarget: LanguageCode;
   onBack: () => void;
 }) {
-  const insets    = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  const [src, setSrc]             = useState<LanguageCode>(initialSource);
-  const [tgt, setTgt]             = useState<LanguageCode>(initialTarget);
-  const [mode, setMode]           = useState<Mode>("one-way");
+  const [src, setSrc] = useState<LanguageCode>(initialSource);
+  const [tgt, setTgt] = useState<LanguageCode>(initialTarget);
+  const [mode, setMode] = useState<Mode>("one-way");
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
-  const [status, setStatus]       = useState<string>("TAP \u25CF TO SPEAK");
+  const [status, setStatus] = useState<string>("TAP \u25CF TO SPEAK");
+  // ── Streaming subtitle state ────────────────────────────────────────────────
+  const [partialTranscript, setPartialTranscript] = useState<string>("");
+  const streamingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [utterances, setUtterances]     = useState<Utterance[]>([]);
+  const [utterances, setUtterances] = useState<Utterance[]>([]);
   const [displayTrans, setDisplayTrans] = useState<string | null>(null);
 
-  const srcRef   = useRef(src);   useEffect(() => { srcRef.current = src; }, [src]);
-  const tgtRef   = useRef(tgt);   useEffect(() => { tgtRef.current = tgt; }, [tgt]);
-  const modeRef  = useRef(mode);  useEffect(() => { modeRef.current = mode; }, [mode]);
+  const srcRef = useRef(src); useEffect(() => { srcRef.current = src; }, [src]);
+  const tgtRef = useRef(tgt); useEffect(() => { tgtRef.current = tgt; }, [tgt]);
+  const modeRef = useRef(mode); useEffect(() => { modeRef.current = mode; }, [mode]);
   const speakRef = useRef(autoSpeak); useEffect(() => { speakRef.current = autoSpeak; }, [autoSpeak]);
 
-  const sessionId    = useRef(`live-${Date.now()}`);
+  const sessionId = useRef(`live-${Date.now()}`);
   const sessionStart = useRef(new Date().toISOString());
-  const fadeAnim     = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Auto-scroll on new utterance
   useEffect(() => {
@@ -246,7 +295,7 @@ export function SessionScreen({
     return true;
   };
 
-  // ─── Start recording ────────────────────────────────────────────────────────
+  // ─── Start recording + streaming subtitles ──────────────────────────────────
   const startRecording = async () => {
     const ok = await requestPermission();
     if (!ok) return;
@@ -263,6 +312,20 @@ export function SessionScreen({
       setRecording(true);
       setStatus("LISTENING…");
       setDisplayTrans(null);
+      setPartialTranscript("");
+
+      // ── Poll for partial transcription every 2.5s ────────────────────────
+      streamingTimer.current = setInterval(async () => {
+        if (!audioRecorder.isRecording) return;
+        const uri = audioRecorder.uri;
+        if (!uri) return;
+        try {
+          const partial = await transcribeAudio(uri, srcRef.current);
+          if (partial) setPartialTranscript(partial);
+        } catch {
+          // ignore streaming errors silently
+        }
+      }, 2500);
     } catch (e: any) {
       Alert.alert("Recording failed", e?.message ?? "Could not start microphone.");
     }
@@ -271,6 +334,12 @@ export function SessionScreen({
   // ─── Stop recording + transcribe + translate ────────────────────────────────
   const stopAndProcess = async () => {
     if (!audioRecorder.isRecording) return;
+
+    // Stop the streaming timer
+    if (streamingTimer.current) {
+      clearInterval(streamingTimer.current);
+      streamingTimer.current = null;
+    }
 
     setRecording(false);
     setProcessing(true);
@@ -316,7 +385,7 @@ export function SessionScreen({
           id: sessionId.current, sourceLang: s, targetLang: t,
           mode: modeRef.current, utterances: next,
           createdAt: sessionStart.current, endedAt: null,
-        }).catch(() => {});
+        }).catch(() => { });
         return next;
       });
 
@@ -374,7 +443,7 @@ export function SessionScreen({
         id: sessionId.current, sourceLang: src, targetLang: tgt,
         mode, utterances, createdAt: sessionStart.current,
         endedAt: new Date().toISOString(),
-      }).catch(() => {});
+      }).catch(() => { });
     }
     onBack();
   };
@@ -383,32 +452,32 @@ export function SessionScreen({
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={[ss.root, { paddingTop: insets.top }]}>
+    <View style={[atoms.flex1, { backgroundColor: BG, paddingTop: insets.top }]}>
 
       {/* ── Top bar ── */}
-      <View style={ss.topBar}>
-        <Pressable onPress={handleBack} style={ss.iconBtn} accessibilityLabel="Back">
+      <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { paddingBottom: 8, paddingHorizontal: 20, paddingTop: 8 }]}>
+        <Pressable onPress={handleBack} style={{ alignItems: "center", height: 40, justifyContent: "center", width: 40 }} accessibilityLabel="Back">
           <Ionicons name="menu-outline" size={22} color={DIM} />
         </Pressable>
 
-        <View style={[ss.modePill, busy && ss.modePillDim]}>
+        <View style={[{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 99, flexDirection: "row", padding: 4 }, busy && { opacity: 0.4 }]}>
           <Pressable
             onPress={() => !busy && setMode("one-way")}
-            style={[ss.modeBtn, mode === "one-way" && ss.modeBtnWhite]}
+            style={[{ borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8 }, mode === "one-way" && { backgroundColor: WHITE }]}
           >
-            <Text style={[ss.modeTxt, mode === "one-way" && ss.modeTxtDark]}>1-way</Text>
+            <Text style={[{ color: DIM, fontSize: 13, fontWeight: "600" }, mode === "one-way" && { color: BG }]}>1-way</Text>
           </Pressable>
           <Pressable
             onPress={() => !busy && setMode("two-way")}
-            style={[ss.modeBtn, mode === "two-way" && ss.modeBtnIndigo]}
+            style={[{ borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8 }, mode === "two-way" && { backgroundColor: INDIGO }]}
           >
-            <Text style={[ss.modeTxt, mode === "two-way" && ss.modeTxtWhite]}>2-way</Text>
+            <Text style={[{ color: DIM, fontSize: 13, fontWeight: "600" }, mode === "two-way" && { color: WHITE }]}>2-way</Text>
           </Pressable>
         </View>
 
         <Pressable
           onPress={() => setAutoSpeak((v) => !v)}
-          style={ss.settingsBtn}
+          style={{ alignItems: "center", backgroundColor: INDIGO, borderRadius: 99, height: 38, justifyContent: "center", width: 38 }}
           accessibilityLabel="Toggle auto-speak"
         >
           <Ionicons
@@ -422,42 +491,53 @@ export function SessionScreen({
       {/* ── Main text area ── */}
       <ScrollView
         ref={scrollRef}
-        style={ss.textArea}
-        contentContainerStyle={ss.textContent}
+        style={atoms.flex1}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 16, paddingHorizontal: 20, paddingTop: 14 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Previous utterance bubbles */}
         {utterances.length > 1 && utterances.slice(0, -1).map((u) => (
-          <View key={u.id} style={ss.bubble}>
-            <Text style={ss.bubbleOrig}>{getFlag(u.sourceLang)} {u.original}</Text>
-            <Text style={ss.bubbleTrans}>{u.translation}</Text>
+          <View key={u.id} style={{ backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12, marginBottom: 10, padding: 12 }}>
+            <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginBottom: 4 }}>{getFlag(u.sourceLang)} {u.original}</Text>
+            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, lineHeight: 24 }}>{u.translation}</Text>
           </View>
         ))}
 
         {/* Current state */}
         {processing ? (
-          <View style={ss.loadingRow}>
+          <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 8, marginTop: 4 }]}>
             <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
-            <Text style={ss.loadingTxt}>{status}</Text>
+            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>{status}</Text>
+          </View>
+        ) : recording && partialTranscript ? (
+          /* ── Live streaming subtitle ── */
+          <View>
+            <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 6, marginBottom: 10 }]}>
+              <View style={{ backgroundColor: "#14b8a6", borderRadius: 99, height: 8, width: 8 }} />
+              <Text style={{ color: "#14b8a6", fontSize: 11, fontWeight: "700", letterSpacing: 1.5 }}>LIVE</Text>
+            </View>
+            <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 26, fontWeight: "300", letterSpacing: -0.3, lineHeight: 38 }}>
+              {getFlag(src)} {partialTranscript}
+            </Text>
           </View>
         ) : utterances.length > 0 ? (
           <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={[ss.transText, { fontSize: 24, color: "rgba(255,255,255,0.7)", marginBottom: 8 }]}>
+            <Text style={[{ color: WHITE, fontSize: 30, fontWeight: "300", letterSpacing: -0.4, lineHeight: 44 }, { fontSize: 24, color: "rgba(255,255,255,0.7)", marginBottom: 8 }]}>
               {getFlag(utterances[utterances.length - 1].sourceLang)} {utterances[utterances.length - 1].original}
             </Text>
-            <Text style={ss.transText}>
+            <Text style={{ color: WHITE, fontSize: 30, fontWeight: "300", letterSpacing: -0.4, lineHeight: 44 }}>
               {utterances[utterances.length - 1].translation}
             </Text>
           </Animated.View>
         ) : (
-          <Text style={[ss.placeholder, recording && ss.placeholderActive]}>
+          <Text style={[{ color: FAINT, fontSize: 12, fontWeight: "600", letterSpacing: 2 }, recording && { color: "#14b8a6" }]}>
             {status}
           </Text>
         )}
 
         {/* Original below latest translation */}
-        {!processing && utterances.length > 0 && (
-          <Text style={ss.origBelow}>
+        {!processing && !recording && utterances.length > 0 && (
+          <Text style={{ color: "rgba(255,255,255,0.22)", fontSize: 14, marginTop: 12 }}>
             {getFlag(utterances[utterances.length - 1].sourceLang)}{" "}
             {utterances[utterances.length - 1].original}
           </Text>
@@ -465,37 +545,46 @@ export function SessionScreen({
       </ScrollView>
 
       {/* ── Waveform + record button ── */}
-      <View style={ss.waveContainer}>
-        <View style={ss.waveRow}>
+      <View style={[atoms.itemsCenter, atoms.justifyCenter, { height: WAVE_H + 20, marginBottom: 4 }]}>
+        <View style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}>
           <Waveform active={recording} />
         </View>
         <Pressable
           onPress={toggle}
           disabled={processing}
-          style={({ pressed }) => [
-            ss.recBtn,
-            recording && ss.recBtnActive,
-            pressed && !processing && ss.recBtnDown,
-            processing && ss.recBtnProcessing,
-          ]}
+          style={({ pressed }) => ({
+            alignItems: "center",
+            backgroundColor: processing ? INDIGO : recording ? "#c53030" : RED,
+            borderRadius: 99,
+            elevation: 10,
+            height: 62,
+            justifyContent: "center",
+            opacity: processing ? 0.8 : 1,
+            shadowColor: RED,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.6,
+            shadowRadius: 18,
+            width: 62,
+            transform: pressed && !processing ? [{ scale: 0.91 }] : recording ? [{ scale: 1.08 }] : [],
+          })}
           accessibilityRole="button"
           accessibilityLabel={recording ? "Stop recording" : "Start recording"}
         >
           {processing ? (
             <ActivityIndicator size="small" color={WHITE} />
           ) : recording ? (
-            <View style={ss.pauseWrap}>
-              <View style={ss.pauseBar} />
-              <View style={ss.pauseBar} />
+            <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 5 }]}>
+              <View style={{ backgroundColor: WHITE, borderRadius: 3, height: 20, width: 4 }} />
+              <View style={{ backgroundColor: WHITE, borderRadius: 3, height: 20, width: 4 }} />
             </View>
           ) : (
-            <View style={ss.recDot} />
+            <View style={{ backgroundColor: WHITE, borderRadius: 99, height: 18, width: 18 }} />
           )}
         </Pressable>
       </View>
 
       {/* ── Bottom control bar ── */}
-      <View style={[ss.controlBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <LangPill
           value={src}
           onChange={(v) => { if (!busy) { setSrc(v); setDisplayTrans(null); } }}
@@ -505,7 +594,7 @@ export function SessionScreen({
         <Pressable
           onPress={swap}
           disabled={busy}
-          style={[ss.iconBtn, busy && ss.iconBtnDim]}
+          style={[{ alignItems: "center", height: 40, justifyContent: "center", width: 40 }, busy && { opacity: 0.3 }]}
           accessibilityLabel="Swap languages"
         >
           <Ionicons name="swap-horizontal-outline" size={20} color="rgba(255,255,255,0.65)" />
@@ -517,7 +606,7 @@ export function SessionScreen({
         />
         <Pressable
           onPress={() => setAutoSpeak((v) => !v)}
-          style={ss.iconBtn}
+          style={{ alignItems: "center", height: 40, justifyContent: "center", width: 40 }}
           accessibilityLabel="Toggle auto-speak"
         >
           <Ionicons
@@ -530,49 +619,3 @@ export function SessionScreen({
     </View>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const ss = StyleSheet.create({
-  root:     { backgroundColor: BG, flex: 1 },
-
-  topBar:       { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingBottom: 8, paddingHorizontal: 20, paddingTop: 8 },
-  iconBtn:      { alignItems: "center", height: 40, justifyContent: "center", width: 40 },
-  iconBtnDim:   { opacity: 0.3 },
-  settingsBtn:  { alignItems: "center", backgroundColor: INDIGO, borderRadius: 99, height: 38, justifyContent: "center", width: 38 },
-
-  modePill:      { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 99, flexDirection: "row", padding: 4 },
-  modePillDim:   { opacity: 0.4 },
-  modeBtn:       { borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8 },
-  modeBtnWhite:  { backgroundColor: WHITE },
-  modeBtnIndigo: { backgroundColor: INDIGO },
-  modeTxt:       { color: DIM, fontSize: 13, fontWeight: "600" },
-  modeTxtDark:   { color: BG },
-  modeTxtWhite:  { color: WHITE },
-
-  textArea:    { flex: 1 },
-  textContent: { flexGrow: 1, paddingBottom: 16, paddingHorizontal: 20, paddingTop: 14 },
-
-  transText:        { color: WHITE, fontSize: 30, fontWeight: "300", letterSpacing: -0.4, lineHeight: 44 },
-  placeholder:      { color: FAINT, fontSize: 12, fontWeight: "600", letterSpacing: 2 },
-  placeholderActive:{ color: "#14b8a6", fontSize: 12, fontWeight: "600", letterSpacing: 2 },
-
-  loadingRow:  { alignItems: "center", flexDirection: "row", gap: 8, marginTop: 4 },
-  loadingTxt:  { color: "rgba(255,255,255,0.4)", fontSize: 13 },
-  origBelow:   { color: "rgba(255,255,255,0.22)", fontSize: 14, marginTop: 12 },
-
-  bubble:      { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12, marginBottom: 10, padding: 12 },
-  bubbleOrig:  { color: "rgba(255,255,255,0.35)", fontSize: 12, marginBottom: 4 },
-  bubbleTrans: { color: "rgba(255,255,255,0.7)", fontSize: 16, lineHeight: 24 },
-
-  waveContainer:   { alignItems: "center", height: WAVE_H + 20, justifyContent: "center", marginBottom: 4 },
-  waveRow:         { bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
-  recBtn:          { alignItems: "center", backgroundColor: RED, borderRadius: 99, elevation: 10, height: 62, justifyContent: "center", shadowColor: RED, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 18, width: 62 },
-  recBtnActive:    { backgroundColor: "#c53030", transform: [{ scale: 1.08 }] },
-  recBtnDown:      { transform: [{ scale: 0.91 }] },
-  recBtnProcessing:{ backgroundColor: INDIGO, opacity: 0.8 },
-  recDot:          { backgroundColor: WHITE, borderRadius: 99, height: 18, width: 18 },
-  pauseWrap:       { alignItems: "center", flexDirection: "row", gap: 5 },
-  pauseBar:        { backgroundColor: WHITE, borderRadius: 3, height: 20, width: 4 },
-
-  controlBar: { alignItems: "center", flexDirection: "row", gap: 10, justifyContent: "center", paddingHorizontal: 16, paddingTop: 10 },
-});

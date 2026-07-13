@@ -16,7 +16,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -24,7 +23,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../auth";
 import { Field, PrimaryButton, SecondaryButton } from "../components/ui";
-import { colors, radius, spacing } from "../theme";
+import { atoms } from "../atoms";
+import { colors, spacing } from "../theme";
 
 type Mode = "signin" | "signup";
 
@@ -58,31 +58,30 @@ export function AuthScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[atoms.bgBackground, atoms.flex1]}>
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: "padding", android: undefined })}
-        style={styles.container}
+        style={[atoms.flex1, atoms.gapXl, atoms.justifyCenter, { paddingHorizontal: spacing.lg, paddingVertical: spacing.xl }]}
       >
         {/* Brand block */}
-        <View style={styles.brandBlock}>
-          {/* Logo box: h-14 w-14 rounded-2xl bg-primary */}
-          <View style={styles.logoBox}>
+        <View style={[atoms.itemsCenter, atoms.gapSm]}>
+          <View style={{ alignItems: "center", backgroundColor: colors.primary, borderRadius: 22, height: 56, justifyContent: "center", marginBottom: 4, width: 56 }}>
             <Image
               source={require("../../assets/logo.png")}
-              style={styles.logoImage}
+              style={{ height: 38, width: 38 }}
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>QuickVoice</Text>
-          <Text style={styles.subtitle}>
+          <Text style={{ color: colors.text, fontSize: 28, fontWeight: "700", letterSpacing: -0.5 }}>QuickVoice</Text>
+          <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20, maxWidth: 280, textAlign: "center" }}>
             Real-time AI interpretation between two languages.
           </Text>
         </View>
 
         {/* Card — glass-card equivalent */}
-        <View style={styles.card}>
+        <View style={atoms.cardXxl}>
           {/* Tab switcher: Sign in / Sign up */}
-          <View style={styles.tabs}>
+          <View style={{ backgroundColor: colors.secondary, borderRadius: 8, flexDirection: "row", gap: 4, padding: 4 }}>
             <TabButton
               label="Sign in"
               active={mode === "signin"}
@@ -97,9 +96,9 @@ export function AuthScreen() {
 
           {/* Auth-not-ready warning */}
           {!authReady ? (
-            <View style={styles.notice}>
+            <View style={{ alignItems: "flex-start", backgroundColor: colors.amberSoft, borderRadius: 8, flexDirection: "row", gap: spacing.sm, padding: spacing.md }}>
               <Ionicons name="warning-outline" size={16} color={colors.amber} />
-              <Text style={styles.noticeText}>
+              <Text style={{ color: colors.amber, flex: 1, fontSize: 12, lineHeight: 17 }}>
                 Add SUPABASE credentials in mobile/.env to enable sign in.
               </Text>
             </View>
@@ -142,10 +141,10 @@ export function AuthScreen() {
           </PrimaryButton>
 
           {/* OR divider */}
-          <View style={styles.orRow}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>or</Text>
-            <View style={styles.orLine} />
+          <View style={[atoms.flexRow, atoms.itemsCenter, atoms.gapMd, { marginVertical: 4 }]}>
+            <View style={{ backgroundColor: colors.border, flex: 1, height: 1 }} />
+            <Text style={{ color: colors.muted, fontSize: 12 }}>or</Text>
+            <View style={{ backgroundColor: colors.border, flex: 1, height: 1 }} />
           </View>
 
           {/* Google — secondary button */}
@@ -174,10 +173,10 @@ function TabButton({
 }) {
   return (
     <View
-      style={[styles.tabBtn, active && styles.tabBtnActive]}
+      style={[atoms.flex1, atoms.itemsCenter, { borderRadius: 6, paddingVertical: 9 }, active && { backgroundColor: colors.surface, shadowColor: colors.text, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }]}
     >
       <Text
-        style={[styles.tabBtnText, active && styles.tabBtnTextActive]}
+        style={[{ color: colors.muted, fontSize: 14, fontWeight: "500" }, active && { color: colors.text, fontWeight: "600" }]}
         onPress={onPress}
       >
         {label}
@@ -185,129 +184,3 @@ function TabButton({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    gap: spacing.xl,
-    justifyContent: "center",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
-
-  // Brand block
-  brandBlock: {
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  logoBox: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderRadius: radius.xxl,
-    height: 56,
-    justifyContent: "center",
-    marginBottom: 4,
-    width: 56,
-  },
-  logoImage: {
-    height: 38,
-    width: 38,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: 280,
-    textAlign: "center",
-  },
-
-  // Card — glass-card p-6
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.xxl,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.lg,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-
-  // Tab row — mirrors shadcn Tabs
-  tabs: {
-    backgroundColor: colors.secondary,
-    borderRadius: radius.md,
-    flexDirection: "row",
-    gap: 4,
-    padding: 4,
-  },
-  tabBtn: {
-    borderRadius: radius.sm,
-    flex: 1,
-    paddingVertical: 9,
-    alignItems: "center",
-  },
-  tabBtnActive: {
-    backgroundColor: colors.surface,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tabBtnText: {
-    color: colors.muted,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  tabBtnTextActive: {
-    color: colors.text,
-    fontWeight: "600",
-  },
-
-  // Notice
-  notice: {
-    alignItems: "flex-start",
-    backgroundColor: colors.amberSoft,
-    borderRadius: radius.md,
-    flexDirection: "row",
-    gap: spacing.sm,
-    padding: spacing.md,
-  },
-  noticeText: {
-    color: colors.amber,
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-
-  // OR divider
-  orRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.md,
-    marginVertical: 4,
-  },
-  orLine: {
-    backgroundColor: colors.border,
-    flex: 1,
-    height: 1,
-  },
-  orText: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-});

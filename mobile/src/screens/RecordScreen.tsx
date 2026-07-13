@@ -31,16 +31,16 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   View,
 } from "react-native";
 
+import { atoms } from "../atoms";
 import { recordingTemplates } from "../data";
 import type { RecordingTemplate } from "../data";
 import { saveRecordingSession } from "../storage";
-import { colors, radius, spacing } from "../theme";
+import { colors, spacing } from "../theme";
 
 // ─── Template Picker ──────────────────────────────────────────────────────────
 export function RecordScreen() {
@@ -56,28 +56,28 @@ export function RecordScreen() {
   }
 
   return (
-    <View style={s.screen}>
+    <View style={atoms.gapLg}>
       {/* Page header */}
-      <View style={s.pageHeader}>
-        <Text style={s.eyebrow}>Recording templates</Text>
-        <Text style={s.pageTitle}>Record</Text>
-        <Text style={s.pageBody}>
+      <View style={{ gap: 6 }}>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", letterSpacing: 0.2 }}>Recording templates</Text>
+        <Text style={{ color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5, lineHeight: 36 }}>Record</Text>
+        <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 2 }}>
           Start with a template so each session keeps the right title, metadata, and transcript behaviour.
         </Text>
       </View>
 
       {/* Quick-start button */}
       <Pressable
-        style={({ pressed }) => [s.quickStartBtn, pressed && s.quickStartBtnPressed]}
+        style={({ pressed }) => [atoms.flexRow, atoms.itemsCenter, { alignSelf: "flex-start", backgroundColor: colors.primary, borderRadius: 8, gap: 7, paddingHorizontal: 16, paddingVertical: 10 }, pressed && { backgroundColor: colors.primaryPressed }]}
         onPress={() => setActiveTemplate(recordingTemplates[0])}
         accessibilityRole="button"
       >
         <Ionicons name="mic-outline" size={16} color="#fff" />
-        <Text style={s.quickStartBtnText}>Start Recording</Text>
+        <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>Start Recording</Text>
       </Pressable>
 
       {/* Template grid — 2-column on mobile */}
-      <View style={s.grid}>
+      <View style={[atoms.flexRow, atoms.flexWrap, atoms.gapMd]}>
         {recordingTemplates.map((template) => (
           <TemplateCard
             key={template.id}
@@ -106,10 +106,10 @@ function TemplateCard({
       onPressOut={() => setPressed(false)}
       onPress={onPress}
       accessibilityRole="button"
-      style={[s.card, pressed && s.cardPressed]}
+      style={[{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexBasis: "47%", flexGrow: 1, gap: 8, minHeight: 160, padding: spacing.lg, shadowColor: colors.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 }, pressed && { backgroundColor: colors.secondary, borderColor: colors.primary + "80" }]}
     >
       {/* Icon box: h-11 w-11 bg-secondary, pressed → bg-primary */}
-      <View style={[s.cardIconBox, pressed && s.cardIconBoxActive]}>
+      <View style={[{ alignItems: "center", backgroundColor: colors.secondary, borderRadius: 8, height: 44, justifyContent: "center", width: 44 }, pressed && { backgroundColor: colors.primary }]}>
         <Ionicons
           name={template.icon as any}
           size={22}
@@ -117,12 +117,12 @@ function TemplateCard({
         />
       </View>
 
-      <Text style={s.cardTitle}>{template.title}</Text>
-      <Text style={s.cardDesc}>{template.description}</Text>
+      <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.2, lineHeight: 22, marginTop: 4 }}>{template.title}</Text>
+      <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18 }}>{template.description}</Text>
 
       {/* "Use template →" */}
-      <View style={s.cardFooter}>
-        <Text style={s.cardCta}>Use template</Text>
+      <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 4, marginTop: "auto", paddingTop: 8 }]}>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>Use template</Text>
         <Ionicons name="arrow-forward" size={14} color={colors.primary} />
       </View>
     </Pressable>
@@ -192,111 +192,118 @@ function RecordingSessionScreen({
 
   return (
     <ScrollView
-      style={s.sessionBg}
-      contentContainerStyle={s.sessionContent}
+      style={atoms.bgBackground}
+      contentContainerStyle={{ gap: spacing.lg, padding: spacing.lg, paddingBottom: 120 }}
       showsVerticalScrollIndicator={false}
     >
       {/* ── Back + header ── */}
-      <Pressable onPress={onBack} style={s.backRow} accessibilityRole="button">
+      <Pressable onPress={onBack} style={[atoms.flexRow, atoms.itemsCenter, { gap: 5, marginBottom: -4 }]} accessibilityRole="button">
         <Ionicons name="arrow-back-outline" size={16} color={colors.muted} />
-        <Text style={s.backText}>Templates</Text>
+        <Text style={{ color: colors.muted, fontSize: 13, fontWeight: "500" }}>Templates</Text>
       </Pressable>
 
-      <View style={s.sessionHeader}>
-        <View style={s.sessionHeaderLeft}>
-          <View style={s.templateIconBox}>
+      <View style={[atoms.flexRow, atoms.itemsStart, atoms.gapMd, atoms.justifyBetween]}>
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.gapMd]}>
+          <View style={{ alignItems: "center", backgroundColor: colors.secondary, borderRadius: 8, height: 48, justifyContent: "center", width: 48 }}>
             <Ionicons name={template.icon as any} size={24} color={colors.muted} />
           </View>
           <View>
-            <Text style={s.sessionEyebrow}>Recording template</Text>
-            <Text style={s.sessionTitle}>{template.title}</Text>
+            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "500" }}>Recording template</Text>
+            <Text style={{ color: colors.text, fontSize: 24, fontWeight: "700", letterSpacing: -0.4 }}>{template.title}</Text>
           </View>
         </View>
         {/* Timer pill */}
-        <View style={s.timerPill}>
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 99, gap: 5, paddingHorizontal: 10, paddingVertical: 6 }]}>
           <Ionicons name="time-outline" size={14} color={colors.primary} />
-          <Text style={s.timerStatus}>{isRecording ? "Recording" : "Ready"}</Text>
-          <Text style={s.timerValue}>{formatTime(elapsed)}</Text>
+          <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{isRecording ? "Recording" : "Ready"}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12 }}>{formatTime(elapsed)}</Text>
         </View>
       </View>
 
-      <Text style={s.sessionPromptText}>{prompt}</Text>
+      <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: -4 }}>{prompt}</Text>
 
       {/* ── Dark recording panel ── */}
-      <View style={s.darkPanel}>
+      <View style={{ backgroundColor: "#0d1020", borderRadius: 22, gap: spacing.lg, overflow: "hidden", padding: spacing.lg }}>
         {/* Dark panel header */}
-        <View style={s.darkPanelHeader}>
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { borderBottomColor: "rgba(255,255,255,0.1)", borderBottomWidth: 1, marginHorizontal: -spacing.lg, marginTop: -spacing.lg, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md }]}>
           <View>
-            <Text style={s.darkPanelEyebrow}>{template.title.toUpperCase()}</Text>
-            <Text style={s.darkPanelTitle}>Recording Session</Text>
+            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "700", letterSpacing: 1.4, textTransform: "uppercase" }}>{template.title.toUpperCase()}</Text>
+            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700", letterSpacing: -0.3, marginTop: 2 }}>Recording Session</Text>
           </View>
-          <View style={s.audioBadge}>
-            <Text style={s.audioBadgeText}>{sourceAudio ? "Audio on" : "Audio off"}</Text>
+          <View style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 }}>
+            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "500" }}>{sourceAudio ? "Audio on" : "Audio off"}</Text>
           </View>
         </View>
 
         {/* Transcript area */}
-        <View style={s.transcriptBox}>
-          <Text style={s.transcriptHint}>
+        <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", borderRadius: 14, borderWidth: 1, gap: spacing.lg, minHeight: 140, padding: spacing.md }}>
+          <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, fontWeight: "500" }}>
             {isRecording ? "Listening…" : "Press record when you are ready"}
           </Text>
-          <Text style={s.transcriptText}>
-            {isRecording
-              ? "Your transcript will appear here as the recording is captured."
-              : prompt}
+          <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 18, fontWeight: "400", lineHeight: 28 }}>
+            {isRecording ? "Your transcript will appear here as the recording is captured." : prompt}
           </Text>
         </View>
 
         {/* Waveform */}
-        <SessionWaveform active={isRecording} />
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { gap: 4, height: 64, paddingHorizontal: spacing.md }]}>
+          {[22, 42, 30, 58, 36, 68, 44, 72, 40, 62, 32, 50, 26, 46, 34, 56, 28, 40].map((h, i) => (
+            <View key={i} style={{ backgroundColor: "rgba(255,255,255,0.55)", borderRadius: 99, width: 5, height: isRecording ? h : Math.max(4, h * 0.28), opacity: isRecording ? 0.85 : 0.28 }} />
+          ))}
+        </View>
 
         {/* Record button */}
-        <View style={s.recordRow}>
+        <View style={[atoms.itemsCenter, atoms.justifyCenter]}>
           <Pressable
             onPress={() => setIsRecording((v) => !v)}
-            style={({ pressed }) => [
-              s.recordBtn,
-              isRecording ? s.recordBtnActive : s.recordBtnIdle,
-              pressed && s.recordBtnPressed,
-            ]}
+            style={({ pressed }) => ({
+              alignItems: "center",
+              borderRadius: 99,
+              height: 80,
+              justifyContent: "center",
+              width: 80,
+              shadowOffset: { width: 0, height: 0 },
+              shadowRadius: 20,
+              elevation: 8,
+              backgroundColor: isRecording ? "#c0392b" : colors.primary,
+              shadowColor: isRecording ? "#c0392b" : colors.primary,
+              shadowOpacity: isRecording ? 0.55 : 0.45,
+              transform: pressed ? [{ scale: 0.93 }] : [],
+            })}
             accessibilityRole="button"
             accessibilityLabel={isRecording ? "Pause recording" : "Start recording"}
           >
-            <Ionicons
-              name={isRecording ? "pause" : "mic-outline"}
-              size={32}
-              color="#fff"
-            />
+            <Ionicons name={isRecording ? "pause" : "mic-outline"} size={32} color="#fff" />
           </Pressable>
         </View>
 
         {/* Stop + Save */}
-        <View style={s.actionRow}>
+        <View style={[atoms.flexRow, atoms.justifyCenter, atoms.gapMd]}>
           <Pressable
             onPress={() => { setIsRecording(false); setElapsed(0); }}
-            style={s.actionBtnSecondary}
+            style={[atoms.flexRow, atoms.itemsCenter, { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 8, gap: 6, paddingHorizontal: 20, paddingVertical: 10 }]}
             accessibilityRole="button"
           >
             <Ionicons name="stop-outline" size={15} color="rgba(255,255,255,0.8)" />
-            <Text style={s.actionBtnSecondaryText}>Stop</Text>
+            <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, fontWeight: "600" }}>Stop</Text>
           </Pressable>
           <Pressable
             onPress={handleSave}
-            style={s.actionBtnSave}
+            style={[atoms.flexRow, atoms.itemsCenter, { backgroundColor: "#ffffff", borderRadius: 8, gap: 6, paddingHorizontal: 20, paddingVertical: 10 }]}
             accessibilityRole="button"
           >
             <Ionicons name="save-outline" size={15} color="#0d1020" />
-            <Text style={s.actionBtnSaveText}>Save</Text>
+            <Text style={{ color: "#0d1020", fontSize: 14, fontWeight: "700" }}>Save</Text>
           </Pressable>
         </View>
       </View>
 
       {/* ── Settings card ── */}
-      <View style={s.settingsCard}>
-        <Text style={s.settingsTitle}>Template Settings</Text>
-        <Text style={s.settingsMeta}>Settings from the selected template.</Text>
+      <View style={atoms.card}>
+        <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.2 }}>Template Settings</Text>
+        <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: -6 }}>Settings from the selected template.</Text>
 
-        <View style={s.settingsList}>
+        <View style={{ gap: spacing.sm }}>
           <SettingRow
             icon="headset-outline"
             label="Source Audio"
@@ -315,37 +322,18 @@ function RecordingSessionScreen({
       </View>
 
       {/* ── Metadata card ── */}
-      <View style={s.settingsCard}>
-        <Text style={s.settingsTitle}>Session Metadata</Text>
-        <View style={s.metaList}>
-          <MetaRow label="Route type"  value={template.id} />
-          <MetaRow label="Template"    value={template.title} />
-          <MetaRow label="Saved with type" value="Yes" />
+      <View style={atoms.card}>
+        <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.2 }}>Session Metadata</Text>
+        <View style={{ gap: 2 }}>
+          {[{ label: "Route type", value: template.id }, { label: "Template", value: template.title }, { label: "Saved with type", value: "Yes" }].map((r) => (
+            <View key={r.label} style={[atoms.flexRow, atoms.justifyBetween, { borderTopColor: colors.border, borderTopWidth: 1, paddingVertical: 10 }]}>
+              <Text style={{ color: colors.muted, fontSize: 13 }}>{r.label}</Text>
+              <Text style={{ color: colors.text, fontSize: 13, fontWeight: "500" }}>{r.value}</Text>
+            </View>
+          ))}
         </View>
       </View>
     </ScrollView>
-  );
-}
-
-// ─── Waveform (dark panel) ────────────────────────────────────────────────────
-const BARS = [22, 42, 30, 58, 36, 68, 44, 72, 40, 62, 32, 50, 26, 46, 34, 56, 28, 40];
-
-function SessionWaveform({ active }: { active: boolean }) {
-  return (
-    <View style={s.waveformRow}>
-      {BARS.map((h, i) => (
-        <View
-          key={i}
-          style={[
-            s.waveBar,
-            {
-              height: active ? h : Math.max(4, h * 0.28),
-              opacity: active ? 0.85 : 0.28,
-            },
-          ]}
-        />
-      ))}
-    </View>
   );
 }
 
@@ -364,14 +352,14 @@ function SettingRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <View style={s.settingRow}>
-      <View style={s.settingRowLeft}>
-        <View style={s.settingIconBox}>
+    <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { backgroundColor: colors.background, borderColor: colors.border, borderRadius: 8, borderWidth: 1, gap: spacing.md, padding: spacing.md }]}>
+      <View style={[atoms.flexRow, atoms.itemsCenter, atoms.flex1, atoms.gapMd]}>
+        <View style={{ alignItems: "center", backgroundColor: colors.secondary, borderRadius: 8, height: 40, justifyContent: "center", width: 40 }}>
           <Ionicons name={icon as any} size={20} color={colors.muted} />
         </View>
-        <View style={s.settingCopy}>
-          <Text style={s.settingLabel}>{label}</Text>
-          <Text style={s.settingDesc}>{description}</Text>
+        <View style={[atoms.flex1, { gap: 2 }]}>
+          <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>{label}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 17 }}>{description}</Text>
         </View>
       </View>
       <Switch
@@ -384,440 +372,3 @@ function SettingRow({
     </View>
   );
 }
-
-// ─── Metadata row ─────────────────────────────────────────────────────────────
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={s.metaRow}>
-      <Text style={s.metaLabel}>{label}</Text>
-      <Text style={s.metaValue}>{value}</Text>
-    </View>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  // ── Template picker ──
-  screen: {
-    gap: spacing.lg,
-  },
-  pageHeader: {
-    gap: 6,
-  },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  pageTitle: {
-    color: colors.text,
-    fontSize: 30,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-    lineHeight: 36,
-  },
-  pageBody: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 2,
-  },
-  quickStartBtn: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    flexDirection: "row",
-    gap: 7,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  quickStartBtnPressed: {
-    backgroundColor: colors.primaryPressed,
-  },
-  quickStartBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  // Template grid — 2-column
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-  // Card: ~47% width (2-col), min-h-40, rounded-lg border bg-card p-5
-  card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    flexBasis: "47%",
-    flexGrow: 1,
-    gap: 8,
-    minHeight: 160,
-    padding: spacing.lg,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  cardPressed: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.primary + "80",
-  },
-  // Icon box: h-11 w-11 bg-secondary, hover → bg-primary
-  cardIconBox: {
-    alignItems: "center",
-    backgroundColor: colors.secondary,
-    borderRadius: radius.md,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  cardIconBoxActive: {
-    backgroundColor: colors.primary,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-    lineHeight: 22,
-    marginTop: 4,
-  },
-  cardDesc: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  cardFooter: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-    marginTop: "auto",
-    paddingTop: 8,
-  },
-  cardCta: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  // ── Recording session ──
-  sessionBg: {
-    backgroundColor: colors.background,
-  },
-  sessionContent: {
-    gap: spacing.lg,
-    padding: spacing.lg,
-    paddingBottom: 120, // clear the floating tab bar
-  },
-  backRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 5,
-    marginBottom: -4,
-  },
-  backText: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  sessionHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: spacing.md,
-    justifyContent: "space-between",
-  },
-  sessionHeaderLeft: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  templateIconBox: {
-    alignItems: "center",
-    backgroundColor: colors.secondary,
-    borderRadius: radius.md,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  sessionEyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  sessionTitle: {
-    color: colors.text,
-    fontSize: 24,
-    fontWeight: "700",
-    letterSpacing: -0.4,
-  },
-  timerPill: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 99,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  timerStatus: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  timerValue: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  sessionPromptText: {
-    color: colors.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: -4,
-  },
-
-  // Dark panel (bg-[#0d1020])
-  darkPanel: {
-    backgroundColor: "#0d1020",
-    borderRadius: radius.xxl,
-    gap: spacing.lg,
-    overflow: "hidden",
-    padding: spacing.lg,
-  },
-  darkPanelHeader: {
-    alignItems: "center",
-    borderBottomColor: "rgba(255,255,255,0.1)",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginHorizontal: -spacing.lg,
-    marginTop: -spacing.lg,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  darkPanelEyebrow: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-  },
-  darkPanelTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: -0.3,
-    marginTop: 2,
-  },
-  audioBadge: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 99,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  audioBadgeText: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-
-  // Transcript box
-  transcriptBox: {
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderColor: "rgba(255,255,255,0.1)",
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.lg,
-    minHeight: 140,
-    padding: spacing.md,
-  },
-  transcriptHint: {
-    color: "rgba(255,255,255,0.45)",
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  transcriptText: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 18,
-    fontWeight: "400",
-    lineHeight: 28,
-  },
-
-  // Waveform
-  waveformRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-    height: 64,
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-  },
-  waveBar: {
-    backgroundColor: "rgba(255,255,255,0.55)",
-    borderRadius: 99,
-    width: 5,
-  },
-
-  // Record button (80px)
-  recordRow: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  recordBtn: {
-    alignItems: "center",
-    borderRadius: 99,
-    height: 80,
-    justifyContent: "center",
-    width: 80,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  recordBtnIdle: {
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.45,
-  },
-  recordBtnActive: {
-    backgroundColor: "#c0392b",
-    shadowColor: "#c0392b",
-    shadowOpacity: 0.55,
-  },
-  recordBtnPressed: {
-    transform: [{ scale: 0.93 }],
-  },
-
-  // Stop + Save buttons
-  actionRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-    justifyContent: "center",
-  },
-  actionBtnSecondary: {
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: radius.md,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  actionBtnSecondaryText: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  actionBtnSave: {
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: radius.md,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  actionBtnSaveText: {
-    color: "#0d1020",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  // Settings card
-  settingsCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    gap: spacing.md,
-    padding: spacing.lg,
-    shadowColor: colors.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  settingsTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  settingsMeta: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: -6,
-  },
-  settingsList: {
-    gap: spacing.sm,
-  },
-  settingRow: {
-    alignItems: "center",
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.md,
-    justifyContent: "space-between",
-    padding: spacing.md,
-  },
-  settingRowLeft: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  settingIconBox: {
-    alignItems: "center",
-    backgroundColor: colors.secondary,
-    borderRadius: radius.md,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  settingCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  settingLabel: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  settingDesc: {
-    color: colors.muted,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-
-  // Metadata card
-  metaList: {
-    gap: 2,
-  },
-  metaRow: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-  },
-  metaLabel: {
-    color: colors.muted,
-    fontSize: 13,
-  },
-  metaValue: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: "500",
-  },
-});
