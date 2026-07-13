@@ -5,6 +5,7 @@
   "scripts": {
     "start": "npm --prefix mobile run start",
     "ios": "npm --prefix mobile run ios",
-    "android": "npm --prefix mobile run android"
+    "android": "npm --prefix mobile run android",
+    "web": "npm --prefix mobile run web"
   }
 }
