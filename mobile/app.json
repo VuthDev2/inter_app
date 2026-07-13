@@ -25,9 +25,7 @@
       ],
       "package": "com.anonymous.quickvoicemobile"
     },
-    "extra": {
-      "apiBaseUrl": "http://127.0.0.1:3001"
-    },
+    "extra": {},
     "plugins": [
       [
         "expo-audio",

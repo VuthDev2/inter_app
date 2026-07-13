@@ -14,7 +14,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 
-import { getApiBaseUrl } from "../api";
 import { useAuth } from "../auth";
 import { Chip, Field, Panel, PrimaryButton, ScreenHeader, uiStyles } from "../components/ui";
 import { languages, type LanguageCode } from "../data";
@@ -34,27 +33,16 @@ export function ProfileScreen() {
 
     const loadProfile = async () => {
       try {
-        const response = await fetch(`${getApiBaseUrl()}/api/profile`, {
-          headers: session?.access_token
-            ? { Authorization: `Bearer ${session.access_token}` }
-            : undefined,
-        });
-        if (response.ok) {
-          const payload = await response.json();
-          setDisplayName(payload.profile?.displayName ?? "");
-          setPreferred((payload.profile?.language ?? "en") as LanguageCode);
-        }
+        const { data } = await client
+          .from("profiles")
+          .select("display_name, preferred_language")
+          .eq("id", user.id)
+          .maybeSingle();
+        setDisplayName(data?.display_name ?? "");
+        setPreferred((data?.preferred_language ?? "en") as LanguageCode);
       } catch {
-        // fall back to Supabase
+        // ignore load errors
       }
-
-      const { data } = await client
-        .from("profiles")
-        .select("display_name, preferred_language")
-        .eq("id", user.id)
-        .maybeSingle();
-      setDisplayName(data?.display_name ?? "");
-      setPreferred((data?.preferred_language ?? "en") as LanguageCode);
     };
 
     loadProfile();
@@ -77,21 +65,6 @@ export function ProfileScreen() {
   const save = async () => {
     if (!user || !supabase) return;
     setBusy(true);
-    try {
-      await fetch(`${getApiBaseUrl()}/api/profile`, {
-        body: JSON.stringify({ displayName, preferredLanguage: preferred }),
-        headers: {
-          "Content-Type": "application/json",
-          ...(session?.access_token
-            ? { Authorization: `Bearer ${session.access_token}` }
-            : {}),
-        },
-        method: "POST",
-      });
-    } catch {
-      // keep saving to Supabase even if backend unavailable
-    }
-
     const { error } = await supabase
       .from("profiles")
       .upsert({ id: user.id, display_name: displayName, preferred_language: preferred });
