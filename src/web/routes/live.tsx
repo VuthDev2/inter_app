@@ -1,25 +1,17 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Languages, Mic } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Copy, Languages, Mic, Radio } from "lucide-react";
 
 export const Route = createFileRoute("/live")({
   head: () => ({
     meta: [
       { title: "Live - QuickVoice" },
-      {
-        name: "description",
-        content: "Real-time English and Japanese conversation interpretation.",
-      },
+      { name: "description", content: "Real-time English and Japanese conversation interpretation." },
     ],
   }),
   component: () => (
@@ -46,12 +38,12 @@ function LivePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <section>
-        <h1 className="font-display text-4xl text-primary font-semibold tracking-tight">
-          Welcome!
-        </h1>
+        <h1 className="font-display text-4xl text-primary font-semibold tracking-tight">Welcome!</h1>
         <p className="text-sm font-medium text-primary"> </p>
         <h1 className="font-display text-3xl font-semibold tracking-tight"></h1>
-        <p className="mt-2 text-muted-foreground">Real-time interpretation</p>
+        <p className="mt-2 text-muted-foreground">
+          Real-time  interpretation 
+        </p>
       </section>
 
       <section className="rounded-lg border bg-card p-5">
@@ -61,9 +53,7 @@ function LivePage() {
           </div>
           <div>
             <h2 className="font-display text-lg font-semibold">Language Pair</h2>
-            <p className="text-sm text-muted-foreground">
-              English to Japanese or Japanese to English.
-            </p>
+            <p className="text-sm text-muted-foreground">English to Japanese or Japanese to English.</p>
           </div>
         </div>
 
@@ -101,15 +91,20 @@ function LivePage() {
           </div>
         </div>
 
-        <Button
-          className="mt-6 h-12 w-full"
-          onClick={startLocalSession}
-          disabled={source === target}
-        >
+        <Button className="mt-6 h-12 w-full" onClick={startLocalSession} disabled={source === target}>
           <Mic className="mr-2 h-4 w-4" />
           Start Interpret
         </Button>
-      </section>
+      </section>      
+    </div>
+  );
+}
+
+function Feature({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border bg-card p-4 text-sm font-medium">
+      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-secondary">{icon}</span>
+      {label}
     </div>
   );
 }

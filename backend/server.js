@@ -118,6 +118,81 @@ function createAppHandler() {
       return;
     }
 
+    // ── POST /api/translate ──────────────────────────────────────────────────
+    if (req.method === "POST" && url.pathname === "/api/translate") {
+      let body;
+      try {
+        body = await parseJsonBody(req);
+      } catch {
+        sendJson(res, { ok: false, error: "Invalid JSON body" }, 400);
+        return;
+      }
+
+      const { text, sourceLang, targetLang } = body ?? {};
+
+      if (!text || typeof text !== "string" || !text.trim()) {
+        sendJson(res, { ok: true, translation: "" });
+        return;
+      }
+
+      if (sourceLang === targetLang) {
+        sendJson(res, { ok: true, translation: text });
+        return;
+      }
+
+      const openAiKey = process.env.OPENAI_API_KEY || "";
+
+      // ── Try OpenAI first if key available ──
+      if (openAiKey) {
+        try {
+          const prompt = `Translate the following text from ${String(sourceLang).toUpperCase()} to ${String(targetLang).toUpperCase()}. Respond only with the translated text, nothing else.\n\n${text}`;
+          const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openAiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [{ role: "user", content: prompt }],
+              max_tokens: 512,
+              temperature: 0.3,
+            }),
+          });
+          if (aiRes.ok) {
+            const aiJson = await aiRes.json();
+            const translation = aiJson?.choices?.[0]?.message?.content?.trim();
+            if (translation) {
+              sendJson(res, { ok: true, translation });
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("OpenAI translate failed", e);
+        }
+      }
+
+      // ── Fall back to MyMemory (free, no key needed) ──
+      try {
+        const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.trim())}&langpair=${sourceLang}|${targetLang}`;
+        const mmRes = await fetch(mmUrl);
+        if (mmRes.ok) {
+          const mmJson = await mmRes.json();
+          const translation = mmJson?.responseData?.translatedText;
+          if (translation && !translation.toLowerCase().includes("mymemory warning")) {
+            sendJson(res, { ok: true, translation });
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("MyMemory translate failed", e);
+      }
+
+      // ── Last resort: echo with tag ──
+      sendJson(res, { ok: true, translation: `[${sourceLang}→${targetLang}] ${text}` });
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/api/profile") {
       if (!supabase) {
         sendJson(res, { ok: false, error: "Supabase is not configured" }, 500);

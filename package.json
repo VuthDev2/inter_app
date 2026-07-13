@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "vite dev",
     "dev:backend": "node backend/server.js",
+    "dev:mobile": "npm --prefix mobile run start",
+    "mobile:ios": "npm --prefix mobile run ios",
+    "mobile:android": "npm --prefix mobile run android",
+    "mobile:web": "npm --prefix mobile run web",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
