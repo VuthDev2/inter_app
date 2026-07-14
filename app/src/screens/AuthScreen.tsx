@@ -21,10 +21,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../auth";
+import { useAuth } from "../features/auth/auth";
 import { Field, PrimaryButton, SecondaryButton } from "../components/ui";
-import { atoms } from "../atoms";
-import { colors, spacing } from "../theme";
+import { atoms } from "../theme/atoms";
+import { colors, spacing } from "../theme/theme";
 
 type Mode = "signin" | "signup";
 

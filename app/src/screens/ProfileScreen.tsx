@@ -14,12 +14,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
 
-import { useAuth } from "../auth";
+import { useAuth } from "../features/auth/auth";
 import { Chip, Field, Panel, PrimaryButton, ScreenHeader, uiStyles } from "../components/ui";
-import { languages, type LanguageCode } from "../data";
-import { supabase } from "../supabase";
-import { atoms } from "../atoms";
-import { colors, spacing } from "../theme";
+import { languages, type LanguageCode } from "../constants/data";
+import { supabase } from "../services/supabase";
+import { atoms } from "../theme/atoms";
+import { colors, spacing } from "../theme/theme";
 import { Ionicons } from "@expo/vector-icons";
 
 export function ProfileScreen() {

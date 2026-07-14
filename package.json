@@ -3,9 +3,10 @@
   "private": true,
   "description": "QuickVoice — Real-time voice interpretation app (React Native)",
   "scripts": {
-    "start": "npm --prefix mobile run start",
-    "ios": "npm --prefix mobile run ios",
-    "android": "npm --prefix mobile run android",
-    "web": "npm --prefix mobile run web"
+    "start": "npm --prefix app run start",
+    "ios": "npm --prefix app run ios",
+    "android": "npm --prefix app run android",
+    "web": "npm --prefix app run web",
+    "typecheck": "npm --prefix app run typecheck"
   }
 }

@@ -14,10 +14,10 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 
 import type { Tab } from "../../App";
-import { useAuth } from "../auth";
+import { useAuth } from "../features/auth/auth";
 import { LinkRow, ScreenHeader, ToggleRow } from "../components/ui";
-import { atoms } from "../atoms";
-import { colors, spacing } from "../theme";
+import { atoms } from "../theme/atoms";
+import { colors, spacing } from "../theme/theme";
 
 export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => void }) {
   const { signOut } = useAuth();

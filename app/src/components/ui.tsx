@@ -10,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps, ReactNode } from "react";
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
-import { colors, radius, spacing } from "../theme";
+import { colors, radius, spacing } from "../theme/theme";
 
 // ─── ScreenHeader ────────────────────────────────────────────────────────────
 // Matches web: eyebrow (text-sm font-medium text-primary), h1 font-display 3xl,

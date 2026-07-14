@@ -17,9 +17,9 @@ import {
   View,
 } from "react-native";
 
-import { atoms } from "../atoms";
-import { colors, spacing } from "../theme";
-import { languages, type LanguageCode } from "../data";
+import { atoms } from "../theme/atoms";
+import { colors, spacing } from "../theme/theme";
+import { languages, type LanguageCode } from "../constants/data";
 import { SessionScreen } from "./SessionScreen";
 
 export function LiveScreen() {

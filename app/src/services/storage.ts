@@ -8,7 +8,7 @@
  *
  * This prevents ANY Supabase error from breaking the local app.
  */
-import type { SavedRecordingSession } from "./data";
+import type { SavedRecordingSession } from "../constants/data";
 import { appStorage } from "./nativeStorage";
 import { supabase } from "./supabase";
 

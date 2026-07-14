@@ -33,10 +33,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { atoms } from "../atoms";
-import { translateText } from "../api";
-import { languages, type LanguageCode } from "../data";
-import { saveLiveSession } from "../storage";
+import { atoms } from "../theme/atoms";
+import { translateText } from "../services/api";
+import { languages, type LanguageCode } from "../constants/data";
+import { saveLiveSession } from "../services/storage";
 
 // ─── BCP-47 locale map ────────────────────────────────────────────────────────
 const LOCALES: Record<string, string> = {

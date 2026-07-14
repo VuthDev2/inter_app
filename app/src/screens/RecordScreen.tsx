@@ -36,11 +36,11 @@ import {
   View,
 } from "react-native";
 
-import { atoms } from "../atoms";
-import { recordingTemplates } from "../data";
-import type { RecordingTemplate } from "../data";
-import { saveRecordingSession } from "../storage";
-import { colors, spacing } from "../theme";
+import { atoms } from "../theme/atoms";
+import { recordingTemplates } from "../constants/data";
+import type { RecordingTemplate } from "../constants/data";
+import { saveRecordingSession } from "../services/storage";
+import { colors, spacing } from "../theme/theme";
 
 // ─── Template Picker ──────────────────────────────────────────────────────────
 export function RecordScreen() {

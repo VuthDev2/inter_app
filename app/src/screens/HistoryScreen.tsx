@@ -9,21 +9,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState, Pressable, Text, View } from "react-native";
 
-import { atoms } from "../atoms";
+import { atoms } from "../theme/atoms";
 import { Chip, Panel, PrimaryButton, ScreenHeader, uiStyles } from "../components/ui";
 import {
   recordingTemplates,
   type RecordingTemplateId,
   type SavedRecordingSession,
-} from "../data";
+} from "../constants/data";
 import {
   loadSavedRecordingSessions,
   loadLiveSessions,
   saveRecordingSession,
   type LiveSession,
-} from "../storage";
-import { supabase } from "../supabase";
-import { colors, spacing } from "../theme";
+} from "../services/storage";
+import { supabase } from "../services/supabase";
+import { colors, spacing } from "../theme/theme";
 
 type Filter = "all" | RecordingTemplateId;
 

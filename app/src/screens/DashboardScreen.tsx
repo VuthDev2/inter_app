@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import type { Tab } from "../../App";
-import { getBackendHealth, type BackendHealth } from "../api";
+import { getBackendHealth, type BackendHealth } from "../services/api";
 import { Panel, ScreenHeader, StatusPill, uiStyles } from "../components/ui";
-import { loadLiveSessions, loadSavedRecordingSessions, type LiveSession } from "../storage";
-import type { SavedRecordingSession } from "../data";
-import { atoms } from "../atoms";
-import { colors, spacing } from "../theme";
+import { loadLiveSessions, loadSavedRecordingSessions, type LiveSession } from "../services/storage";
+import type { SavedRecordingSession } from "../constants/data";
+import { atoms } from "../theme/atoms";
+import { colors, spacing } from "../theme/theme";
 
 export function DashboardScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => void }) {
   const [health, setHealth] = useState<BackendHealth | null>(null);

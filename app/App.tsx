@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { atoms } from "./src/atoms";
-import { AuthProvider, useAuth } from "./src/auth";
+import { atoms } from "./src/theme/atoms";
+import { AuthProvider, useAuth } from "./src/features/auth/auth";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
@@ -13,7 +13,7 @@ import { LiveScreen } from "./src/screens/LiveScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { RecordScreen } from "./src/screens/RecordScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
-import { colors, spacing } from "./src/theme";
+import { colors, spacing } from "./src/theme/theme";
 
 export type Tab = "home" | "live" | "record" | "history" | "settings" | "profile";
 
