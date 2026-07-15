@@ -1,10 +1,4 @@
-/**
- * HistoryScreen — mirrors web /history (Library) page
- *
- * Local-first: loads from AsyncStorage immediately.
- * Cloud sessions (Supabase) are loaded in parallel and merged in — 
- * any Supabase error is silent and never blocks the UI.
- */
+
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState, Pressable, Text, View } from "react-native";
@@ -39,10 +33,10 @@ type AnyLiveSession = LiveSession | {
 };
 
 export function HistoryScreen() {
-  const [filter, setFilter]           = useState<Filter>("all");
-  const [recordings, setRecordings]   = useState<SavedRecordingSession[]>([]);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [recordings, setRecordings] = useState<SavedRecordingSession[]>([]);
   const [liveSessions, setLiveSessions] = useState<AnyLiveSession[]>([]);
-  const [loading, setLoading]         = useState(true);
+  const [loading, setLoading] = useState(true);
   const appStateRef = useRef(AppState.currentState);
 
   const load = useCallback(async () => {
@@ -73,19 +67,19 @@ export function HistoryScreen() {
 
       if (cloudRecs && cloudRecs.length > 0) {
         const mapped: SavedRecordingSession[] = cloudRecs.map((r) => ({
-          id:            r.id,
+          id: r.id,
           recordingType: r.recording_type as RecordingTemplateId,
-          title:         r.title,
-          description:   r.description ?? "",
-          transcript:    r.transcript ?? "",
-          sourceAudio:   r.source_audio ?? false,
-          status:        "saved" as const,
-          createdAt:     r.created_at,
+          title: r.title,
+          description: r.description ?? "",
+          transcript: r.transcript ?? "",
+          sourceAudio: r.source_audio ?? false,
+          status: "saved" as const,
+          createdAt: r.created_at,
         }));
         // Merge: local ones take priority (dedupe by id), cloud fills the rest
         setRecordings((prev) => {
           const localIds = new Set(prev.map((r) => r.id));
-          const newOnes  = mapped.filter((r) => !localIds.has(r.id));
+          const newOnes = mapped.filter((r) => !localIds.has(r.id));
           return [...prev, ...newOnes].sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
@@ -102,17 +96,17 @@ export function HistoryScreen() {
 
       if (cloudSessions && cloudSessions.length > 0) {
         const cloudLive: AnyLiveSession[] = cloudSessions.map((s) => ({
-          id:         s.id,
+          id: s.id,
           sourceLang: s.source_lang,
           targetLang: s.target_lang,
-          mode:       "one-way" as const,
+          mode: "one-way" as const,
           utterances: [],
-          createdAt:  s.created_at,
-          endedAt:    s.ended_at,
+          createdAt: s.created_at,
+          endedAt: s.ended_at,
         }));
         setLiveSessions((prev) => {
           const localIds = new Set(prev.map((s) => s.id));
-          const newOnes  = cloudLive.filter((s) => !localIds.has(s.id));
+          const newOnes = cloudLive.filter((s) => !localIds.has(s.id));
           return [...prev, ...newOnes].sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
@@ -143,14 +137,14 @@ export function HistoryScreen() {
   const addSampleRecording = async () => {
     const t = recordingTemplates[0];
     await saveRecordingSession({
-      id:            `${t.id}-${Date.now()}`,
+      id: `${t.id}-${Date.now()}`,
       recordingType: t.id,
-      title:         "Mobile interpretation note",
-      description:   t.description,
-      transcript:    "Sample mobile transcript saved from React Native.",
-      sourceAudio:   t.sourceAudio,
-      status:        "saved",
-      createdAt:     new Date().toISOString(),
+      title: "Mobile interpretation note",
+      description: t.description,
+      transcript: "Sample mobile transcript saved from React Native.",
+      sourceAudio: t.sourceAudio,
+      status: "saved",
+      createdAt: new Date().toISOString(),
     });
     await load();
   };
@@ -165,10 +159,10 @@ export function HistoryScreen() {
 
       {/* ── 4 stat buckets ── */}
       <View style={[atoms.flexRow, atoms.flexWrap, atoms.gapMd]}>
-        <Bucket icon="radio-outline"            label="Live Sessions"    value={String(liveSessions.length)} />
-        <Bucket icon="chatbox-ellipses-outline" label="Speech Sessions"  value={String(recordings.length)} />
-        <Bucket icon="headset-outline"          label="Audio Recordings" value={String(audioCount)} />
-        <Bucket icon="document-text-outline"    label="Transcripts"      value={String(recordings.length + liveSessions.length)} />
+        <Bucket icon="radio-outline" label="Live Sessions" value={String(liveSessions.length)} />
+        <Bucket icon="chatbox-ellipses-outline" label="Speech Sessions" value={String(recordings.length)} />
+        <Bucket icon="headset-outline" label="Audio Recordings" value={String(audioCount)} />
+        <Bucket icon="document-text-outline" label="Transcripts" value={String(recordings.length + liveSessions.length)} />
       </View>
 
       {/* ── Live sessions ── */}
@@ -231,9 +225,9 @@ export function HistoryScreen() {
 
 // ─── Live session row ─────────────────────────────────────────────────────────
 function LiveRow({ session }: { session: AnyLiveSession }) {
-  const count  = session.utterances.length;
+  const count = session.utterances.length;
   const latest = session.utterances[count - 1];
-  const date   = new Date(session.createdAt);
+  const date = new Date(session.createdAt);
 
   const showDetail = () => {
     if (count === 0) {

@@ -2504,7 +2504,7 @@ SPEC CHECKSUMS:
   ExpoFont: 35fd7ad72f697d3a9656545909972d8b9f60d5da
   ExpoKeepAwake: 8a96e2075b75641001f55393d7e6600a5b808f09
   ExpoLogBox: b39a76aab749833d58111c3be1264bb90f3b92d4
-  ExpoModulesCore: 5a97ef292f41f73ffbccf2d594a0d8a0037fee39
+  ExpoModulesCore: 923bfb431915ee46f15c327fc52217a8bbd87924
   ExpoModulesJSI: 0fad44a0464a4469b83a06e34e529c13043f2f69
   ExpoModulesWorklets: f6b71b8ddeb8dceb2ce3504544ecfbd708ba79a2
   ExpoSpeech: 5ee97499e1f8b8b672810c5d90f6fb11b224dd08

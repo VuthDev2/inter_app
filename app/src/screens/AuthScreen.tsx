@@ -1,14 +1,4 @@
-/**
- * AuthScreen — mirrors web /auth page
- *
- * Web design:
- *  - Full-screen centered, max-w-md
- *  - Logo: h-14 w-14 rounded-2xl bg-primary, Languages icon inside
- *  - Title: font-display text-3xl font-semibold "QuickVoice"
- *  - Subtitle: text-sm text-muted-foreground
- *  - glass-card p-6: Tabs (Sign in / Sign up) + fields + button
- *  - OR divider + "Continue with Google" secondary button
- */
+
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
@@ -99,7 +89,7 @@ export function AuthScreen() {
             <View style={{ alignItems: "flex-start", backgroundColor: colors.amberSoft, borderRadius: 8, flexDirection: "row", gap: spacing.sm, padding: spacing.md }}>
               <Ionicons name="warning-outline" size={16} color={colors.amber} />
               <Text style={{ color: colors.amber, flex: 1, fontSize: 12, lineHeight: 17 }}>
-                Add SUPABASE credentials in mobile/.env to enable sign in.
+                Add SUPABASE credentials in app/.env to enable sign in.
               </Text>
             </View>
           ) : null}
@@ -136,8 +126,8 @@ export function AuthScreen() {
             {busy
               ? "Please wait..."
               : mode === "signin"
-              ? "Sign in"
-              : "Create account"}
+                ? "Sign in"
+                : "Create account"}
           </PrimaryButton>
 
           {/* OR divider */}
