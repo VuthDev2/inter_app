@@ -10,26 +10,25 @@
  *  - Sections: Notifications · Appearance · Language & Region · Account
  *  - Footer: "QuickVoice · v1.0" text-center text-xs muted
  */
-import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 
 import type { Tab } from "../../App";
 import { useAuth } from "../features/auth/auth";
+import { usePreferences } from "../features/preferences/context";
 import { LinkRow, ScreenHeader, ToggleRow } from "../components/ui";
 import { atoms } from "../theme/atoms";
 import { colors, spacing } from "../theme/theme";
 
 export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => void }) {
   const { signOut } = useAuth();
-
-  // Notification prefs
-  const [sessionAlerts, setSessionAlerts] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [haptics, setHaptics] = useState(false);
-
-  // Appearance
-  const [darkMode, setDarkMode] = useState(false);
-  const [compactView, setCompactView] = useState(false);
+  const {
+    session_alerts: sessionAlerts,
+    sound_enabled: soundEnabled,
+    haptics_enabled: haptics,
+    dark_mode: darkMode,
+    compact_view: compactView,
+    update,
+  } = usePreferences();
 
   const handleSignOut = async () => {
     await signOut();
@@ -50,7 +49,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           label="Session alerts"
           description="Get notified when someone joins your session"
           value={sessionAlerts}
-          onValueChange={setSessionAlerts}
+          onValueChange={(v) => update({ session_alerts: v })}
           accent="#4B71C4"
         />
         <ToggleRow
@@ -58,7 +57,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           label="Sound effects"
           description="Audio cues for key events"
           value={soundEnabled}
-          onValueChange={setSoundEnabled}
+          onValueChange={(v) => update({ sound_enabled: v })}
           accent={colors.amber}
         />
         <ToggleRow
@@ -66,7 +65,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           label="Haptic feedback"
           description="Vibrate on important events"
           value={haptics}
-          onValueChange={setHaptics}
+          onValueChange={(v) => update({ haptics_enabled: v })}
           accent={colors.purple}
         />
       </SectionCard>
@@ -79,7 +78,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           description="Always-on dark interface"
           value={darkMode}
           onValueChange={(v) => {
-            setDarkMode(v);
+            update({ dark_mode: v });
             Alert.alert("Theme", v ? "Dark mode enabled" : "Light mode enabled");
           }}
           accent="#7B8299"
@@ -89,7 +88,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           label="Compact view"
           description="Denser layout for session transcripts"
           value={compactView}
-          onValueChange={setCompactView}
+          onValueChange={(v) => update({ compact_view: v })}
           accent="#10B981"
         />
       </SectionCard>

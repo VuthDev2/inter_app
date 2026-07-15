@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
 
 import { useAuth } from "../features/auth/auth";
+import { usePreferences } from "../features/preferences/context";
 import { Chip, Field, Panel, PrimaryButton, ScreenHeader, uiStyles } from "../components/ui";
 import { languages, type LanguageCode } from "../constants/data";
 import { supabase } from "../services/supabase";
@@ -24,6 +25,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 export function ProfileScreen() {
   const { session, user } = useAuth();
+  const { update: updatePrefs } = usePreferences();
   const [displayName, setDisplayName] = useState("");
   const [preferred, setPreferred] = useState<LanguageCode>("en");
   const [busy, setBusy] = useState(false);
@@ -69,6 +71,9 @@ export function ProfileScreen() {
     const { error } = await supabase
       .from("profiles")
       .upsert({ id: user.id, display_name: displayName, preferred_language: preferred });
+    if (!error) {
+      updatePrefs({ preferred_source_lang: preferred });
+    }
     setBusy(false);
     Alert.alert("QuickVoice", error ? error.message : "Profile saved");
   };

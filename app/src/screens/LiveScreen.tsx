@@ -17,14 +17,16 @@ import {
   View,
 } from "react-native";
 
+import { usePreferences } from "../features/preferences/context";
 import { atoms } from "../theme/atoms";
 import { colors, spacing } from "../theme/theme";
 import { languages, type LanguageCode } from "../constants/data";
 import { SessionScreen } from "./SessionScreen";
 
 export function LiveScreen() {
-  const [source, setSource] = useState<LanguageCode>("en");
-  const [target, setTarget] = useState<LanguageCode>("ja");
+  const { preferred_source_lang: defSource, preferred_target_lang: defTarget, update: updatePrefs } = usePreferences();
+  const [source, setSource] = useState<LanguageCode>(defSource);
+  const [target, setTarget] = useState<LanguageCode>(defTarget);
   const [pickerOpen, setPickerOpen] = useState<"source" | "target" | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
 
@@ -33,13 +35,23 @@ export function LiveScreen() {
 
   const selectSource = (code: LanguageCode) => {
     setSource(code);
-    if (code === target) setTarget(code === "en" ? "ja" : "en");
+    updatePrefs({ preferred_source_lang: code });
+    if (code === target) {
+      const fallback = code === "en" ? "ja" : "en";
+      setTarget(fallback);
+      updatePrefs({ preferred_target_lang: fallback });
+    }
     setPickerOpen(null);
   };
 
   const selectTarget = (code: LanguageCode) => {
     setTarget(code);
-    if (code === source) setSource(code === "en" ? "ja" : "en");
+    updatePrefs({ preferred_target_lang: code });
+    if (code === source) {
+      const fallback = code === "en" ? "ja" : "en";
+      setSource(fallback);
+      updatePrefs({ preferred_source_lang: fallback });
+    }
     setPickerOpen(null);
   };
 

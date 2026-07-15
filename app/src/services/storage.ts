@@ -12,8 +12,9 @@ import type { SavedRecordingSession } from "../constants/data";
 import { appStorage } from "./nativeStorage";
 import { supabase } from "./supabase";
 
-const RECORDING_KEY    = "quickvoice.recordingSessions";
-const LIVE_SESSION_KEY = "quickvoice.liveSessions";
+const RECORDING_KEY        = "quickvoice.recordingSessions";
+const LIVE_SESSION_KEY     = "quickvoice.liveSessions";
+const AUDIO_RECORDING_KEY  = "quickvoice.audioRecordings";
 
 // ─── Tiny UUID-v4 generator (no native crypto needed) ────────────────────────
 function uuid4(): string {
@@ -136,5 +137,70 @@ export async function saveLiveSession(session: LiveSession): Promise<void> {
     }
   } catch (e) {
     console.warn("[storage] Cloud sync (live session) failed:", e);
+  }
+}
+
+// ─── Audio Recordings ─────────────────────────────────────────────────────────
+export type LocalAudioRecording = {
+  id: string;
+  userId: string | null;
+  filePath: string;
+  mimeType: string;
+  durationMs: number | null;
+  fileSizeBytes: number | null;
+  recordingId: string | null;
+  liveSessionId: string | null;
+  createdAt: string;
+};
+
+export async function loadAudioRecordings(): Promise<LocalAudioRecording[]> {
+  try {
+    const raw = await appStorage.getItem(AUDIO_RECORDING_KEY);
+    const parsed = JSON.parse(raw ?? "[]");
+    return Array.isArray(parsed) ? (parsed as LocalAudioRecording[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveAudioRecordingsIndex(list: LocalAudioRecording[]): Promise<void> {
+  await appStorage.setItem(AUDIO_RECORDING_KEY, JSON.stringify(list));
+}
+
+export async function addAudioRecording(rec: LocalAudioRecording): Promise<void> {
+  const list = await loadAudioRecordings();
+  list.unshift(rec);
+  await saveAudioRecordingsIndex(list);
+
+  if (!supabase) return;
+  try {
+    const { data: { session: auth } } = await supabase.auth.getSession();
+    if (!auth?.user) return;
+
+    await supabase.from("audio_recordings").insert({
+      id:              rec.id,
+      user_id:         auth.user.id,
+      recording_id:    rec.recordingId,
+      live_session_id: rec.liveSessionId,
+      file_path:       rec.filePath,
+      mime_type:       rec.mimeType,
+      duration_ms:     rec.durationMs,
+      file_size_bytes: rec.fileSizeBytes,
+    });
+  } catch (e) {
+    console.warn("[storage] Cloud sync (audio) failed:", e);
+  }
+}
+
+export async function deleteAudioRecording(id: string): Promise<void> {
+  const list = await loadAudioRecordings();
+  const next = list.filter((r) => r.id !== id);
+  await saveAudioRecordingsIndex(next);
+
+  if (!supabase) return;
+  try {
+    await supabase.from("audio_recordings").delete().eq("id", id);
+  } catch (e) {
+    console.warn("[storage] Cloud sync (audio delete) failed:", e);
   }
 }

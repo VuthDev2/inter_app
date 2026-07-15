@@ -42,6 +42,7 @@ export type SavedRecordingSession = {
   sourceAudio: boolean;
   status: "saved";
   createdAt: string;
+  audioId?: string;
 };
 
 export const recordingTemplates: RecordingTemplate[] = [

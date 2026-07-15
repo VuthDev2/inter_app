@@ -7,6 +7,7 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-
 import { atoms } from "./src/theme/atoms";
 import { AuthProvider, useAuth } from "./src/features/auth/auth";
 import { AuthScreen } from "./src/screens/AuthScreen";
+import { PreferencesProvider } from "./src/features/preferences/context";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
@@ -32,7 +33,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <AppFrame />
+        <PreferencesProvider>
+          <AppFrame />
+        </PreferencesProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

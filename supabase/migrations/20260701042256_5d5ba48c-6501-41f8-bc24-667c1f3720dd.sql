@@ -1,1 +1,0 @@
-GRANT EXECUTE ON FUNCTION public.is_session_member(UUID, UUID) TO authenticated;

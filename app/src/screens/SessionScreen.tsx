@@ -16,6 +16,7 @@ import {
   setAudioModeAsync,
   requestRecordingPermissionsAsync,
 } from "expo-audio";
+import { File as ExpoFile, Directory, Paths } from "expo-file-system";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -32,10 +33,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { usePreferences } from "../features/preferences/context";
 import { atoms } from "../theme/atoms";
 import { transcribeAudio as backendTranscribe, translateText } from "../services/api";
 import { languages, type LanguageCode } from "../constants/data";
-import { saveLiveSession } from "../services/storage";
+import { addAudioRecording, saveLiveSession } from "../services/storage";
 
 // ─── BCP-47 locale map ────────────────────────────────────────────────────────
 const LOCALES: Record<string, string> = {
@@ -191,7 +193,6 @@ type Utterance = {
   targetLang: string;
   createdAt: string;
 };
-type Mode = "one-way" | "two-way";
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function SessionScreen({
@@ -206,13 +207,12 @@ export function SessionScreen({
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const { session_mode: mode, auto_speak: autoSpeak, tts_speed, update: updatePrefs } = usePreferences();
 
   const [src, setSrc] = useState<LanguageCode>(initialSource);
   const [tgt, setTgt] = useState<LanguageCode>(initialTarget);
-  const [mode, setMode] = useState<Mode>("one-way");
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [autoSpeak, setAutoSpeak] = useState(true);
   const [status, setStatus] = useState<string>("TAP \u25CF TO SPEAK");
   // ── Streaming subtitle state ────────────────────────────────────────────────
   const [partialTranscript, setPartialTranscript] = useState<string>("");
@@ -286,6 +286,22 @@ export function SessionScreen({
     }
   };
 
+  // ─── Persist audio file to app sandbox ─────────────────────────────────────
+  const persistAudio = async (sourceUri: string): Promise<string | null> => {
+    try {
+      const audioDir = new Directory(Paths.document, "audio");
+      audioDir.create({ idempotent: true });
+      const name = `recording_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.wav`;
+      const src = new ExpoFile(sourceUri);
+      const dest = new ExpoFile(audioDir, name);
+      await src.copy(dest);
+      return dest.uri;
+    } catch (e) {
+      console.warn("[SessionScreen] Failed to persist audio:", e);
+      return null;
+    }
+  };
+
   // ─── Stop recording + transcribe + translate ────────────────────────────────
   const stopAndProcess = async () => {
     if (!audioRecorder.isRecording) return;
@@ -344,6 +360,22 @@ export function SessionScreen({
         return next;
       });
 
+      // 3.5 Persist audio to app sandbox
+      const audioPath = await persistAudio(uri);
+      if (audioPath) {
+        addAudioRecording({
+          id: `audio-${Date.now()}`,
+          userId: null,
+          filePath: audioPath,
+          mimeType: "audio/wav",
+          durationMs: null,
+          fileSizeBytes: null,
+          recordingId: null,
+          liveSessionId: sessionId.current,
+          createdAt: new Date().toISOString(),
+        }).catch(() => {});
+      }
+
       setDisplayTrans(translation);
       fadeAnim.setValue(0);
       Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
@@ -351,7 +383,7 @@ export function SessionScreen({
 
       // 4. TTS
       if (speakRef.current) {
-        Speech.speak(translation, { language: LOCALES[t] ?? "en" });
+        Speech.speak(translation, { language: LOCALES[t] ?? "en", rate: tts_speed });
       }
 
       // 5. 2-way swap
@@ -417,13 +449,13 @@ export function SessionScreen({
 
         <View style={[{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 99, flexDirection: "row", padding: 4 }, busy && { opacity: 0.4 }]}>
           <Pressable
-            onPress={() => !busy && setMode("one-way")}
+            onPress={() => !busy && updatePrefs({ session_mode: "one-way" })}
             style={[{ borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8 }, mode === "one-way" && { backgroundColor: WHITE }]}
           >
             <Text style={[{ color: DIM, fontSize: 13, fontWeight: "600" }, mode === "one-way" && { color: BG }]}>1-way</Text>
           </Pressable>
           <Pressable
-            onPress={() => !busy && setMode("two-way")}
+            onPress={() => !busy && updatePrefs({ session_mode: "two-way" })}
             style={[{ borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8 }, mode === "two-way" && { backgroundColor: INDIGO }]}
           >
             <Text style={[{ color: DIM, fontSize: 13, fontWeight: "600" }, mode === "two-way" && { color: WHITE }]}>2-way</Text>
@@ -431,7 +463,7 @@ export function SessionScreen({
         </View>
 
         <Pressable
-          onPress={() => setAutoSpeak((v) => !v)}
+          onPress={() => updatePrefs({ auto_speak: !autoSpeak })}
           style={{ alignItems: "center", backgroundColor: INDIGO, borderRadius: 99, height: 38, justifyContent: "center", width: 38 }}
           accessibilityLabel="Toggle auto-speak"
         >
@@ -560,7 +592,7 @@ export function SessionScreen({
           disabled={busy}
         />
         <Pressable
-          onPress={() => setAutoSpeak((v) => !v)}
+          onPress={() => updatePrefs({ auto_speak: !autoSpeak })}
           style={{ alignItems: "center", height: 40, justifyContent: "center", width: 40 }}
           accessibilityLabel="Toggle auto-speak"
         >
