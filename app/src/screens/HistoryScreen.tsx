@@ -64,9 +64,9 @@ export function HistoryScreen() {
       const userId = auth?.user?.id;
       if (!userId) return;
 
-      // Cloud recording sessions
+      // Cloud recordings
       const { data: cloudRecs } = await supabase
-        .from("recording_sessions")
+        .from("recordings")
         .select("id, recording_type, title, description, transcript, source_audio, status, created_at")
         .eq("owner_id", userId)
         .order("created_at", { ascending: false });
@@ -92,9 +92,9 @@ export function HistoryScreen() {
         });
       }
 
-      // Cloud live sessions (from sessions + transcripts tables)
+      // Cloud live sessions
       const { data: cloudSessions } = await supabase
-        .from("sessions")
+        .from("live_sessions")
         .select("id, source_lang, target_lang, status, created_at, ended_at")
         .eq("host_id", userId)
         .order("created_at", { ascending: false })

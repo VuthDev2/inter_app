@@ -16,7 +16,6 @@ import {
   setAudioModeAsync,
   requestRecordingPermissionsAsync,
 } from "expo-audio";
-import * as FileSystem from "expo-file-system";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -34,7 +33,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { atoms } from "../theme/atoms";
-import { translateText } from "../services/api";
+import { transcribeAudio as backendTranscribe, translateText } from "../services/api";
 import { languages, type LanguageCode } from "../constants/data";
 import { saveLiveSession } from "../services/storage";
 
@@ -171,57 +170,13 @@ const pl = StyleSheet.create({
   itemSel: { color: WHITE, fontWeight: "600" },
 });
 
-// ─── Transcription (Gemini or mock fallback) ─────────────────────────────────
+// ─── Transcription (backend → Gemini, or mock fallback) ─────────────────────
 async function transcribeAudio(fileUri: string, language: string): Promise<string> {
-  const geminiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+  // Try the backend server first (proxies to Gemini)
+  const backendResult = await backendTranscribe(fileUri, language);
+  if (backendResult) return backendResult;
 
-  if (geminiKey) {
-    try {
-      // Check if file exists and has content
-      const info = await FileSystem.getInfoAsync(fileUri);
-      if (!info.exists || (info as any).size < 1000) {
-        return ""; // too short, skip
-      }
-
-      const base64Data = await FileSystem.readAsStringAsync(fileUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const langName = LOCALES[language] === "ja" ? "Japanese"
-        : LOCALES[language] === "zh" ? "Chinese"
-          : LOCALES[language] === "ko" ? "Korean"
-            : LOCALES[language] === "es" ? "Spanish"
-              : LOCALES[language] === "fr" ? "French"
-                : LOCALES[language] === "de" ? "German"
-                  : "English";
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: `Transcribe the following audio accurately in ${langName}. Respond ONLY with the spoken words, nothing else. If no speech is detected, respond with an empty string.` },
-                { inlineData: { mimeType: "audio/m4a", data: base64Data } },
-              ],
-            }],
-          }),
-        }
-      );
-
-      if (response.ok) {
-        const json = await response.json();
-        const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-        return text.trim();
-      }
-    } catch {
-      // fall through to mock
-    }
-  }
-
-  // ── Mock fallback (no API key) ──
+  // ── Mock fallback ──
   await new Promise(resolve => setTimeout(resolve, 800));
   if (LOCALES[language] === "ja") return "こんにちは！これはテストです。";
   return "Hello! This is a test transcription.";

@@ -47,8 +47,7 @@ export async function saveRecordingSession(session: SavedRecordingSession): Prom
     const { data: { session: auth } } = await supabase.auth.getSession();
     if (!auth?.user) return;
 
-    await supabase.from("recording_sessions").insert({
-      // Do NOT pass 'id' — let Supabase generate a UUID
+    await supabase.from("recordings").insert({
       owner_id:          auth.user.id,
       recording_type:    session.recordingType,
       title:             session.title,
@@ -59,8 +58,7 @@ export async function saveRecordingSession(session: SavedRecordingSession): Prom
       status:            session.status,
     });
   } catch (e) {
-    // Silent — local save already succeeded
-    console.warn("[storage] Cloud sync (recording_sessions) failed:", e);
+    console.warn("[storage] Cloud sync (recordings) failed:", e);
   }
 }
 
@@ -105,24 +103,21 @@ export async function saveLiveSession(session: LiveSession): Promise<void> {
     const { data: { session: auth } } = await supabase.auth.getSession();
     if (!auth?.user) return;
 
-    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
-
     const { data: row, error: sessionErr } = await supabase
-      .from("sessions")
+      .from("live_sessions")
       .insert({
-        host_id:    auth.user.id,
-        code,
-        name:       `Live ${session.sourceLang.toUpperCase()}→${session.targetLang.toUpperCase()}`,
+        host_id:     auth.user.id,
         source_lang: session.sourceLang,
         target_lang: session.targetLang,
-        status:      "ended",
+        mode:        session.mode,
+        status:      "completed",
         ended_at:    session.endedAt ?? new Date().toISOString(),
       })
       .select("id")
       .single();
 
     if (sessionErr || !row) {
-      console.warn("[storage] Cloud sync (sessions) failed:", sessionErr);
+      console.warn("[storage] Cloud sync (live_sessions) failed:", sessionErr);
       return;
     }
 
