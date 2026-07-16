@@ -20,13 +20,15 @@ node_modules
 supabase/.temp/
 
 # Mobile build artifacts
-app/ios/Pods/
-app/ios/build/
-app/android/.gradle/
-app/android/app/build/
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
 
 # Expo cache
-app/.expo/
+apps/mobile/.expo/
+apps/web/.next/
+*.tsbuildinfo
 
 # macOS
 .DS_Store

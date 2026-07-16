@@ -4,7 +4,7 @@
     "slug": "quickvoice-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",
     "scheme": "quickvoice",
     "assetBundlePatterns": [
@@ -16,7 +16,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#0F766E"
       },
       "permissions": [
