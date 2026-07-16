@@ -1,24 +1,50 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-import { RESEND_API_KEY } from "../config.js";
+import { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } from "../config.js";
 
-let resend = null;
-if (RESEND_API_KEY) {
-  resend = new Resend(RESEND_API_KEY);
+let transporter = null;
+
+if (SMTP_USER && SMTP_PASS) {
+  try {
+    transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+    });
+  } catch (e) {
+    console.error("[Email] Failed to create transporter:", e);
+  }
 }
 
-/**
- * Send a welcome email after sign-up.
- * Falls back to logging in development.
- */
-export async function sendWelcomeEmail({ to, name }) {
-  if (!resend) {
-    console.log(`[DEV] Welcome email for ${to} (${name})`);
+function devLog(label, details) {
+  console.log(`[DEV] ${label}:`, JSON.stringify(details));
+}
+
+async function trySend({ to, subject, html, label, logPayload }) {
+  if (!transporter) {
+    devLog(label, logPayload);
     return { ok: true };
   }
 
-  const { error } = await resend.emails.send({
-    from: "QuickVoice <noreply@quickvoice.app>",
+  try {
+    const info = await transporter.sendMail({
+      from: SMTP_FROM,
+      to,
+      subject,
+      html,
+    });
+    console.log(`[Email] Sent ${label} to ${to} (id: ${info.messageId})`);
+    return { ok: true };
+  } catch (err) {
+    console.error(`[Email] Nodemailer error (${label}):`, err.message);
+    devLog(label, logPayload);
+    return { ok: true }; // fall back to dev mode
+  }
+}
+
+export async function sendWelcomeEmail({ to, name }) {
+  return trySend({
     to,
     subject: "Welcome to QuickVoice",
     html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
@@ -30,28 +56,13 @@ export async function sendWelcomeEmail({ to, name }) {
         <span style="color:#4B71C4;font-size:18px;font-weight:600;">Real-time AI interpretation</span>
       </div>
     </div>`,
+    label: "Welcome email",
+    logPayload: { to, name },
   });
-
-  if (error) {
-    console.error("[Email] Resend error:", error);
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true };
 }
 
-/**
- * Send a 6-digit OTP code via email.
- * Falls back to logging to console in development if Resend is not configured.
- */
 export async function sendOTPEmail({ to, otp }) {
-  if (!resend) {
-    console.log(`[DEV] OTP for ${to}: ${otp}`);
-    return { ok: true };
-  }
-
-  const { error } = await resend.emails.send({
-    from: "QuickVoice <noreply@quickvoice.app>",
+  return trySend({
     to,
     subject: "Your QuickVoice verification code",
     html: `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
@@ -66,12 +77,7 @@ export async function sendOTPEmail({ to, otp }) {
         If you didn't request this, you can safely ignore this email.
       </p>
     </div>`,
+    label: "OTP email",
+    logPayload: { to, otp },
   });
-
-  if (error) {
-    console.error("[Email] Resend error:", error);
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true };
 }

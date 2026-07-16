@@ -173,21 +173,23 @@ export function useLiveInterpretation(
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.type === "chunk") {
-          setInterimText((prev) => prev + msg.text);
-        } else if (msg.type === "done") {
-          setLiveTranslation(msg.translation || "");
-          if (msg.original) {
+        if (msg.type === "transcript") {
+          setInterimText(msg.text || "");
+        } else if (msg.type === "translation") {
+          setLiveTranslation(msg.text || "");
+        } else if (msg.type === "utterance") {
+          if (msg.original || msg.translation) {
             setEntries((prev) => [
               ...prev,
               {
                 id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                original: msg.original,
+                original: msg.original || "",
                 translation: msg.translation || "",
               },
             ]);
           }
           setInterimText("");
+          setLiveTranslation("");
         } else if (msg.type === "error") {
           setError(msg.text);
         }

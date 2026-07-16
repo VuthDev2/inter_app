@@ -28,7 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const authReady = Boolean(supabase);
-  const pendingOTP = useRef<{ otp: string; expiresAt: number } | null>(null);
+  const pendingOTP = useRef<{ otp: string; expiresAt: number; email?: string } | null>(null);
+  const useSupabaseOTP = useRef(false);
 
   useEffect(() => {
     if (!supabase) {
@@ -91,23 +92,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase?.auth.signOut();
       },
       sendOTP: async (email) => {
+        if (!supabase) return { error: "Supabase mobile environment is not configured." };
+        useSupabaseOTP.current = false;
         try {
           const res = await fetch(`${apiBase()}/api/send-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
           });
-          const data = await res.json();
-          if (!data.ok) {
-            return { error: data.error || "Failed to send code." };
+          if (res.ok) {
+            const data = await res.json();
+            pendingOTP.current = { otp: data.otp, expiresAt: Date.now() + 10 * 60 * 1000, email };
+            return {};
           }
-          pendingOTP.current = { otp: data.otp, expiresAt: Date.now() + 10 * 60 * 1000 };
-          return {};
+          if (res.status >= 500) throw new Error("Server error");
+          const data = await res.json();
+          return { error: data.error || "Failed to send code." };
         } catch {
-          return { error: "Could not reach server. Check your connection." };
+          return { error: "Backend server unreachable or failed to send OTP." };
         }
       },
-      verifyOTP: async (_email, token) => {
+      verifyOTP: async (email, token) => {
         const stored = pendingOTP.current;
         if (!stored || Date.now() > stored.expiresAt) {
           pendingOTP.current = null;
@@ -116,13 +121,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (stored.otp !== token) {
           return { error: "Incorrect code. Try again." };
         }
-        pendingOTP.current = null;
+        useSupabaseOTP.current = true; // hack to use as a flag for verified email
+        pendingOTP.current = stored; // keep it to get email in updatePassword
         return {};
       },
       updatePassword: async (password) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
-        const { error } = await supabase.auth.updateUser({ password });
-        return error ? { error: error.message } : {};
+        
+        // If they have a session, update normally
+        if (session) {
+          const { error } = await supabase.auth.updateUser({ password });
+          return error ? { error: error.message } : {};
+        }
+
+        // Otherwise, if they just verified OTP via backend
+        if (pendingOTP.current && pendingOTP.current.email && useSupabaseOTP.current) {
+          try {
+            const res = await fetch(`${apiBase()}/api/reset-password`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: pendingOTP.current.email, password }),
+            });
+            if (res.ok) {
+              pendingOTP.current = null;
+              useSupabaseOTP.current = false;
+              return {};
+            }
+            const data = await res.json();
+            return { error: data.error || "Failed to reset password." };
+          } catch {
+            return { error: "Failed to connect to backend to reset password." };
+          }
+        }
+        
+        return { error: "No active session and no verified OTP." };
       },
     }),
     [authReady, initialized, session],

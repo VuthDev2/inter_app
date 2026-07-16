@@ -99,4 +99,35 @@ router.post("/api/send-otp", async (req, res) => {
   }
 });
 
+router.post("/api/reset-password", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ ok: false, error: "Email and password are required." });
+    }
+    if (!supabaseAdmin) {
+      return res.status(500).json({ ok: false, error: "Server configuration incomplete." });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // Look up the user by email
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) throw listError;
+    
+    const user = users.find(u => u.email === cleanEmail);
+    if (!user) {
+      return res.status(404).json({ ok: false, error: "User not found." });
+    }
+    
+    // Update the user's password
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, { password });
+    if (updateError) throw updateError;
+    
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[reset-password] Error:", err);
+    return res.status(500).json({ ok: false, error: "Internal server error." });
+  }
+});
+
 export default router;
