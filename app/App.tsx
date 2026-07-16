@@ -7,13 +7,17 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-
 import { atoms } from "./src/theme/atoms";
 import { AuthProvider, useAuth } from "./src/features/auth/auth";
 import { AuthScreen } from "./src/screens/AuthScreen";
+import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
+import { OTPScreen } from "./src/screens/OTPScreen";
 import { PreferencesProvider } from "./src/features/preferences/context";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { RecordScreen } from "./src/screens/RecordScreen";
+import { ResetPasswordScreen } from "./src/screens/ResetPasswordScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { UpdatePasswordScreen } from "./src/screens/UpdatePasswordScreen";
 import { colors, spacing } from "./src/theme/theme";
 
 export type Tab = "home" | "live" | "record" | "history" | "settings" | "profile";
@@ -25,9 +29,11 @@ const TABS: Array<{
 }> = [
   { key: "live",     label: "Live",     icon: "radio-outline"    },
   { key: "record",   label: "Record",   icon: "mic-outline"      },
-  { key: "history",  label: "History",  icon: "time-outline"     },
+  { key: "history",  label: "History",   icon: "time-outline"     },
   { key: "settings", label: "Settings", icon: "settings-outline" },
 ];
+
+type AuthFlow = "forgot-password" | "otp" | "reset-password" | null;
 
 export default function App() {
   return (
@@ -44,6 +50,9 @@ export default function App() {
 function AppFrame() {
   const { initialized, user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("live");
+  const [authFlow, setAuthFlow] = useState<AuthFlow>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [showUpdatePassword, setShowUpdatePassword] = useState(false);
   const insets = useSafeAreaInsets();
 
   if (!initialized) {
@@ -59,7 +68,36 @@ function AppFrame() {
   }
 
   if (!user) {
-    return <AuthScreen />;
+    switch (authFlow) {
+      case "forgot-password":
+        return (
+          <ForgotPasswordScreen
+            onBack={() => setAuthFlow(null)}
+            onOtpSent={(email) => {
+              setAuthEmail(email);
+              setAuthFlow("otp");
+            }}
+          />
+        );
+      case "otp":
+        return (
+          <OTPScreen
+            email={authEmail}
+            onBack={() => setAuthFlow("forgot-password")}
+            onVerified={() => setAuthFlow("reset-password")}
+          />
+        );
+      case "reset-password":
+        return (
+          <ResetPasswordScreen onDone={() => { setAuthFlow(null); setAuthEmail(""); }} />
+        );
+      default:
+        return <AuthScreen onForgotPassword={() => setAuthFlow("forgot-password")} />;
+    }
+  }
+
+  if (showUpdatePassword) {
+    return <UpdatePasswordScreen onDone={() => setShowUpdatePassword(false)} />;
   }
 
   // pill height + gap above bottom + safe-area
@@ -104,7 +142,7 @@ function AppFrame() {
         {activeTab === "live"     && <LiveScreen />}
         {activeTab === "record"   && <RecordScreen />}
         {activeTab === "history"  && <HistoryScreen />}
-        {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} />}
+        {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onUpdatePassword={() => setShowUpdatePassword(true)} />}
         {activeTab === "profile"  && <ProfileScreen />}
       </ScrollView>
 

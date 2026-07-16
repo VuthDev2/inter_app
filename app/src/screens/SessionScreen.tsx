@@ -1,27 +1,8 @@
-/**
- * SessionScreen — real-time streaming interpretation
- *
- * Flow:
- *   1. User taps record → recording starts
- *   2. While recording, audio is transcribed every ~2.5s for live subtitles
- *   3. User taps stop → final transcription + translation
- *   4. Translation displayed + spoken via expo-speech
- *   5. 2-way mode: languages swap after each utterance
- *   6. QR Connect mode: utterances broadcast via Supabase Realtime
- */
+
 import { Ionicons } from "@expo/vector-icons";
-import {
-  useAudioRecorder,
-  RecordingPresets,
-  setAudioModeAsync,
-  requestRecordingPermissionsAsync,
-} from "expo-audio";
-import { File as ExpoFile, Directory, Paths } from "expo-file-system";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Animated,
   Modal,
   Pressable,
@@ -34,10 +15,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { usePreferences } from "../features/preferences/context";
+import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
 import { atoms } from "../theme/atoms";
-import { transcribeAudio as backendTranscribe, translateText } from "../services/api";
 import { languages, type LanguageCode } from "../constants/data";
-import { addAudioRecording, saveLiveSession } from "../services/storage";
+import { saveLiveSession } from "../services/storage";
 
 // ─── BCP-47 locale map ────────────────────────────────────────────────────────
 const LOCALES: Record<string, string> = {
@@ -172,18 +153,6 @@ const pl = StyleSheet.create({
   itemSel: { color: WHITE, fontWeight: "600" },
 });
 
-// ─── Transcription (backend → Gemini, or mock fallback) ─────────────────────
-async function transcribeAudio(fileUri: string, language: string): Promise<string> {
-  // Try the backend server first (proxies to Gemini)
-  const backendResult = await backendTranscribe(fileUri, language);
-  if (backendResult) return backendResult;
-
-  // ── Mock fallback ──
-  await new Promise(resolve => setTimeout(resolve, 800));
-  if (LOCALES[language] === "ja") return "こんにちは！これはテストです。";
-  return "Hello! This is a test transcription.";
-}
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Utterance = {
   id: string;
@@ -206,25 +175,20 @@ export function SessionScreen({
 }) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
-  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const { session_mode: mode, auto_speak: autoSpeak, tts_speed, update: updatePrefs } = usePreferences();
 
   const [src, setSrc] = useState<LanguageCode>(initialSource);
   const [tgt, setTgt] = useState<LanguageCode>(initialTarget);
-  const [recording, setRecording] = useState(false);
-  const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<string>("TAP \u25CF TO SPEAK");
-  // ── Streaming subtitle state ────────────────────────────────────────────────
-  const [partialTranscript, setPartialTranscript] = useState<string>("");
-  const streamingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const [utterances, setUtterances] = useState<Utterance[]>([]);
-  const [displayTrans, setDisplayTrans] = useState<string | null>(null);
+  const live = useLiveInterpretation(src, tgt);
 
   const srcRef = useRef(src); useEffect(() => { srcRef.current = src; }, [src]);
   const tgtRef = useRef(tgt); useEffect(() => { tgtRef.current = tgt; }, [tgt]);
   const modeRef = useRef(mode); useEffect(() => { modeRef.current = mode; }, [mode]);
   const speakRef = useRef(autoSpeak); useEffect(() => { speakRef.current = autoSpeak; }, [autoSpeak]);
+  const speedRef = useRef(tts_speed); useEffect(() => { speedRef.current = tts_speed; }, [tts_speed]);
+  const handledEntryIdRef = useRef<string | null>(null);
 
   const sessionId = useRef(`live-${Date.now()}`);
   const sessionStart = useRef(new Date().toISOString());
@@ -237,194 +201,75 @@ export function SessionScreen({
     }
   }, [utterances.length]);
 
-  // ─── Request mic permission ─────────────────────────────────────────────────
-  const requestPermission = async (): Promise<boolean> => {
-    const { granted } = await requestRecordingPermissionsAsync();
-    if (!granted) {
-      Alert.alert(
-        "Microphone access needed",
-        "Go to Settings → QuickVoice and enable Microphone.",
-      );
-      return false;
-    }
-    return true;
-  };
-
-  // ─── Start recording + streaming subtitles ──────────────────────────────────
-  const startRecording = async () => {
-    const ok = await requestPermission();
-    if (!ok) return;
-
-    try {
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      });
-
-      await audioRecorder.prepareToRecordAsync();
-      audioRecorder.record();
-
-      setRecording(true);
+  useEffect(() => {
+    if (live.error) {
+      setStatus(live.error);
+    } else if (live.isListening) {
       setStatus("LISTENING…");
-      setDisplayTrans(null);
-      setPartialTranscript("");
-
-      // ── Poll for partial transcription every 2.5s ────────────────────────
-      streamingTimer.current = setInterval(async () => {
-        if (!audioRecorder.isRecording) return;
-        const uri = audioRecorder.uri;
-        if (!uri) return;
-        try {
-          const partial = await transcribeAudio(uri, srcRef.current);
-          if (partial) setPartialTranscript(partial);
-        } catch {
-          // ignore streaming errors silently
-        }
-      }, 2500);
-    } catch (e: any) {
-      Alert.alert("Recording failed", e?.message ?? "Could not start microphone.");
-    }
-  };
-
-  // ─── Persist audio file to app sandbox ─────────────────────────────────────
-  const persistAudio = async (sourceUri: string): Promise<string | null> => {
-    try {
-      const audioDir = new Directory(Paths.document, "audio");
-      audioDir.create({ idempotent: true });
-      const name = `recording_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.wav`;
-      const src = new ExpoFile(sourceUri);
-      const dest = new ExpoFile(audioDir, name);
-      await src.copy(dest);
-      return dest.uri;
-    } catch (e) {
-      console.warn("[SessionScreen] Failed to persist audio:", e);
-      return null;
-    }
-  };
-
-  // ─── Stop recording + transcribe + translate ────────────────────────────────
-  const stopAndProcess = async () => {
-    if (!audioRecorder.isRecording) return;
-
-    // Stop the streaming timer
-    if (streamingTimer.current) {
-      clearInterval(streamingTimer.current);
-      streamingTimer.current = null;
-    }
-
-    setRecording(false);
-    setProcessing(true);
-    setStatus("Transcribing…");
-
-    try {
-      await audioRecorder.stop();
-      await setAudioModeAsync({ allowsRecording: false });
-
-      const uri = audioRecorder.uri;
-
-      if (!uri) throw new Error("No audio file produced.");
-
-      const s = srcRef.current;
-      const t = tgtRef.current;
-
-      // 1. Transcribe with Whisper
-      const transcript = await transcribeAudio(uri, s);
-      if (!transcript) {
-        setStatus("No speech detected — try again.");
-        setProcessing(false);
-        return;
-      }
-
-      setStatus("Translating…");
-
-      // 2. Translate
-      const translation = await translateText(transcript, s, t);
-
-      // 3. Save utterance
-      const u: Utterance = {
-        id: `${Date.now()}`,
-        original: transcript,
-        translation,
-        sourceLang: s,
-        targetLang: t,
-        createdAt: new Date().toISOString(),
-      };
-
-      setUtterances((prev) => {
-        const next = [...prev, u];
-        saveLiveSession({
-          id: sessionId.current, sourceLang: s, targetLang: t,
-          mode: modeRef.current, utterances: next,
-          createdAt: sessionStart.current, endedAt: null,
-        }).catch(() => { });
-        return next;
-      });
-
-      // 3.5 Persist audio to app sandbox
-      const audioPath = await persistAudio(uri);
-      if (audioPath) {
-        addAudioRecording({
-          id: `audio-${Date.now()}`,
-          userId: null,
-          filePath: audioPath,
-          mimeType: "audio/wav",
-          durationMs: null,
-          fileSizeBytes: null,
-          recordingId: null,
-          liveSessionId: sessionId.current,
-          createdAt: new Date().toISOString(),
-        }).catch(() => {});
-      }
-
-      setDisplayTrans(translation);
-      fadeAnim.setValue(0);
-      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    } else {
       setStatus("TAP \u25CF TO SPEAK");
-
-      // 4. TTS
-      if (speakRef.current) {
-        Speech.speak(translation, { language: LOCALES[t] ?? "en", rate: tts_speed });
-      }
-
-      // 5. 2-way swap
-      if (modeRef.current === "two-way") {
-        setSrc(t as LanguageCode);
-        setTgt(s as LanguageCode);
-      }
-    } catch (e: any) {
-      const msg = e?.message ?? "Something went wrong.";
-      setDisplayTrans(`[Error: ${msg}]`);
-      setStatus("TAP \u25CF TO SPEAK");
-      Alert.alert("Error", msg);
-    } finally {
-      setProcessing(false);
     }
-  };
+  }, [live.error, live.isListening]);
+
+  useEffect(() => {
+    const latest = live.entries[live.entries.length - 1];
+    if (!latest || handledEntryIdRef.current === latest.id) return;
+    handledEntryIdRef.current = latest.id;
+
+    const s = srcRef.current;
+    const t = tgtRef.current;
+    const utterance: Utterance = {
+      id: latest.id,
+      original: latest.original,
+      translation: latest.translation,
+      sourceLang: s,
+      targetLang: t,
+      createdAt: new Date().toISOString(),
+    };
+
+    setUtterances((prev) => {
+      const next = [...prev, utterance];
+      saveLiveSession({
+        id: sessionId.current, sourceLang: s, targetLang: t,
+        mode: modeRef.current, utterances: next,
+        createdAt: sessionStart.current, endedAt: null,
+      }).catch(() => { });
+      return next;
+    });
+
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+
+    if (speakRef.current && latest.translation) {
+      Speech.speak(latest.translation, { language: LOCALES[t] ?? "en", rate: speedRef.current });
+    }
+
+    if (modeRef.current === "two-way") {
+      setSrc(t as LanguageCode);
+      setTgt(s as LanguageCode);
+    }
+  }, [fadeAnim, live.entries]);
 
   // ─── Toggle record ──────────────────────────────────────────────────────────
   const toggle = () => {
-    if (processing) return;
-    if (recording) {
-      stopAndProcess();
+    if (live.isListening) {
+      live.stop();
     } else {
-      startRecording();
+      live.start();
     }
   };
 
   // ─── Swap languages ─────────────────────────────────────────────────────────
   const swap = () => {
-    if (recording || processing) return;
+    if (live.isListening) return;
     const tmp = srcRef.current;
     setSrc(tgtRef.current);
     setTgt(tmp);
-    setDisplayTrans(null);
   };
 
   // ─── Back ───────────────────────────────────────────────────────────────────
   const handleBack = async () => {
-    if (audioRecorder.isRecording) {
-      try { await audioRecorder.stop(); } catch { /* ignore */ }
-    }
+    if (live.isListening) live.stop();
     if (utterances.length > 0) {
       await saveLiveSession({
         id: sessionId.current, sourceLang: src, targetLang: tgt,
@@ -435,7 +280,7 @@ export function SessionScreen({
     onBack();
   };
 
-  const busy = recording || processing;
+  const busy = live.isListening;
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -491,12 +336,7 @@ export function SessionScreen({
         ))}
 
         {/* Current state */}
-        {processing ? (
-          <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 8, marginTop: 4 }]}>
-            <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>{status}</Text>
-          </View>
-        ) : recording && partialTranscript ? (
+        {live.isListening && (live.interimText || live.liveTranslation) ? (
           /* ── Live streaming subtitle ── */
           <View>
             <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 6, marginBottom: 10 }]}>
@@ -504,8 +344,13 @@ export function SessionScreen({
               <Text style={{ color: "#14b8a6", fontSize: 11, fontWeight: "700", letterSpacing: 1.5 }}>LIVE</Text>
             </View>
             <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 26, fontWeight: "300", letterSpacing: -0.3, lineHeight: 38 }}>
-              {getFlag(src)} {partialTranscript}
+              {getFlag(src)} {live.interimText}
             </Text>
+            {!!live.liveTranslation && (
+              <Text style={{ color: WHITE, fontSize: 30, fontWeight: "300", letterSpacing: -0.4, lineHeight: 44, marginTop: 12 }}>
+                {live.liveTranslation}
+              </Text>
+            )}
           </View>
         ) : utterances.length > 0 ? (
           <Animated.View style={{ opacity: fadeAnim }}>
@@ -517,13 +362,13 @@ export function SessionScreen({
             </Text>
           </Animated.View>
         ) : (
-          <Text style={[{ color: FAINT, fontSize: 12, fontWeight: "600", letterSpacing: 2 }, recording && { color: "#14b8a6" }]}>
+          <Text style={[{ color: FAINT, fontSize: 12, fontWeight: "600", letterSpacing: 2 }, live.isListening && { color: "#14b8a6" }]}>
             {status}
           </Text>
         )}
 
         {/* Original below latest translation */}
-        {!processing && !recording && utterances.length > 0 && (
+        {!live.isListening && utterances.length > 0 && (
           <Text style={{ color: "rgba(255,255,255,0.22)", fontSize: 14, marginTop: 12 }}>
             {getFlag(utterances[utterances.length - 1].sourceLang)}{" "}
             {utterances[utterances.length - 1].original}
@@ -534,32 +379,28 @@ export function SessionScreen({
       {/* ── Waveform + record button ── */}
       <View style={[atoms.itemsCenter, atoms.justifyCenter, { height: WAVE_H + 20, marginBottom: 4 }]}>
         <View style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}>
-          <Waveform active={recording} />
+          <Waveform active={live.isListening} />
         </View>
         <Pressable
           onPress={toggle}
-          disabled={processing}
           style={({ pressed }) => ({
             alignItems: "center",
-            backgroundColor: processing ? INDIGO : recording ? "#c53030" : RED,
+            backgroundColor: live.isListening ? "#c53030" : RED,
             borderRadius: 99,
             elevation: 10,
             height: 62,
             justifyContent: "center",
-            opacity: processing ? 0.8 : 1,
             shadowColor: RED,
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.6,
             shadowRadius: 18,
             width: 62,
-            transform: pressed && !processing ? [{ scale: 0.91 }] : recording ? [{ scale: 1.08 }] : [],
+            transform: pressed ? [{ scale: 0.91 }] : live.isListening ? [{ scale: 1.08 }] : [],
           })}
           accessibilityRole="button"
-          accessibilityLabel={recording ? "Stop recording" : "Start recording"}
+          accessibilityLabel={live.isListening ? "Stop listening" : "Start listening"}
         >
-          {processing ? (
-            <ActivityIndicator size="small" color={WHITE} />
-          ) : recording ? (
+          {live.isListening ? (
             <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 5 }]}>
               <View style={{ backgroundColor: WHITE, borderRadius: 3, height: 20, width: 4 }} />
               <View style={{ backgroundColor: WHITE, borderRadius: 3, height: 20, width: 4 }} />
@@ -574,7 +415,7 @@ export function SessionScreen({
       <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <LangPill
           value={src}
-          onChange={(v) => { if (!busy) { setSrc(v); setDisplayTrans(null); } }}
+          onChange={(v) => { if (!busy) setSrc(v); }}
           disabled={busy}
           showDot
         />
@@ -588,7 +429,7 @@ export function SessionScreen({
         </Pressable>
         <LangPill
           value={tgt}
-          onChange={(v) => { if (!busy) { setTgt(v); setDisplayTrans(null); } }}
+          onChange={(v) => { if (!busy) setTgt(v); }}
           disabled={busy}
         />
         <Pressable

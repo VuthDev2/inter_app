@@ -93,13 +93,13 @@ export function LiveScreen() {
           </View>
         </View>
 
-        <View style={{ backgroundColor: colors.border, height: 1, marginHorizontal: -spacing.lg }} />
+        <View style={{ backgroundColor: "white", height: 10, marginHorizontal: -spacing.lg }} />
 
         {/* Your Language */}
         <View style={{ gap: 7 }}>
           <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>Your Language</Text>
           <Pressable
-            style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 14, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: 13 }]}
+            style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 14, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: 15 }]}
             onPress={() => setPickerOpen("source")}
             accessibilityRole="button"
             accessibilityLabel={`Your language: ${sourceLang}`}
@@ -109,11 +109,13 @@ export function LiveScreen() {
           </Pressable>
         </View>
 
+        <View style={{ height: 10 }} />
+
         {/* Their Language */}
         <View style={{ gap: 7 }}>
           <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>Their Language</Text>
           <Pressable
-            style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 14, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: 13 }]}
+            style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 14, minHeight: 50, paddingHorizontal: spacing.md, paddingVertical: 15 }]}
             onPress={() => setPickerOpen("target")}
             accessibilityRole="button"
             accessibilityLabel={`Their language: ${targetLang}`}
@@ -121,6 +123,11 @@ export function LiveScreen() {
             <Text style={{ color: colors.text, fontSize: 15 }}>{targetLang}</Text>
             <Ionicons name="chevron-down" size={18} color={colors.muted} />
           </Pressable>
+        </View>
+
+
+        <View style={{ height: 7 }}>
+          <Text>{ }</Text>
         </View>
 
         {/* Start Interpret */}
@@ -133,6 +140,7 @@ export function LiveScreen() {
           onPress={() => setSessionActive(true)}
           disabled={source === target}
           accessibilityRole="button"
+
         >
           <Ionicons name="mic-outline" size={20} color="#fff" />
           <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700", letterSpacing: 0.1 }}>Start Interpret</Text>

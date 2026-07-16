@@ -1,32 +1,6 @@
-/**
- * RecordScreen — mirrors web /Record (template picker) + /record/$type (recording session)
- *
- * Flow:
- *  RecordScreen (template picker grid)
- *    → tap a card → RecordingSessionScreen (dark recording panel + settings sidebar)
- *
- * Web template picker design:
- *  - eyebrow "Recording templates", h1 "Record", muted description
- *  - Grid sm:grid-cols-2 lg:grid-cols-3 of cards (min-h-40, rounded-lg border bg-card p-5)
- *    - Icon box h-11 w-11 bg-secondary, hover → bg-primary
- *    - Template title font-display text-xl font-semibold
- *    - Description text-sm muted
- *    - "Use template →" text-sm font-medium text-primary
- *
- * Web recording session design:
- *  - Back link "← Templates"
- *  - Header: icon + template title + timer pill
- *  - Dark panel (bg-[#0d1020]) with:
- *    - "Recording Session" heading, audio badge
- *    - Transcript text area (large, muted when idle)
- *    - Waveform (animated bars)
- *    - Big 80px record button (blue idle → red+glow recording)
- *    - Stop + Save buttons
- *  - Settings aside: Source Audio + Speaker Labels toggles
- *  - Metadata card: type, template, saved status
- */
+
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -41,10 +15,15 @@ import { recordingTemplates } from "../constants/data";
 import type { RecordingTemplate } from "../constants/data";
 import { saveRecordingSession } from "../services/storage";
 import { colors, spacing } from "../theme/theme";
+import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
+import { usePreferences } from "../features/preferences/context";
+
+type ViewMode = "grid" | "list";
 
 // ─── Template Picker ──────────────────────────────────────────────────────────
 export function RecordScreen() {
   const [activeTemplate, setActiveTemplate] = useState<RecordingTemplate | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   if (activeTemplate) {
     return (
@@ -62,7 +41,7 @@ export function RecordScreen() {
         <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", letterSpacing: 0.2 }}>Recording templates</Text>
         <Text style={{ color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5, lineHeight: 36 }}>Record</Text>
         <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 2 }}>
-          Start with a template so each session keeps the right title, metadata, and transcript behaviour.
+          Record the
         </Text>
       </View>
 
@@ -76,15 +55,28 @@ export function RecordScreen() {
         <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>Start Recording</Text>
       </Pressable>
 
-      {/* Template grid — 2-column on mobile */}
-      <View style={[atoms.flexRow, atoms.flexWrap, atoms.gapMd]}>
-        {recordingTemplates.map((template) => (
-          <TemplateCard
-            key={template.id}
-            template={template}
-            onPress={() => setActiveTemplate(template)}
-          />
-        ))}
+      {/* Template grid / list */}
+      <View style={{ gap: spacing.sm }}>
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween]}>
+          <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "600", letterSpacing: 0.5, textTransform: "uppercase" }}>Templates</Text>
+          <Pressable
+            onPress={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
+            style={[atoms.flexRow, atoms.itemsCenter, { backgroundColor: colors.secondary, borderRadius: 6, gap: 5, paddingHorizontal: 10, paddingVertical: 6 }]}
+          >
+            <Ionicons name={viewMode === "grid" ? "list-outline" : "grid-outline"} size={14} color={colors.muted} />
+            <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "500" }}>{viewMode === "grid" ? "List" : "Grid"}</Text>
+          </Pressable>
+        </View>
+        <View style={viewMode === "grid" ? [atoms.flexRow, atoms.flexWrap, atoms.gapMd] : { gap: 8 }}>
+          {recordingTemplates.map((template) => (
+            <TemplateCard
+              key={template.id}
+              template={template}
+              viewMode={viewMode}
+              onPress={() => setActiveTemplate(template)}
+            />
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -93,12 +85,39 @@ export function RecordScreen() {
 // ─── Template Card ────────────────────────────────────────────────────────────
 function TemplateCard({
   template,
+  viewMode,
   onPress,
 }: {
   template: RecordingTemplate;
+  viewMode: ViewMode;
   onPress: () => void;
 }) {
   const [pressed, setPressed] = useState(false);
+
+  if (viewMode === "list") {
+    return (
+      <Pressable
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        onPress={onPress}
+        accessibilityRole="button"
+        style={[atoms.flexRow, atoms.itemsCenter, {
+          backgroundColor: colors.surface, borderColor: pressed ? colors.primary + "80" : colors.border,
+          borderRadius: 10, borderWidth: 1,
+          gap: 12, padding: spacing.md,
+        }, pressed && { backgroundColor: colors.secondary }]}
+      >
+        <View style={[{ alignItems: "center", backgroundColor: colors.secondary, borderRadius: 6, height: 36, justifyContent: "center", width: 36 }, pressed && { backgroundColor: colors.primary }]}>
+          <Ionicons name={template.icon as any} size={18} color={pressed ? "#fff" : colors.muted} />
+        </View>
+        <View style={{ flex: 1, gap: 1 }}>
+          <Text style={{ color: colors.text, fontSize: 15, fontWeight: "600" }}>{template.title}</Text>
+          <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 16 }} numberOfLines={1}>{template.description}</Text>
+        </View>
+        <Ionicons name="arrow-forward" size={14} color={colors.muted} />
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -137,21 +156,21 @@ function RecordingSessionScreen({
   template: RecordingTemplate;
   onBack: () => void;
 }) {
-  const [isRecording, setIsRecording] = useState(false);
+  const { preferred_source_lang, preferred_target_lang } = usePreferences();
+  const interp = useLiveInterpretation(preferred_source_lang, preferred_target_lang);
   const [sourceAudio, setSourceAudio] = useState(template.sourceAudio);
   const [speakerLabels, setSpeakerLabels] = useState(template.speakerLabels);
-  const [elapsed, setElapsed] = useState(0); // seconds
+  const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Timer
   useEffect(() => {
-    if (isRecording) {
+    if (interp.isListening) {
       timerRef.current = setInterval(() => setElapsed((t) => t + 1), 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [isRecording]);
+  }, [interp.isListening]);
 
   const formatTime = (secs: number) => {
     const m = String(Math.floor(secs / 60)).padStart(2, "0");
@@ -160,15 +179,14 @@ function RecordingSessionScreen({
   };
 
   const handleSave = async () => {
-    setIsRecording(false);
+    interp.stop();
+    const transcriptText = interp.entries.map((e) => `${e.original} → ${e.translation}`).join("\n");
     const session = {
       id: `${template.id}-${Date.now()}`,
       recordingType: template.id,
       title: `${template.title} Recording`,
       description: template.description,
-      transcript: isRecording
-        ? "Recording stopped and transcript draft saved."
-        : template.starterPrompt,
+      transcript: transcriptText || "No transcript captured.",
       sourceAudio,
       status: "saved" as const,
       createdAt: new Date().toISOString(),
@@ -179,16 +197,19 @@ function RecordingSessionScreen({
     ]);
   };
 
-  const starterPrompts: Record<string, string> = {
-    presentation: "Capture a polished transcript for a talk, demo, or keynote.",
-    meeting:      "Track decisions, action items, and business discussion.",
-    conference:   "Record a long-form event with multiple speakers.",
-    lecture:      "Capture course material, examples, and study notes.",
-    interview:    "Separate questions, answers, and follow-up points.",
-    podcast:      "Prepare a clean transcript for show notes and editing.",
-    "voice-note": "Save a quick idea, reminder, or personal note.",
-  };
-  const prompt = starterPrompts[template.id] ?? template.description;
+  const handleStop = useCallback(() => {
+    interp.stop();
+    setElapsed(0);
+  }, [interp]);
+
+  const toggleMic = useCallback(() => {
+    if (interp.isListening) {
+      interp.stop();
+    } else {
+      setElapsed(0);
+      interp.start();
+    }
+  }, [interp]);
 
   return (
     <ScrollView
@@ -204,58 +225,93 @@ function RecordingSessionScreen({
 
       <View style={[atoms.flexRow, atoms.itemsStart, atoms.gapMd, atoms.justifyBetween]}>
         <View style={[atoms.flexRow, atoms.itemsCenter, atoms.gapMd]}>
-          <View style={{ alignItems: "center", backgroundColor: colors.secondary, borderRadius: 8, height: 48, justifyContent: "center", width: 48 }}>
-            <Ionicons name={template.icon as any} size={24} color={colors.muted} />
+          <View style={{ alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 8, height: 48, justifyContent: "center", width: 48 }}>
+            <Ionicons name={template.icon as any} size={24} color={colors.primary} />
           </View>
           <View>
-            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "500" }}>Recording template</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: "700", letterSpacing: -0.4 }}>{template.title}</Text>
+            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "500" }}>{preferred_source_lang.toUpperCase()} → {preferred_target_lang.toUpperCase()}</Text>
+            <Text style={{ color: colors.text, fontSize: 24, fontWeight: "700", letterSpacing: -0.4 }}>Live Interpretation</Text>
           </View>
         </View>
-        {/* Timer pill */}
         <View style={[atoms.flexRow, atoms.itemsCenter, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 99, gap: 5, paddingHorizontal: 10, paddingVertical: 6 }]}>
-          <Ionicons name="time-outline" size={14} color={colors.primary} />
-          <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{isRecording ? "Recording" : "Ready"}</Text>
+          <View style={{ backgroundColor: interp.isListening ? colors.red : colors.primary, borderRadius: 99, height: 7, width: 7 }} />
+          <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{interp.isListening ? "Listening" : "Ready"}</Text>
           <Text style={{ color: colors.muted, fontSize: 12 }}>{formatTime(elapsed)}</Text>
         </View>
       </View>
 
-      <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: -4 }}>{prompt}</Text>
+      {interp.error && (
+        <View style={{ backgroundColor: "rgba(192,57,43,0.12)", borderRadius: 10, padding: spacing.md }}>
+          <Text style={{ color: colors.red, fontSize: 13, lineHeight: 18 }}>{interp.error}</Text>
+        </View>
+      )}
 
-      {/* ── Dark recording panel ── */}
-      <View style={{ backgroundColor: "#0d1020", borderRadius: 22, gap: spacing.lg, overflow: "hidden", padding: spacing.lg }}>
-        {/* Dark panel header */}
+      {/* ── Dark interpretation panel ── */}
+      <View style={{ backgroundColor: "#0d1020", borderRadius: 22, gap: spacing.md, overflow: "hidden", padding: spacing.lg }}>
+        {/* Panel header */}
         <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { borderBottomColor: "rgba(255,255,255,0.1)", borderBottomWidth: 1, marginHorizontal: -spacing.lg, marginTop: -spacing.lg, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md }]}>
           <View>
             <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "700", letterSpacing: 1.4, textTransform: "uppercase" }}>{template.title.toUpperCase()}</Text>
-            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700", letterSpacing: -0.3, marginTop: 2 }}>Recording Session</Text>
+            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", letterSpacing: -0.3, marginTop: 1 }}>
+              {interp.isListening ? "Listening…" : "Interpretation"}
+            </Text>
           </View>
-          <View style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "500" }}>{sourceAudio ? "Audio on" : "Audio off"}</Text>
+          <View style={{ backgroundColor: "rgba(75,113,196,0.15)", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 }}>
+            <Text style={{ color: "#6b93d6", fontSize: 11, fontWeight: "600" }}>
+              {preferred_source_lang.toUpperCase()} → {preferred_target_lang.toUpperCase()}
+            </Text>
           </View>
         </View>
 
-        {/* Transcript area */}
-        <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.1)", borderRadius: 14, borderWidth: 1, gap: spacing.lg, minHeight: 140, padding: spacing.md }}>
-          <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, fontWeight: "500" }}>
-            {isRecording ? "Listening…" : "Press record when you are ready"}
-          </Text>
-          <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 18, fontWeight: "400", lineHeight: 28 }}>
-            {isRecording ? "Your transcript will appear here as the recording is captured." : prompt}
-          </Text>
+        {/* Transcript entries */}
+        <View style={{ backgroundColor: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 14, borderWidth: 1, minHeight: 140, padding: spacing.md }}>
+          {interp.entries.length === 0 && !interp.interimText ? (
+            <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: "500" }}>
+              {interp.isListening ? "Listening for speech…" : "Tap the mic to start live interpretation"}
+            </Text>
+          ) : (
+            <View style={{ gap: 2 }}>
+              {interp.entries.map((entry) => (
+                <View key={entry.id} style={{ gap: 3, paddingVertical: 5 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 16, lineHeight: 23 }}>{entry.original}</Text>
+                  <Text style={{ color: "#6b93d6", fontSize: 16, lineHeight: 23, fontWeight: "500" }}>{entry.translation}</Text>
+                  <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)", marginTop: 4 }} />
+                </View>
+              ))}
+              {interp.interimText ? (
+                <View style={{ gap: 3, paddingVertical: 5 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, lineHeight: 23, fontStyle: "italic" }}>{interp.interimText}</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
         </View>
 
-        {/* Waveform */}
-        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { gap: 4, height: 64, paddingHorizontal: spacing.md }]}>
-          {[22, 42, 30, 58, 36, 68, 44, 72, 40, 62, 32, 50, 26, 46, 34, 56, 28, 40].map((h, i) => (
-            <View key={i} style={{ backgroundColor: "rgba(255,255,255,0.55)", borderRadius: 99, width: 5, height: isRecording ? h : Math.max(4, h * 0.28), opacity: isRecording ? 0.85 : 0.28 }} />
-          ))}
+        {/* Waveform — driven by volume */}
+        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { gap: 4, height: 56, paddingHorizontal: spacing.md }]}>
+          {Array.from({ length: 20 }, (_, i) => {
+            const baseHeights = [18, 32, 24, 44, 28, 52, 34, 56, 32, 48, 26, 40, 22, 38, 28, 44, 22, 36, 20, 30];
+            const base = baseHeights[i % baseHeights.length];
+            const vol = interp.isListening ? Math.max(0.3, Math.min(1, (interp.volume + 2) / 10)) : 0.2;
+            const h = interp.isListening ? base * (0.5 + vol * 0.5) : base * 0.2;
+            return (
+              <View
+                key={i}
+                style={{
+                  backgroundColor: interp.isListening ? "#4B71C4" : "rgba(255,255,255,0.2)",
+                  borderRadius: 99, width: 4,
+                  height: Math.max(3, h),
+                  opacity: interp.isListening ? 0.6 + vol * 0.4 : 0.2,
+                }}
+              />
+            );
+          })}
         </View>
 
-        {/* Record button */}
+        {/* Mic button */}
         <View style={[atoms.itemsCenter, atoms.justifyCenter]}>
           <Pressable
-            onPress={() => setIsRecording((v) => !v)}
+            onPress={toggleMic}
             style={({ pressed }) => ({
               alignItems: "center",
               borderRadius: 99,
@@ -265,22 +321,22 @@ function RecordingSessionScreen({
               shadowOffset: { width: 0, height: 0 },
               shadowRadius: 20,
               elevation: 8,
-              backgroundColor: isRecording ? "#c0392b" : colors.primary,
-              shadowColor: isRecording ? "#c0392b" : colors.primary,
-              shadowOpacity: isRecording ? 0.55 : 0.45,
-              transform: pressed ? [{ scale: 0.93 }] : [],
+              backgroundColor: interp.isListening ? "#e53e3e" : colors.primary,
+              shadowColor: interp.isListening ? "#e53e3e" : colors.primary,
+              shadowOpacity: interp.isListening ? 0.5 : 0.4,
+              transform: pressed ? [{ scale: 0.93 }] : interp.isListening ? [{ scale: 1.06 }] : [],
             })}
             accessibilityRole="button"
-            accessibilityLabel={isRecording ? "Pause recording" : "Start recording"}
+            accessibilityLabel={interp.isListening ? "Stop listening" : "Start listening"}
           >
-            <Ionicons name={isRecording ? "pause" : "mic-outline"} size={32} color="#fff" />
+            <Ionicons name={interp.isListening ? "mic" : "mic-outline"} size={32} color="#fff" />
           </Pressable>
         </View>
 
         {/* Stop + Save */}
         <View style={[atoms.flexRow, atoms.justifyCenter, atoms.gapMd]}>
           <Pressable
-            onPress={() => { setIsRecording(false); setElapsed(0); }}
+            onPress={handleStop}
             style={[atoms.flexRow, atoms.itemsCenter, { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 8, gap: 6, paddingHorizontal: 20, paddingVertical: 10 }]}
             accessibilityRole="button"
           >
@@ -325,7 +381,7 @@ function RecordingSessionScreen({
       <View style={atoms.card}>
         <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.2 }}>Session Metadata</Text>
         <View style={{ gap: 2 }}>
-          {[{ label: "Route type", value: template.id }, { label: "Template", value: template.title }, { label: "Saved with type", value: "Yes" }].map((r) => (
+          {[{ label: "Template", value: template.title }, { label: "Direction", value: `${preferred_source_lang.toUpperCase()} → ${preferred_target_lang.toUpperCase()}` }, { label: "Entries", value: String(interp.entries.length) }].map((r) => (
             <View key={r.label} style={[atoms.flexRow, atoms.justifyBetween, { borderTopColor: colors.border, borderTopWidth: 1, paddingVertical: 10 }]}>
               <Text style={{ color: colors.muted, fontSize: 13 }}>{r.label}</Text>
               <Text style={{ color: colors.text, fontSize: 13, fontWeight: "500" }}>{r.value}</Text>

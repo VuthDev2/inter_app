@@ -1,10 +1,9 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AppState, Pressable, Text, View } from "react-native";
 
 import { atoms } from "../theme/atoms";
-import { Chip, Panel, PrimaryButton, ScreenHeader, uiStyles } from "../components/ui";
+import { Chip, Panel, ScreenHeader, uiStyles } from "../components/ui";
 import {
   recordingTemplates,
   type RecordingTemplateId,
@@ -13,7 +12,6 @@ import {
 import {
   loadSavedRecordingSessions,
   loadLiveSessions,
-  saveRecordingSession,
   type LiveSession,
 } from "../services/storage";
 import { supabase } from "../services/supabase";
@@ -134,21 +132,6 @@ export function HistoryScreen() {
 
   const audioCount = recordings.filter((r) => r.sourceAudio).length;
 
-  const addSampleRecording = async () => {
-    const t = recordingTemplates[0];
-    await saveRecordingSession({
-      id: `${t.id}-${Date.now()}`,
-      recordingType: t.id,
-      title: "Mobile interpretation note",
-      description: t.description,
-      transcript: "Sample mobile transcript saved from React Native.",
-      sourceAudio: t.sourceAudio,
-      status: "saved",
-      createdAt: new Date().toISOString(),
-    });
-    await load();
-  };
-
   return (
     <View style={atoms.gapLg}>
       <ScreenHeader
@@ -201,9 +184,6 @@ export function HistoryScreen() {
           <View style={[atoms.itemsCenter, atoms.gapMd, { paddingVertical: spacing.lg }]}>
             <Ionicons name="document-text-outline" color={colors.muted} size={28} style={{ opacity: 0.45 }} />
             <Text style={{ color: colors.muted, fontSize: 14 }}>No recording sessions yet.</Text>
-            <PrimaryButton icon="add-circle-outline" onPress={addSampleRecording}>
-              Add Sample Recording
-            </PrimaryButton>
           </View>
         ) : (
           visibleRecordings.map((r) => {

@@ -1,16 +1,3 @@
-/**
- * ProfileScreen — mirrors web /profile page
- *
- * Web design:
- *  - glass-card with gradient header (from-primary/15 via-background to-background)
- *  - Avatar: h-16 w-16 rounded-2xl bg-primary text-white initials, shadow
- *  - Heading: "Make the experience feel like yours"
- *  - "Account ready" info panel (rounded-2xl border bg-background/70)
- *  - Form: Display name Input + Preferred language Select + Save button
- *  - Right panel: "Your profile preview" — email row + dashed preview box
- *
- * Mobile adaptation: single-column, profile header card at top
- */
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Text, View } from "react-native";
 

@@ -1,5 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { supabase } from "../../services/supabase";
 
@@ -11,14 +11,24 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, displayName: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  sendOTP: (email: string) => Promise<{ error?: string }>;
+  verifyOTP: (_email: string, token: string) => Promise<{ error?: string }>;
+  updatePassword: (password: string) => Promise<{ error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function apiBase(): string {
+  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (configured) return configured.replace(/\/$/, "");
+  return "http://localhost:8000";
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const authReady = Boolean(supabase);
+  const pendingOTP = useRef<{ otp: string; expiresAt: number } | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -53,17 +63,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signUp: async (email, password, displayName) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { display_name: displayName || email.split("@")[0] },
-          },
-        });
-        return error ? { error: error.message } : {};
+        try {
+          const res = await fetch(`${apiBase()}/api/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, displayName }),
+          });
+          if (res.ok) {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            return error ? { error: error.message } : {};
+          }
+          const data = await res.json();
+          return { error: data.error || "Failed to create account." };
+        } catch {
+          // Backend unreachable — fall back to Supabase signUp directly
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { display_name: displayName || email.split("@")[0] },
+            },
+          });
+          return error ? { error: error.message } : {};
+        }
       },
       signOut: async () => {
         await supabase?.auth.signOut();
+      },
+      sendOTP: async (email) => {
+        try {
+          const res = await fetch(`${apiBase()}/api/send-otp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (!data.ok) {
+            return { error: data.error || "Failed to send code." };
+          }
+          pendingOTP.current = { otp: data.otp, expiresAt: Date.now() + 10 * 60 * 1000 };
+          return {};
+        } catch {
+          return { error: "Could not reach server. Check your connection." };
+        }
+      },
+      verifyOTP: async (_email, token) => {
+        const stored = pendingOTP.current;
+        if (!stored || Date.now() > stored.expiresAt) {
+          pendingOTP.current = null;
+          return { error: "Code expired. Request a new one." };
+        }
+        if (stored.otp !== token) {
+          return { error: "Incorrect code. Try again." };
+        }
+        pendingOTP.current = null;
+        return {};
+      },
+      updatePassword: async (password) => {
+        if (!supabase) return { error: "Supabase mobile environment is not configured." };
+        const { error } = await supabase.auth.updateUser({ password });
+        return error ? { error: error.message } : {};
       },
     }),
     [authReady, initialized, session],

@@ -51,7 +51,7 @@ export const recordingTemplates: RecordingTemplate[] = [
     title: "Presentation",
     description: "Speeches and presentations",
     icon: "easel-outline",
-    starterPrompt: "Capture a polished transcript for a talk, demo, or keynote.",
+    starterPrompt: "Capture a polished transcript for a talk, product walkthrough, or keynote.",
     sourceAudio: true,
     speakerLabels: false,
   },
@@ -109,10 +109,4 @@ export const recordingTemplates: RecordingTemplate[] = [
     sourceAudio: false,
     speakerLabels: false,
   },
-];
-
-export const recentSessions = [
-  { title: "English to Japanese standup", type: "Live", time: "Today, 09:40", minutes: 8 },
-  { title: "Lecture interpretation draft", type: "Speech", time: "Yesterday", minutes: 42 },
-  { title: "Conference Q&A", type: "Speech", time: "Monday", minutes: 26 },
 ];

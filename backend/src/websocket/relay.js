@@ -1,4 +1,5 @@
 import { WebSocketServer } from "ws";
+import { handleLiveConnection } from "./live.js";
 
 class ConnectionManager {
   constructor() {
@@ -39,6 +40,14 @@ export function setupWebSocket(server) {
 
   wss.on("connection", (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
+
+    // Route live interpretation connections
+    if (url.pathname === "/ws/live") {
+      handleLiveConnection(ws);
+      return;
+    }
+
+    // Legacy room-based relay
     const room = url.pathname.replace("/ws/", "");
 
     if (!room) {

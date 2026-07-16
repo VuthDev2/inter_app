@@ -126,9 +126,9 @@ export function DashboardScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => 
       </Panel>
 
       <View style={[atoms.flexRow, atoms.flexWrap, atoms.gapMd]}>
-        <MetricCard icon="analytics-outline"    label="Usage this week"   value={`${savedCount * 12} min`} />
+        <MetricCard icon="analytics-outline"    label="Saved sessions"    value={String(savedCount)} />
         <MetricCard icon="book-outline"          label="Saved transcripts" value={String(savedCount)}     />
-        <MetricCard icon="phone-portrait-outline" label="Connected devices" value="2 active" />
+        <MetricCard icon="phone-portrait-outline" label="Connected devices" value="This device" />
         <View style={[{ backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexBasis: "100%", flexGrow: 1, gap: spacing.md, padding: spacing.md, shadowColor: colors.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 }, atoms.flexRow, atoms.itemsCenter]}>
           <View style={{ alignItems: "center", backgroundColor: colors.secondary, borderRadius: 8, height: 36, justifyContent: "center", width: 36 }}>
             <Ionicons name="server-outline" color={colors.muted} size={18} />
