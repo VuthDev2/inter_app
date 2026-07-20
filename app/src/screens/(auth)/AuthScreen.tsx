@@ -2,17 +2,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AuthLogo } from "../../components/AuthLogo";
+import { FormField } from "../../components/FormField";
+import { PasswordField } from "../../components/PasswordField";
+import { SocialButton } from "../../components/SocialButton";
 import { useAuth } from "../../features/auth/auth";
 import { useTypewriter } from "../../hooks/useTypewriter";
 import { atoms } from "../../theme/atoms";
@@ -22,7 +24,6 @@ const TEXT = "#161B2E";
 const MUTED = "#7B8299";
 const BORDER = "#DDE1EF";
 const BG = "#FFFFFF";
-const INPUT_BG = "#F7F8FB";
 const COOLDOWN = 30;
 
 export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void }) {
@@ -31,7 +32,6 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
@@ -89,32 +89,12 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Logo ── */}
-          <View style={{ alignItems: "center", marginBottom: 32 }}>
-            <View style={{
-              alignItems: "center", backgroundColor: PRIMARY, borderRadius: 24,
-              height: 64, justifyContent: "center", marginBottom: 14, width: 64,
-              shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
-            }}>
-              <Image
-                source={require("../../../assets/logo.png")}
-                style={{ height: 50, width: 50 }}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={{ color: TEXT, fontSize: 26, fontWeight: "700", letterSpacing: -0.5 }}>QuickVoice</Text>
-            <Text style={{ color: MUTED, fontSize: 14, lineHeight: 20, marginTop: 4, textAlign: "center" }}>
-              Real-time AI interpretation
-            </Text>
-          </View>
+          <AuthLogo />
 
-          {/* ── Heading ── */}
           <Text style={{ color: TEXT, fontSize: 26, fontWeight: "600", letterSpacing: -0.8, marginBottom: 28 }}>
             {displayed}<Text style={{ color: PRIMARY }}>|</Text>
           </Text>
 
-          {/* ── Auth warning ── */}
           {!authReady && (
             <View style={{
               backgroundColor: "#FEF3C7", borderRadius: 12, flexDirection: "row",
@@ -127,65 +107,27 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
             </View>
           )}
 
-          {/* ── Display name (sign up only) ── */}
           {mode === "signup" && (
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: TEXT, fontSize: 13, fontWeight: "600", letterSpacing: 0.2, marginBottom: 7 }}>
-                Display name
-              </Text>
-              <TextInput
-                autoCapitalize="words"
-                onChangeText={setDisplayName}
-                placeholder="Your name"
-                placeholderTextColor={MUTED}
-                style={inputStyle}
-                value={displayName}
-              />
-            </View>
+            <FormField
+              autoCapitalize="words"
+              label="Display name"
+              placeholder="Your name"
+              value={displayName}
+              onChangeText={setDisplayName}
+            />
           )}
 
-          {/* ── Email ── */}
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ color: TEXT, fontSize: 13, fontWeight: "600", letterSpacing: 0.2, marginBottom: 7 }}>
-              Email address
-            </Text>
-            <TextInput
-              autoCapitalize="none"
-              keyboardType="email-address"
-              onChangeText={setEmail}
-              placeholder="yourname@gmail.com"
-              placeholderTextColor={MUTED}
-              style={inputStyle}
-              value={email}
-            />
-          </View>
+          <FormField
+            autoCapitalize="none"
+            keyboardType="email-address"
+            label="Email address"
+            placeholder="yourname@gmail.com"
+            value={email}
+            onChangeText={setEmail}
+          />
 
-          {/* ── Password ── */}
-          <View style={{ marginBottom: 8 }}>
-            <Text style={{ color: TEXT, fontSize: 13, fontWeight: "600", letterSpacing: 0.2, marginBottom: 7 }}>
-              Password
-            </Text>
-            <View style={[inputStyle, atoms.flexRow, atoms.itemsCenter]}>
-              <TextInput
-                autoCapitalize="none"
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                placeholderTextColor={MUTED}
-                secureTextEntry={!showPassword}
-                style={{ flex: 1, color: TEXT, fontSize: 15, paddingVertical: 0 }}
-                value={password}
-              />
-              <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
-                  color={MUTED}
-                />
-              </Pressable>
-            </View>
-          </View>
+          <PasswordField label="Password" value={password} onChangeText={setPassword} />
 
-          {/* ── Forgot Password ── */}
           {mode === "signin" && (
             <View style={{ alignItems: "flex-end", marginBottom: 28 }}>
               <Pressable onPress={onForgotPassword ?? (() => Alert.alert("Reset", "Password reset coming soon."))}>
@@ -196,7 +138,6 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
 
           {mode === "signup" && <View style={{ marginBottom: 28 }} />}
 
-          {/* ── Primary button ── */}
           <Pressable
             disabled={!canSubmit}
             onPress={submit}
@@ -218,25 +159,16 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
             </Text>
           </Pressable>
 
-          {/* ── Divider ── */}
           <View style={{ alignItems: "center", flexDirection: "row", gap: 12, marginVertical: 24 }}>
             <View style={{ backgroundColor: BORDER, flex: 1, height: 1 }} />
             <Text style={{ color: MUTED, fontSize: 13, fontWeight: "500" }}>Continue with</Text>
             <View style={{ backgroundColor: BORDER, flex: 1, height: 1 }} />
           </View>
 
-          {/* ── Social buttons ── */}
           <View style={{ flexDirection: "row", gap: 12 }}>
-            <Pressable
-              onPress={() => Alert.alert("Google sign-in", "OAuth requires a web browser redirect.")}
-              style={({ pressed }) => [socialBtn, pressed && { backgroundColor: "#EEE" }]}
-            >           
-              <Image source={require("../../../assets/google.png")} style={{ height: 19, width: 19 }} resizeMode="contain" />
-              <Text style={{ color: TEXT, fontSize: 14, fontWeight: "600" }}>Continue with Google</Text>
-            </Pressable>
+            <SocialButton onPress={() => Alert.alert("Google sign-in", "OAuth requires a web browser redirect.")} />
           </View>
 
-          {/* ── Bottom prompt ── */}
           <View style={{ alignItems: "center", paddingTop: 20 }}>
             <Text style={{ color: "#989898", fontSize: 15, fontWeight: "500" }}>
               {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
@@ -253,32 +185,3 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const inputStyle = {
-  backgroundColor: INPUT_BG,
-  borderColor: BORDER,
-  borderRadius: 14,
-  borderWidth: 1,
-  color: TEXT,
-  fontSize: 15,
-  minHeight: 50,
-  paddingHorizontal: 16,
-  paddingVertical: 14,
-} as const;
-
-const socialBtn = {
-  alignItems: "center" as const,
-  backgroundColor: INPUT_BG,
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: BORDER,
-  flex: 1,
-  flexDirection: "row" as const,
-  gap: 8,
-  justifyContent: "center" as const,
-  minHeight: 48,
-  paddingHorizontal: 12,
-  paddingVertical: 12,
-};

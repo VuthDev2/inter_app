@@ -33,6 +33,28 @@ export type RecordingTemplate = {
   speakerLabels: boolean;
 };
 
+// ─── Language helpers ───────────────────────────────────────────────────────
+export const LOCALES: Record<string, string> = {
+  en: "en", ja: "ja", es: "es", fr: "fr",
+  de: "de", zh: "zh", ko: "ko", kh: "km",
+};
+
+const FLAGS: Record<string, string> = {
+  en: "🇺🇸", ja: "🇯🇵", es: "🇪🇸", fr: "🇫🇷",
+  de: "🇩🇪", zh: "🇨🇳", ko: "🇰🇷", kh: "🇰🇭",
+};
+export const getFlag = (c: string) => FLAGS[c] ?? "🌐";
+export const getLabel = (c: string) => languages.find((l) => l.code === c)?.label ?? c;
+
+export type Utterance = {
+  id: string;
+  original: string;
+  translation: string;
+  sourceLang: string;
+  targetLang: string;
+  createdAt: string;
+};
+
 export type SavedRecordingSession = {
   id: string;
   recordingType: RecordingTemplateId;
