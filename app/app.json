@@ -36,7 +36,8 @@
         {
           "microphonePermission": "Allow QuickVoice to access the microphone for real-time interpretation."
         }
-      ]
+      ],
+      "expo-status-bar"
     ]
   }
 }

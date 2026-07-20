@@ -6,18 +6,17 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-
 
 import { atoms } from "./src/theme/atoms";
 import { AuthProvider, useAuth } from "./src/features/auth/auth";
-import { AuthScreen } from "./src/screens/AuthScreen";
-import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
-import { OTPScreen } from "./src/screens/OTPScreen";
+import { AuthScreen } from "./src/screens/(auth)/AuthScreen";
+import { ForgotPasswordScreen } from "./src/screens/(auth)/ForgotPasswordScreen";
+import { OTPScreen } from "./src/screens/(auth)/OTPScreen";
 import { PreferencesProvider } from "./src/features/preferences/context";
-import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { RecordScreen } from "./src/screens/RecordScreen";
-import { ResetPasswordScreen } from "./src/screens/ResetPasswordScreen";
+import { ResetPasswordScreen } from "./src/screens/(auth)/ResetPasswordScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
-import { UpdatePasswordScreen } from "./src/screens/UpdatePasswordScreen";
+import { UpdatePasswordScreen } from "./src/screens/(auth)/UpdatePasswordScreen";
 import { colors, spacing } from "./src/theme/theme";
 
 export type Tab = "home" | "live" | "record" | "history" | "settings" | "profile";

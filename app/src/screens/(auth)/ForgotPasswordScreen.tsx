@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../features/auth/auth";
+import { useAuth } from "../../features/auth/auth";
 
 const PRIMARY = "#4B71C4";
 const TEXT = "#161B2E";
@@ -83,7 +83,7 @@ export function ForgotPasswordScreen({ onBack, onOtpSent }: { onBack: () => void
               shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
             }}>
               <Image
-                source={require("../../assets/logo.png")}
+                source={require("../../../assets/logo.png")}
                 style={{ height: 36, width: 36 }}
                 resizeMode="contain"
               />

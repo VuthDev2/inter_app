@@ -13,8 +13,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../features/auth/auth";
-import { atoms } from "../theme/atoms";
+import { useAuth } from "../../features/auth/auth";
+import { atoms } from "../../theme/atoms";
 
 const PRIMARY = "#4B71C4";
 const TEXT = "#161B2E";
@@ -95,8 +95,8 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
               shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
             }}>
               <Image
-                source={require("../../assets/logo.png")}
-                style={{ height: 36, width: 36 }}
+                source={require("../../../assets/logo.png")}
+                style={{ height: 50, width: 50 }}
                 resizeMode="contain"
               />
             </View>
@@ -227,9 +227,9 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
             <Pressable
               onPress={() => Alert.alert("Google sign-in", "OAuth requires a web browser redirect.")}
               style={({ pressed }) => [socialBtn, pressed && { backgroundColor: "#EEE" }]}
-            >
-              <Ionicons name="logo-google" size={19} color={TEXT} />
-              <Text style={{ color: TEXT, fontSize: 14, fontWeight: "600" }}>Google</Text>
+            >           
+              <Image source={require("../../../assets/google.png")} style={{ height: 19, width: 19 }} resizeMode="contain" />
+              <Text style={{ color: TEXT, fontSize: 14, fontWeight: "600" }}>Continue with Google</Text>
             </Pressable>
           </View>
 

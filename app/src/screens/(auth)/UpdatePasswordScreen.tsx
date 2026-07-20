@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../features/auth/auth";
+import { useAuth } from "../../features/auth/auth";
 
 const PRIMARY = "#4B71C4";
 const TEXT = "#161B2E";

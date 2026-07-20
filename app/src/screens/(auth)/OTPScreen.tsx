@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useAuth } from "../features/auth/auth";
+import { useAuth } from "../../features/auth/auth";
 
 const COOLDOWN = 60;
 
@@ -127,7 +127,7 @@ export function OTPScreen({
               shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
             }}>
               <Image
-                source={require("../../assets/logo.png")}
+                source={require("../../../assets/logo.png")}
                 style={{ height: 36, width: 36 }}
                 resizeMode="contain"
               />
