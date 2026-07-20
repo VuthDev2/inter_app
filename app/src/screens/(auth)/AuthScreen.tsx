@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../features/auth/auth";
+import { useTypewriter } from "../../hooks/useTypewriter";
 import { atoms } from "../../theme/atoms";
 
 const PRIMARY = "#4B71C4";
@@ -39,6 +40,8 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
     const id = setInterval(() => setCooldown((c) => c - 1), 1000);
     return () => clearInterval(id);
   }, [cooldown]);
+
+  const displayed = useTypewriter(mode === "signin" ? "Welcome back!" : "Create account");
 
   const submit = async () => {
     if (!email.trim() || !password) {
@@ -108,7 +111,7 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
 
           {/* ── Heading ── */}
           <Text style={{ color: TEXT, fontSize: 26, fontWeight: "600", letterSpacing: -0.8, marginBottom: 28 }}>
-            {mode === "signin" ? "Welcome back!" : "Create account"}
+            {displayed}<Text style={{ color: PRIMARY }}>|</Text>
           </Text>
 
           {/* ── Auth warning ── */}
@@ -234,7 +237,7 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
           </View>
 
           {/* ── Bottom prompt ── */}
-          <View style={{ alignItems: "center", marginTop: "auto", paddingTop: 40 }}>
+          <View style={{ alignItems: "center", paddingTop: 20 }}>
             <Text style={{ color: "#989898", fontSize: 15, fontWeight: "500" }}>
               {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
               <Text

@@ -137,7 +137,6 @@ function AppFrame() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
         {activeTab === "live"     && <LiveScreen />}
         {activeTab === "record"   && <RecordScreen />}
         {activeTab === "history"  && <HistoryScreen />}

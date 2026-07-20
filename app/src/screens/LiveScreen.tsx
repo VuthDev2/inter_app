@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 
+import { useTypewriter } from "../hooks/useTypewriter";
 import { usePreferences } from "../features/preferences/context";
 import { atoms } from "../theme/atoms";
 import { colors, spacing } from "../theme/theme";
@@ -25,6 +26,7 @@ import { SessionScreen } from "./SessionScreen";
 
 export function LiveScreen() {
   const { preferred_source_lang: defSource, preferred_target_lang: defTarget, update: updatePrefs } = usePreferences();
+  const welcomeText = useTypewriter("Welcome!", { pauseMs: 3000 });
   const [source, setSource] = useState<LanguageCode>(defSource);
   const [target, setTarget] = useState<LanguageCode>(defTarget);
   const [pickerOpen, setPickerOpen] = useState<"source" | "target" | null>(null);
@@ -74,7 +76,9 @@ export function LiveScreen() {
       </Modal>
       {/* Page heading */}
       <View style={{ gap: 6, paddingTop: 4 }}>
-        <Text style={{ color: colors.primary, fontSize: 40, fontWeight: "800", letterSpacing: -0.8, lineHeight: 46 }}>Welcome!</Text>
+        <Text style={{ color: colors.primary, fontSize: 40, fontWeight: "800", letterSpacing: -0.8, lineHeight: 46 }}>
+          {welcomeText}<Text style={{ color: colors.primary, opacity: 0.6 }}>|</Text>
+        </Text>
         <Text style={{ color: colors.muted, fontSize: 15, lineHeight: 22 }}>Real-time interpretation</Text>
       </View>
 
