@@ -75,40 +75,41 @@ export function ForgotPasswordScreen({ onBack, onOtpSent }: { onBack: () => void
           </Pressable>
 
           {/* ── Logo ── */}
-          <View style={{ alignItems: "center", marginBottom: 32 }}>
+          <View style={{ alignItems: "center", marginBottom: 30, marginTop: -50}}>
             <View style={{
               alignItems: "center", backgroundColor: PRIMARY, borderRadius: 24,
-              height: 64, justifyContent: "center", marginBottom: 14, width: 64,
+              height: 60, justifyContent: "center", marginBottom: 14, width: 60,
               shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
             }}>
               <Image
                 source={require("../../../assets/logo.png")}
-                style={{ height: 36, width: 36 }}
+                style={{ height: 40, width: 40 }}
                 resizeMode="contain"
               />
             </View>
             <Text style={{ color: TEXT, fontSize: 26, fontWeight: "700", letterSpacing: -0.5 }}>QuickVoice</Text>
+            <Text style={{color: MUTED, fontSize: 14, fontWeight: "500", letterSpacing: 0.2}}>Real-time interpretation</Text>
           </View>
 
           {/* ── Heading ── */}
-          <Text style={{ color: TEXT, fontSize: 28, fontWeight: "800", letterSpacing: -0.8, marginBottom: 8 }}>
+          <Text style={{ color: TEXT, fontSize: 28, fontWeight: "800", letterSpacing: -0.8, marginBottom: 8, }}>
             Reset password
           </Text>
           <Text style={{ color: MUTED, fontSize: 14, lineHeight: 21, marginBottom: 28 }}>
-            Enter your email address and we'll send you a one-time code to reset your password.
+            Enter your email address and we'll send you the code to reset your password.
           </Text>
 
           {/* ── Email ── */}
           <View style={{ marginBottom: 24 }}>
-            <Text style={{ color: TEXT, fontSize: 13, fontWeight: "600", letterSpacing: 0.2, marginBottom: 7 }}>
-              Email address
+            <Text style={{ color: TEXT, fontSize: 13, fontWeight: "600", letterSpacing: 0.2, marginBottom: 9}}>
+                  Email address
             </Text>
             <TextInput
               autoCapitalize="none"
               keyboardType="email-address"
               onChangeText={setEmail}
-              placeholder="you@example.com"
+              placeholder="yourname@gmail.com"
               placeholderTextColor={MUTED}
               style={{
                 backgroundColor: INPUT_BG, borderColor: BORDER, borderRadius: 14,
@@ -126,7 +127,7 @@ export function ForgotPasswordScreen({ onBack, onOtpSent }: { onBack: () => void
             style={({ pressed }) => [{
               alignItems: "center", backgroundColor: canSend ? PRIMARY : "#A0B4D8",
               borderRadius: 14, flexDirection: "row", gap: 8, justifyContent: "center",
-              minHeight: 54, paddingHorizontal: 24, paddingVertical: 16,
+              minHeight: 50, paddingHorizontal: 24, paddingVertical: 16,
               shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 },
               shadowOpacity: canSend ? 0.2 : 0, shadowRadius: 10,
               elevation: canSend ? 4 : 0,

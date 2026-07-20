@@ -203,7 +203,7 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
             style={({ pressed }) => [{
               alignItems: "center", backgroundColor: canSubmit ? PRIMARY : "#A0B4D8",
               borderRadius: 14, flexDirection: "row", gap: 8, justifyContent: "center",
-              minHeight: 54, paddingHorizontal: 24, paddingVertical: 16,
+              minHeight: 50, paddingHorizontal: 24, paddingVertical: 16,
               shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 },
               shadowOpacity: canSubmit ? 0.2 : 0, shadowRadius: 10, elevation: canSubmit ? 4 : 0,
             }, pressed && canSubmit && { backgroundColor: "#3A5EA8" }]}
