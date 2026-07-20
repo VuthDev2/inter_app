@@ -33,6 +33,28 @@ export type RecordingTemplate = {
   speakerLabels: boolean;
 };
 
+// ─── Language helpers ───────────────────────────────────────────────────────
+export const LOCALES: Record<string, string> = {
+  en: "en", ja: "ja", es: "es", fr: "fr",
+  de: "de", zh: "zh", ko: "ko", kh: "km",
+};
+
+const FLAGS: Record<string, string> = {
+  en: "🇺🇸", ja: "🇯🇵", es: "🇪🇸", fr: "🇫🇷",
+  de: "🇩🇪", zh: "🇨🇳", ko: "🇰🇷", kh: "🇰🇭",
+};
+export const getFlag = (c: string) => FLAGS[c] ?? "🌐";
+export const getLabel = (c: string) => languages.find((l) => l.code === c)?.label ?? c;
+
+export type Utterance = {
+  id: string;
+  original: string;
+  translation: string;
+  sourceLang: string;
+  targetLang: string;
+  createdAt: string;
+};
+
 export type SavedRecordingSession = {
   id: string;
   recordingType: RecordingTemplateId;
@@ -51,7 +73,7 @@ export const recordingTemplates: RecordingTemplate[] = [
     title: "Presentation",
     description: "Speeches and presentations",
     icon: "easel-outline",
-    starterPrompt: "Capture a polished transcript for a talk, demo, or keynote.",
+    starterPrompt: "Capture a polished transcript for a talk, product walkthrough, or keynote.",
     sourceAudio: true,
     speakerLabels: false,
   },
@@ -109,10 +131,4 @@ export const recordingTemplates: RecordingTemplate[] = [
     sourceAudio: false,
     speakerLabels: false,
   },
-];
-
-export const recentSessions = [
-  { title: "English to Japanese standup", type: "Live", time: "Today, 09:40", minutes: 8 },
-  { title: "Lecture interpretation draft", type: "Speech", time: "Yesterday", minutes: 42 },
-  { title: "Conference Q&A", type: "Speech", time: "Monday", minutes: 26 },
 ];

@@ -1,25 +1,13 @@
-/**
- * SettingsScreen — mirrors web /settings page
- *
- * Web design:
- *  - max-w-lg, space-y-3
- *  - Page header: h1 "Settings", muted subtitle
- *  - SectionCard: rounded-2xl, backdrop-blur(14px), section title uppercase tracking-[0.12em]
- *  - ToggleRow: h-9 w-9 rounded-xl icon box (per-row color) + label + custom animated switch
- *  - LinkRow: same icon box + label + chevron (+ badge)
- *  - Sections: Notifications · Appearance · Language & Region · Account
- *  - Footer: "QuickVoice · v1.0" text-center text-xs muted
- */
 import { Alert, Text, View } from "react-native";
-
 import type { Tab } from "../../App";
 import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
 import { LinkRow, ScreenHeader, ToggleRow } from "../components/ui";
 import { atoms } from "../theme/atoms";
-import { colors, spacing } from "../theme/theme";
+import { useTheme } from "../theme/ThemeProvider";
+import { spacing } from "../theme/theme";
 
-export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => void }) {
+export function SettingsScreen({ setActiveTab, onUpdatePassword }: { setActiveTab: (tab: Tab) => void; onUpdatePassword?: () => void }) {
   const { signOut } = useAuth();
   const {
     session_alerts: sessionAlerts,
@@ -29,6 +17,8 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
     compact_view: compactView,
     update,
   } = usePreferences();
+
+  const c = useTheme();
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,7 +48,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           description="Audio cues for key events"
           value={soundEnabled}
           onValueChange={(v) => update({ sound_enabled: v })}
-          accent={colors.amber}
+          accent={c.amber}
         />
         <ToggleRow
           icon="phone-portrait-outline"
@@ -66,7 +56,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           description="Vibrate on important events"
           value={haptics}
           onValueChange={(v) => update({ haptics_enabled: v })}
-          accent={colors.purple}
+          accent={c.purple}
         />
       </SectionCard>
 
@@ -112,6 +102,12 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
           onPress={() => Alert.alert("Privacy", "Connect to your privacy policy URL.")}
         />
         <LinkRow
+          icon="lock-closed-outline"
+          label="Update password"
+          description="Change your account password"
+          onPress={onUpdatePassword ?? (() => {})}
+        />
+        <LinkRow
           icon="log-out-outline"
           label="Sign out"
           description="Sign out of your account"
@@ -132,7 +128,7 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
       </SectionCard>
 
       {/* Footer */}
-      <Text style={[atoms.textCenter, atoms.textXs, atoms.textMuted, { marginTop: spacing.sm }]}>QuickVoice · v1.0</Text>
+      <Text style={[atoms.textCenter, atoms.textXs, { color: c.muted }, { marginTop: spacing.sm }]}>QuickVoice · v1.0</Text>
     </View>
   );
 }
@@ -141,9 +137,10 @@ export function SettingsScreen({ setActiveTab }: { setActiveTab: (tab: Tab) => v
  * SectionCard — mirrors web SectionCard component
  */
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const c = useTheme();
   return (
-    <View style={[atoms.bgSurface, { borderColor: colors.border, borderRadius: 22, borderWidth: 1, overflow: "hidden", shadowColor: colors.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }]}>
-      <Text style={[atoms.uppercase, atoms.textXs, atoms.fontSemibold, atoms.textMuted, { letterSpacing: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 4 }]}>{title}</Text>
+    <View style={[{ backgroundColor: c.surface }, { borderColor: c.border, borderRadius: 22, borderWidth: 1, overflow: "hidden", shadowColor: c.text, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }]}>
+      <Text style={[atoms.uppercase, atoms.textXs, atoms.fontSemibold, { color: c.muted }, { letterSpacing: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 4 }]}>{title}</Text>
       <View style={{ paddingHorizontal: spacing.lg, paddingBottom: 4 }}>{children}</View>
     </View>
   );
