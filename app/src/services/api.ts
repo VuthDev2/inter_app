@@ -12,11 +12,40 @@ export type BackendHealth = {
 };
 
 
+function devHostFromMetro(): string | null {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    return window.location.hostname || null;
+  }
+
+  const scriptUrl = NativeModules.SourceCode?.scriptURL as string | undefined;
+  if (!scriptUrl) return null;
+
+  try {
+    return new URL(scriptUrl).hostname;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Get the backend base URL from environment or local dev default.
+ * Get the backend base URL from environment or the current Expo dev host.
  */
 function baseUrl(): string {
-  return process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (configured) return configured.replace(/\/$/, "");
+
+  const devHost = devHostFromMetro();
+  if (devHost && devHost !== "localhost" && devHost !== "127.0.0.1") {
+    return `http://${devHost}:8000`;
+  }
+
+  if (Platform.OS === "android") return "http://10.0.2.2:8000";
+  return "http://localhost:8000";
+}
+
+/** WebSocket URL for the live interpretation endpoint. */
+export function liveWsUrl(): string {
+  return baseUrl().replace(/^http/, "ws") + "/ws/live";
 }
 
 
@@ -33,16 +62,31 @@ export async function getBackendHealth(): Promise<BackendHealth> {
 
 // ─── Transcription (via backend → Gemini) ────────────────────────────────────
 
+const MIME_MAP: Record<string, string> = {
+  wav: "audio/wav",
+  mp3: "audio/mp3",
+  m4a: "audio/mp4",
+  ogg: "audio/ogg",
+  caf: "audio/x-caf",
+  aac: "audio/aac",
+};
+
+function mimeFromUri(uri: string): string {
+  const ext = uri.split(".").pop()?.toLowerCase() ?? "wav";
+  return MIME_MAP[ext] ?? "audio/wav";
+}
+
 export async function transcribeAudio(
   audioUri: string,
   language: string,
 ): Promise<string> {
   try {
+    const ext = audioUri.split(".").pop()?.toLowerCase() ?? "wav";
     const form = new FormData();
     form.append("file", {
       uri: audioUri,
-      name: "recording.wav",
-      type: "audio/wav",
+      name: `recording.${ext}`,
+      type: mimeFromUri(audioUri),
     } as any);
     form.append("language", language);
 
@@ -113,3 +157,4 @@ export async function translateText(
   } catch { /* ignore */ }
   return `[${sourceLang}→${targetLang}] ${text}`;
 }
+import { NativeModules, Platform } from "react-native";

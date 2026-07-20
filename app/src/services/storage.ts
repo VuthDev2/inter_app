@@ -1,13 +1,3 @@
-/**
- * storage.ts — local-first persistence with optional Supabase cloud sync.
- *
- * Strategy:
- *  1. Always write to AsyncStorage first (works offline, no auth needed)
- *  2. If Supabase is configured AND user is logged in, sync to cloud in the background
- *  3. On load, use local data — cloud sync is additive, never blocking
- *
- * This prevents ANY Supabase error from breaking the local app.
- */
 import type { SavedRecordingSession } from "../constants/data";
 import { appStorage } from "./nativeStorage";
 import { supabase } from "./supabase";
