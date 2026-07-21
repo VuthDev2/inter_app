@@ -8,7 +8,17 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps, ReactNode } from "react";
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  type StyleProp,
+  type TextStyle,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { colors, radius, spacing } from "../theme/theme";
 
@@ -46,28 +56,64 @@ export function PrimaryButton({
   icon,
   disabled,
   onPress,
+  onPressIn,
+  onPressOut,
   danger,
+  dimWhenDisabled = true,
+  authSize = false,
+  textStyle,
+  tone = "brand",
 }: {
-  children: string;
+  children: ReactNode;
   icon?: ComponentProps<typeof Ionicons>["name"];
   disabled?: boolean;
   danger?: boolean;
+  dimWhenDisabled?: boolean;
+  authSize?: boolean;
+  onPressIn?: () => void;
+  onPressOut?: () => void;
+  textStyle?: StyleProp<TextStyle>;
+  tone?: "brand" | "dark";
   onPress: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  // Wider auth button for authentication screens to accommodate longer labels
+  const responsiveAuthWidth = Math.min(380, Math.round(Math.min(width, 600) * 0.9));
+
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       style={({ pressed }) => [
         styles.primaryButton,
+        tone === "dark" && styles.darkPrimaryButton,
+        authSize && {
+          alignSelf: "center",
+          borderRadius: 16,
+          height: 50,
+          minHeight: 50,
+          paddingVertical: 0,
+          width: responsiveAuthWidth,
+        },
         danger && styles.dangerButton,
-        disabled && styles.disabledButton,
-        pressed && !disabled && styles.primaryButtonPressed,
+        disabled && dimWhenDisabled && !authSize && styles.disabledButton,
+        pressed && !disabled &&
+          (tone === "dark" ? styles.darkPrimaryButtonPressed : styles.primaryButtonPressed),
       ]}
     >
       {icon ? <Ionicons name={icon} size={18} color="#FFFFFF" /> : null}
-      <Text style={styles.primaryButtonText}>{children}</Text>
+      <Text
+        style={[
+          styles.primaryButtonText,
+          tone === "dark" && styles.darkPrimaryButtonText,
+          textStyle,
+        ]}
+      >
+        {children}
+      </Text>
     </Pressable>
   );
 }
@@ -80,7 +126,7 @@ export function SecondaryButton({
   onPress,
   flex,
 }: {
-  children: string;
+  children: ReactNode;
   icon?: ComponentProps<typeof Ionicons>["name"];
   onPress: () => void;
   flex?: boolean;
@@ -319,6 +365,19 @@ const styles = StyleSheet.create({
   primaryButtonPressed: {
     backgroundColor: colors.primaryPressed,
   },
+  darkPrimaryButton: {
+    backgroundColor: "#282C34",
+    borderRadius: 999,
+    minHeight: 74,
+  },
+  darkPrimaryButtonPressed: {
+    backgroundColor: "#1E2127",
+  },
+  darkPrimaryButtonText: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0,
+  },
   dangerButton: {
     backgroundColor: colors.red,
   },
@@ -330,6 +389,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     letterSpacing: 0.1,
+    flexShrink: 1,
+    textAlign: "center",
   },
 
   // SecondaryButton — bg-secondary border rounded-md
@@ -353,6 +414,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: "600",
+    flexShrink: 1,
+    textAlign: "center",
   },
 
   // Field / Input
