@@ -1,10 +1,4 @@
-import {
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-  useFonts,
-} from "@expo-google-fonts/poppins";
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -19,24 +13,19 @@ import { PrimaryButton } from "../components/ui";
 import { useAuth } from "../features/auth/auth";
 
 const DESCRIPTION = "Two-way chat with real-time voice translation, perfect for dialogues.";
-const ENGLISH_TITLE = "Welcome back";
-const JAPANESE_TITLE = "おかえりなさい";
-const COOLDOWN = 30;
+const ENGLISH_TITLE = "Create Account";
+const JAPANESE_TITLE = "アカウントを作成";
 
-export function AuthScreen({
-  onForgotPassword,
-  onSignUp,
-}: {
-  onForgotPassword?: () => void;
-  onSignUp?: () => void;
-}) {
-  const { authReady, signIn } = useAuth();
-  useFonts({ Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold });
+export function CreateAccountScreen({ onSignIn }: { onSignIn: () => void }) {
+  const { authReady, signUp } = useAuth();
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
   const [animatedTitle, setAnimatedTitle] = useState(ENGLISH_TITLE);
   const [showTypingCursor, setShowTypingCursor] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(true);
@@ -50,12 +39,6 @@ export function AuthScreen({
     const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
     return () => subscription.remove();
   }, []);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const id = setInterval(() => setCooldown((current) => current - 1), 1000);
-    return () => clearInterval(id);
-  }, [cooldown]);
 
   useEffect(() => {
     if (!showTypingCursor) {
@@ -118,66 +101,86 @@ export function AuthScreen({
   }, [reduceMotion]);
 
   const submit = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert("Missing details", "Add your email and password first.");
+    if (!username.trim() || !email.trim() || !password || !confirmPassword) {
+      Alert.alert("Missing details", "Complete all account fields first.");
       return;
     }
+    if (password !== confirmPassword) {
+      Alert.alert("Passwords do not match", "Enter the same password in both fields.");
+      return;
+    }
+    if (!acceptedTerms) {
+      Alert.alert("Terms required", "Accept the terms and privacy policy to continue.");
+      return;
+    }
+
     setBusy(true);
-    const result = await signIn(email.trim(), password);
+    const result = await signUp(email.trim(), password, username.trim());
     setBusy(false);
     if (result.error) {
-      const message = result.error.toLowerCase();
-      if (message.includes("rate limit") || message.includes("too many")) {
-        Alert.alert("Too many attempts", "Please wait a moment and try again.");
-        setCooldown(COOLDOWN);
-      } else {
-        Alert.alert("QuickVoice", result.error);
-      }
+      Alert.alert("QuickVoice", result.error);
+      return;
     }
+    Alert.alert("Account created", "Your QuickVoice account is ready.");
   };
-
-  const canSubmit = !busy && authReady && cooldown === 0;
 
   return (
     <AuthScreenLayout
       description={DESCRIPTION}
       footer={(
-        <Pressable accessibilityRole="button" onPress={onSignUp}>
+        <Pressable accessibilityRole="button" onPress={onSignIn}>
           <Text style={styles.accountText}>
-            Don’t have an account? <Text style={styles.link}>Sign up</Text>
+            Already have an account? <Text style={styles.accountLink}>Sign in</Text>
           </Text>
         </Pressable>
       )}
       title={`${animatedTitle}${showTypingCursor && cursorVisible ? "|" : ""}`}
       titleStyle={isJapanese ? styles.japaneseTitle : undefined}
+      topSpacing="compact"
     >
       <View style={styles.form}>
+        <AuthTextField onChangeText={setUsername} placeholder="User name" value={username} />
         <AuthTextField
-          icon="mail-outline"
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="Email"
           value={email}
         />
         <AuthTextField
-          icon="lock-closed-outline"
           onChangeText={setPassword}
           onToggleSecure={() => setShowPassword((current) => !current)}
           placeholder="Password"
           secureTextEntry={!showPassword}
           value={password}
         />
-        <Pressable accessibilityRole="button" onPress={onForgotPassword} style={styles.forgot}>
-          <Text style={styles.forgotText}>Forgot Password ?</Text>
+        <AuthTextField
+          onChangeText={setConfirmPassword}
+          onToggleSecure={() => setShowConfirmPassword((current) => !current)}
+          placeholder="Confirm Password"
+          secureTextEntry={!showConfirmPassword}
+          value={confirmPassword}
+        />
+
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: acceptedTerms }}
+          onPress={() => setAcceptedTerms((current) => !current)}
+          style={styles.termsRow}
+        >
+          <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+            {acceptedTerms ? <Ionicons name="checkmark" color="#FFFFFF" size={12} /> : null}
+          </View>
+          <Text style={styles.termsText}>I accept the terms and privacy policy</Text>
         </Pressable>
+
         <PrimaryButton
           authSize
-          disabled={!canSubmit}
+          disabled={!authReady || busy}
           onPress={submit}
           textStyle={styles.buttonText}
           tone="dark"
         >
-          {busy ? "Please wait…" : cooldown > 0 ? `Wait ${cooldown}s` : "Continue"}
+          {busy ? "Please wait…" : "Continue"}
         </PrimaryButton>
         <AuthDivider />
         <SocialAuthButtons />
@@ -187,20 +190,35 @@ export function AuthScreen({
 }
 
 const styles = StyleSheet.create({
+  accountLink: { color: authColors.blue },
   accountText: {
     color: "#9A9A9A",
     fontFamily: "Poppins_600SemiBold",
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
     textAlign: "center",
   },
   buttonText: { fontFamily: "Poppins_600SemiBold" },
-  forgot: { alignSelf: "flex-end", paddingVertical: 2 },
-  forgotText: { color: "#454545", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
-  form: { gap: 20, marginTop: 36 },
+  checkbox: {
+    alignItems: "center",
+    borderColor: authColors.dark,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    height: 15,
+    justifyContent: "center",
+    width: 15,
+  },
+  checkboxChecked: { backgroundColor: authColors.dark },
+  form: { gap: 18, marginTop: 24 },
   japaneseTitle: {
     fontFamily: Platform.select({ ios: "Hiragino Sans", android: "sans-serif" }),
     fontWeight: "700",
   },
-  link: { color: authColors.blue },
+  termsRow: { alignItems: "center", flexDirection: "row", gap: 10, paddingVertical: 2 },
+  termsText: {
+    color: "#656565",
+    flex: 1,
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 11,
+  },
 });
