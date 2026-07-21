@@ -1,10 +1,20 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Mic } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignupPage() {
+    const router = useRouter();
+    const { signUp, user, initialized } = useAuth();
+    const [displayName, setDisplayName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [agreeTerms, setAgreeTerms] = useState(false);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isMounted, setIsMounted] = useState(false);
 
@@ -16,6 +26,27 @@ export default function SignupPage() {
         window.addEventListener('mousemove', handleMouseMove);
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, []);
+
+    useEffect(() => {
+        if (initialized && user) router.push("/dashboard");
+    }, [initialized, user, router]);
+
+    async function handleSubmit(e: FormEvent) {
+        e.preventDefault();
+        setError("");
+        if (!agreeTerms) {
+            setError("You must agree to the Terms & Privacy policy.");
+            return;
+        }
+        setLoading(true);
+        const result = await signUp(email, password, displayName);
+        setLoading(false);
+        if (result.error) {
+            setError(result.error);
+        } else {
+            router.push("/dashboard");
+        }
+    }
 
     return (
         <div className="flex min-h-screen bg-gradient-to-r from-white via-blue-100 to-blue-600 font-sans text-slate-900 overflow-hidden relative">
@@ -118,7 +149,7 @@ export default function SignupPage() {
             <div className="hidden lg:flex flex-1 flex-col justify-between px-16 py-12 relative z-10 pointer-events-none">
                 {/* Logo */}
                 <div className="flex items-center gap-5 relative z-10 pointer-events-auto w-max">
-                    <img src="/logo2.png" alt="QuickVoice Logo" className="h-20 w-auto" />
+                    <img src="/logo-d.png" alt="QuickVoice Logo" className="h-20 w-auto" />
                     <span className="text-4xl font-bold italic tracking-tight text-slate-700">
                         <span className="text-blue-500">Quick</span>Voice
                     </span>
@@ -159,12 +190,20 @@ export default function SignupPage() {
                 <div className="w-full max-w-[480px] bg-white rounded-[2rem] p-10 sm:p-12 shadow-2xl relative z-10 animate-in slide-in-from-bottom-8 fade-in duration-700">
                     <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-10">Create an account</h2>
                     
-                    <form className="flex flex-col gap-6">
+                    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-semibold rounded-xl px-5 py-3">
+                                {error}
+                            </div>
+                        )}
                         <div className="flex flex-col gap-2 group">
                             <label className="text-sm font-bold text-slate-700 group-focus-within:text-blue-600 transition-colors">Full name</label>
                             <input 
                                 type="text" 
                                 placeholder="enter your Full Name" 
+                                value={displayName}
+                                onChange={e => setDisplayName(e.target.value)}
+                                required
                                 className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-5 py-4 text-base text-slate-800 focus:outline-none focus:border-blue-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 placeholder-slate-400 font-medium transition-all duration-300 hover:bg-slate-100 focus:scale-[1.01]"
                             />
                         </div>
@@ -174,6 +213,9 @@ export default function SignupPage() {
                             <input 
                                 type="email" 
                                 placeholder="enter your email" 
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                required
                                 className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-5 py-4 text-base text-slate-800 focus:outline-none focus:border-blue-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 placeholder-slate-400 font-medium transition-all duration-300 hover:bg-slate-100 focus:scale-[1.01]"
                             />
                         </div>
@@ -183,22 +225,32 @@ export default function SignupPage() {
                             <input 
                                 type="password" 
                                 placeholder="enter your password" 
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                required
                                 className="w-full bg-slate-50 border-2 border-transparent rounded-xl px-5 py-4 text-base text-slate-800 focus:outline-none focus:border-blue-100 focus:bg-white focus:ring-4 focus:ring-blue-500/10 placeholder-slate-400 font-medium transition-all duration-300 hover:bg-slate-100 focus:scale-[1.01]"
                             />
                         </div>
 
                         <div className="flex items-center gap-3 mt-2">
-                            <input type="checkbox" id="terms" className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer transition-transform hover:scale-110" />
+                            <input 
+                                type="checkbox" 
+                                id="terms" 
+                                checked={agreeTerms}
+                                onChange={e => setAgreeTerms(e.target.checked)}
+                                className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer transition-transform hover:scale-110" 
+                            />
                             <label htmlFor="terms" className="text-sm font-semibold text-slate-600 cursor-pointer">
                                 I agree to the <a href="#" className="text-blue-600 hover:text-blue-700 hover:underline transition-colors">Terms</a> & <a href="#" className="text-blue-600 hover:text-blue-700 hover:underline transition-colors">Private policy</a>.
                             </label>
                         </div>
 
                         <button 
-                            type="button"
-                            className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-base rounded-xl py-4 mt-4 transition-all duration-300 shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] hover:shadow-[0_12px_25px_-6px_rgba(37,99,235,0.6)] hover:-translate-y-1 active:translate-y-0"
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-base rounded-xl py-4 mt-4 transition-all duration-300 shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] hover:shadow-[0_12px_25px_-6px_rgba(37,99,235,0.6)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                         >
-                            Continue
+                            {loading ? "Creating account..." : "Continue"}
                         </button>
                     </form>
 

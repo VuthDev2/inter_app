@@ -50,29 +50,29 @@ export default function FolderPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0e1a] text-white flex flex-col font-sans relative overflow-hidden">
+        <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans relative overflow-hidden">
             <Navbar />
             
             <div className="flex-1 flex flex-col px-6 pt-10 pb-24 relative z-10 w-full max-w-5xl mx-auto">
-                <Link href="/history" className="inline-flex items-center text-white/50 hover:text-white transition-colors mb-16 w-max">
+                <Link href="/history" className="inline-flex items-center text-[rgba(var(--muted),1)] hover:text-[rgb(var(--text))] transition-colors mb-16 w-max">
                     <ArrowLeft size={20} />
                 </Link>
 
                 <div className="flex items-center justify-between mb-12 px-2">
-                    <h1 className="text-3xl font-bold tracking-tight text-white">ok</h1>
-                    <Link href="/interpreter?folder=ok" className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-colors shadow-lg shadow-blue-500/20 text-white">
+                    <h1 className="text-3xl font-bold tracking-tight text-[rgb(var(--text))]">ok</h1>
+                    <Link href="/interpreter?folder=ok" className="flex items-center gap-2 bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary-pressed))] px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-colors shadow-lg shadow-[rgba(var(--primary),0.2)] text-[rgb(var(--text))]">
                         <Mic size={16} /> New Session
                     </Link>
                 </div>
 
                 {selectedItems.length > 0 && (
-                    <div className="w-full mb-6 bg-[#141b2e] flex items-center px-6 py-4 rounded-2xl border border-white/10 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="w-full mb-6 bg-[rgb(var(--surface-muted))] flex items-center px-6 py-4 rounded-2xl border border-[rgb(var(--border))] shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="flex items-center gap-6">
-                            <button onClick={() => setSelectedItems([])} className="text-white/40 hover:text-white transition-colors">
+                            <button onClick={() => setSelectedItems([])} className="text-[rgba(var(--muted),1)] hover:text-[rgb(var(--text))] transition-colors">
                                 <X size={18} />
                             </button>
-                            <span className="text-[14px] font-medium text-white/60">{selectedItems.length} selected</span>
-                            <button onClick={toggleSelectAll} className="text-[14px] font-semibold text-white/90 hover:text-white transition-colors">
+                            <span className="text-[14px] font-medium text-[rgba(var(--text-secondary),1)]">{selectedItems.length} selected</span>
+                            <button onClick={toggleSelectAll} className="text-[14px] font-semibold text-[rgba(var(--text),0.9)] hover:text-[rgb(var(--text))] transition-colors">
                                 Select all
                             </button>
                             <button onClick={handleBulkDeleteClick} className="text-[14px] font-semibold text-red-400 hover:text-red-500 transition-colors ml-2">
@@ -91,8 +91,8 @@ export default function FolderPage() {
                                 key={item} 
                                 className={`group relative rounded-full px-8 py-5 flex items-center justify-between border transition-all duration-300 cursor-pointer overflow-hidden block w-full ${
                                     isSelected 
-                                        ? 'bg-[#1a233a] border-[#3b82f6]' 
-                                        : 'bg-[#141b2e] border-transparent hover:border-[#3b82f6] hover:bg-[#1a233a]'
+                                        ? 'bg-[rgb(var(--surface-muted))] border-[rgb(var(--primary))]' 
+                                        : 'bg-[rgb(var(--surface-muted))] border-transparent hover:border-[rgb(var(--primary))] hover:bg-[rgb(var(--surface-muted))]'
                                 }`}
                             >
                                 {/* Left Side */}
@@ -107,15 +107,15 @@ export default function FolderPage() {
                                         isSelected ? 'w-5 opacity-100 mr-4' : 'w-0 opacity-0 group-hover:w-5 group-hover:opacity-100 group-hover:mr-4'
                                     }`}>
                                         {isSelected ? (
-                                            <CheckSquare size={18} className="text-[#3b82f6] fill-[#3b82f6]/20" />
+                                            <CheckSquare size={18} className="text-[rgb(var(--primary))] fill-[rgb(var(--primary))]/20" />
                                         ) : (
-                                            <Square size={18} className="text-white/40 hover:text-white transition-colors" />
+                                            <Square size={18} className="text-[rgba(var(--muted),1)] hover:text-[rgb(var(--text))] transition-colors" />
                                         )}
                                     </div>
                                     <div className="flex items-center gap-6">
-                                        <span className="text-[14px] font-semibold text-white/90 whitespace-nowrap">July 8, 2026</span>
-                                        <div className="w-px h-4 bg-white/10"></div>
-                                        <span className="text-[14px] font-semibold text-white/70 whitespace-nowrap">03:42 pm</span>
+                                        <span className="text-[14px] font-semibold text-[rgba(var(--text),0.9)] whitespace-nowrap">July 8, 2026</span>
+                                        <div className="w-px h-4 bg-[rgba(var(--text),0.1)]"></div>
+                                        <span className="text-[14px] font-semibold text-[rgba(var(--text-secondary),1)] whitespace-nowrap">03:42 pm</span>
                                     </div>
                                 </div>
                                 
@@ -124,19 +124,19 @@ export default function FolderPage() {
                                     isSelected ? 'opacity-0' : 'opacity-100 group-hover:opacity-0'
                                 }`}>
                                     <span className="text-2xl leading-none">🇯🇵</span>
-                                    <ArrowLeftRight size={16} className="text-white/40" />
+                                    <ArrowLeftRight size={16} className="text-[rgba(var(--muted),1)]" />
                                     <span className="text-2xl leading-none">🇺🇸</span>
                                 </div>
 
                                 {/* Right Side */}
                                 <div className="flex items-center gap-8 z-10">
                                     {/* Actions (visible on hover or when selected) */}
-                                    <div className={`flex items-center gap-5 text-white/40 transition-all duration-300 ${
+                                    <div className={`flex items-center gap-5 text-[rgba(var(--muted),1)] transition-all duration-300 ${
                                         isSelected 
                                             ? 'opacity-100 translate-x-0 pointer-events-auto' 
                                             : 'opacity-0 -translate-x-4 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 group-hover:translate-x-0'
                                     }`}>
-                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} className="hover:text-white transition-colors">
+                                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} className="hover:text-[rgb(var(--text))] transition-colors">
                                             <Pencil size={18} />
                                         </button>
                                         <button onClick={(e) => { e.preventDefault(); handleDeleteClick(i, e); }} className="text-red-500/80 hover:text-red-500 transition-colors">
@@ -144,7 +144,7 @@ export default function FolderPage() {
                                         </button>
                                     </div>
 
-                                    <div className="flex items-center gap-2 text-white/50 shrink-0">
+                                    <div className="flex items-center gap-2 text-[rgba(var(--muted),1)] shrink-0">
                                         <Clock size={16} />
                                         <span className="text-[13px] font-medium">12:03</span>
                                     </div>
@@ -162,15 +162,15 @@ export default function FolderPage() {
                         className="absolute inset-0 bg-[#000000]/40 backdrop-blur-sm"
                         onClick={() => setIsDeleteModalOpen(false)}
                     ></div>
-                    <div className="relative bg-[#0b0e14] border border-white/10 rounded-3xl w-[500px] p-8 shadow-2xl flex flex-col scale-100 animate-in zoom-in-95 duration-200">
+                    <div className="relative bg-[rgb(var(--bg))] border border-[rgb(var(--border))] rounded-3xl w-[500px] p-8 shadow-2xl flex flex-col scale-100 animate-in zoom-in-95 duration-200">
                         
-                        <h2 className="text-[18px] font-bold text-white mb-2 pr-8">
+                        <h2 className="text-[18px] font-bold text-[rgb(var(--text))] mb-2 pr-8">
                             {itemsToDelete.length > 1 
                                 ? `Delete ${itemsToDelete.length} Recordings?` 
                                 : 'Delete this Recording?'}
                         </h2>
                         
-                        <p className="text-[13px] text-white/70 mb-10 font-medium">
+                        <p className="text-[13px] text-[rgba(var(--text-secondary),1)] mb-10 font-medium">
                             This action cannot be undone. 
                             {itemsToDelete.length > 1 ? ' These recordings ' : ' This recording '} 
                             will be permanently deleted.
@@ -179,14 +179,14 @@ export default function FolderPage() {
                         <div className="flex items-center justify-end gap-5 text-[14px] font-semibold">
                             <button 
                                 onClick={() => setIsDeleteModalOpen(false)}
-                                className="text-white/90 hover:text-white transition-colors"
+                                className="text-[rgba(var(--text),0.9)] hover:text-[rgb(var(--text))] transition-colors"
                             >
                                 Cancel
                             </button>
-                            <div className="w-px h-4 bg-white/20"></div>
+                            <div className="w-px h-4 bg-[rgba(var(--text),0.2)]"></div>
                             <button 
                                 onClick={confirmDelete}
-                                className="text-white hover:text-red-400 transition-colors"
+                                className="text-[rgb(var(--text))] hover:text-red-400 transition-colors"
                             >
                                 Delete
                             </button>

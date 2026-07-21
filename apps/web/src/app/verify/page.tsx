@@ -1,12 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mic } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect, FormEvent, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
 
-export default function VerifyPage() {
+function VerifyForm() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const email = searchParams.get("email") || "";
+    const { verifyOTP, sendOTP, initialized } = useAuth();
+    const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [resending, setResending] = useState(false);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isMounted, setIsMounted] = useState(false);
+    const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
     useEffect(() => {
         setIsMounted(true);
@@ -16,6 +27,48 @@ export default function VerifyPage() {
         window.addEventListener('mousemove', handleMouseMove);
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, []);
+
+    function handleOtpChange(index: number, value: string) {
+        if (!/^\d?$/.test(value)) return;
+        const newOtp = [...otp];
+        newOtp[index] = value;
+        setOtp(newOtp);
+        if (value && index < 5) {
+            inputsRef.current[index + 1]?.focus();
+        }
+    }
+
+    function handleOtpKeyDown(index: number, e: React.KeyboardEvent) {
+        if (e.key === "Backspace" && !otp[index] && index > 0) {
+            inputsRef.current[index - 1]?.focus();
+        }
+    }
+
+    async function handleSubmit(e: FormEvent) {
+        e.preventDefault();
+        const token = otp.join("");
+        if (token.length !== 6) {
+            setError("Please enter the full 6-digit code.");
+            return;
+        }
+        setError("");
+        setLoading(true);
+        const result = await verifyOTP(email, token);
+        setLoading(false);
+        if (result.error) {
+            setError(result.error);
+        } else {
+            router.push(`/verify?email=${encodeURIComponent(email)}&verified=true`);
+            router.replace(`/verifysuccess?email=${encodeURIComponent(email)}`);
+        }
+    }
+
+    async function handleResend() {
+        setResending(true);
+        await sendOTP(email);
+        setResending(false);
+        setOtp(["", "", "", "", "", ""]);
+    }
 
     return (
         <div className="flex min-h-screen bg-gradient-to-r from-white via-blue-100 to-blue-600 font-sans text-slate-900 overflow-hidden relative">
@@ -118,7 +171,7 @@ export default function VerifyPage() {
             <div className="hidden lg:flex flex-1 flex-col justify-between px-16 py-12 relative z-10 pointer-events-none">
                 {/* Logo */}
                 <div className="flex items-center gap-5 relative z-10 pointer-events-auto w-max">
-                    <img src="/logo2.png" alt="QuickVoice Logo" className="h-20 w-auto" />
+                    <img src="/logo-d.png" alt="QuickVoice Logo" className="h-20 w-auto" />
                     <span className="text-4xl font-bold italic tracking-tight text-slate-700">
                         <span className="text-blue-500">Quick</span>Voice
                     </span>
@@ -159,37 +212,66 @@ export default function VerifyPage() {
 
                 <div className="w-full max-w-[480px] bg-[#fafafa] rounded-[2rem] p-10 sm:p-12 shadow-2xl relative z-10 animate-in slide-in-from-bottom-8 fade-in duration-700">
                     <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Verify your identity</h2>
-                    <p className="text-sm font-bold text-slate-600 mt-2 mb-10">We sent a code to s******@gmail.com</p>
+                    <p className="text-sm font-bold text-slate-600 mt-2 mb-10">
+                        We sent a code to {email ? email.replace(/(?<=.{3}).(?=.*@)/g, "*") : "your email"}
+                    </p>
 
-                    <form className="flex flex-col gap-6">
+                    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-semibold rounded-xl px-5 py-3">
+                                {error}
+                            </div>
+                        )}
 
                         {/* OTP Verification Inputs */}
                         <div className="flex justify-between items-center gap-2 mb-4">
-                            {[...Array(6)].map((_, i) => (
+                            {otp.map((digit, i) => (
                                 <input
                                     key={i}
+                                    ref={el => { inputsRef.current[i] = el; }}
                                     type="text"
+                                    inputMode="numeric"
                                     maxLength={1}
+                                    value={digit}
+                                    onChange={e => handleOtpChange(i, e.target.value)}
+                                    onKeyDown={e => handleOtpKeyDown(i, e)}
                                     className="w-[3.25rem] h-14 sm:w-[3.5rem] sm:h-16 bg-white border-2 border-slate-200 rounded-[1.25rem] text-center text-xl font-bold text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all duration-300 shadow-sm hover:border-blue-200"
                                 />
                             ))}
                         </div>
 
                         <button
-                            type="button"
-                            className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-bold text-base rounded-xl py-4 mt-2 transition-all duration-300 shadow-[0_8px_20px_-6px_rgba(59,130,246,0.5)] hover:shadow-[0_12px_25px_-6px_rgba(59,130,246,0.6)] hover:-translate-y-1 active:translate-y-0"
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-bold text-base rounded-xl py-4 mt-2 transition-all duration-300 shadow-[0_8px_20px_-6px_rgba(59,130,246,0.5)] hover:shadow-[0_12px_25px_-6px_rgba(59,130,246,0.6)] hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                         >
-                            Verify code
+                            {loading ? "Verifying..." : "Verify code"}
                         </button>
                     </form>
 
                     <div className="mt-10 text-center">
                         <span className="text-sm font-semibold text-slate-500">
-                            Didn't receive code? <button type="button" className="text-blue-600 font-bold hover:text-blue-700 hover:underline transition-colors ml-1">Resend code</button>
+                            Didn't receive code?{" "}
+                            <button 
+                                type="button" 
+                                onClick={handleResend}
+                                disabled={resending}
+                                className="text-blue-600 font-bold hover:text-blue-700 hover:underline transition-colors ml-1 disabled:opacity-50"
+                            >
+                                {resending ? "Sending..." : "Resend code"}
+                            </button>
                         </span>
                     </div>
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function VerifyPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[rgb(var(--bg))]"><div className="text-[rgba(var(--muted),1)] text-lg">Loading...</div></div>}>
+            <VerifyForm />
+        </Suspense>
     );
 }

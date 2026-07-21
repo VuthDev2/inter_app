@@ -27,39 +27,39 @@ export default function HistoryPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0e1a] text-white flex flex-col font-sans">
+        <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
             <Navbar />
             
             <div className="flex-1 flex flex-col items-center px-6 pt-16 pb-24">
                 <div className="w-full max-w-[800px] flex items-center justify-between mb-12">
-                    <h1 className="text-3xl font-semibold tracking-wide text-white/90">
+                    <h1 className="text-3xl font-semibold tracking-wide text-[rgba(var(--text),0.9)]">
                         Live Interpreter
                     </h1>
-                    <Link href="/interpreter" className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-colors shadow-lg shadow-blue-500/20 text-white">
+                    <Link href="/interpreter" className="flex items-center gap-2 bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary-pressed))] px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-colors shadow-lg shadow-[rgba(var(--primary),0.2)] text-[rgb(var(--text))]">
                         <Mic size={16} /> New Session
                     </Link>
                 </div>
 
                 <div className="w-full max-w-[800px] flex flex-col gap-10">
                     {/* Top Stats Box */}
-                    <div className="bg-[#101625] border border-white/5 rounded-2xl flex flex-col">
-                        <Link href="/allrecords" className="flex items-center justify-between p-5 border-b border-white/5 hover:bg-white/5 transition-colors group rounded-t-2xl">
+                    <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl flex flex-col">
+                        <Link href="/allrecords" className="flex items-center justify-between p-5 border-b border-[rgb(var(--border))] hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-t-2xl">
                             <div className="flex items-center gap-3">
-                                <AudioLines size={18} className="text-blue-400" />
-                                <span className="text-[14px] font-medium text-white/90">All Recordings</span>
+                                <AudioLines size={18} className="text-[rgb(var(--primary))]" />
+                                <span className="text-[14px] font-medium text-[rgba(var(--text),0.9)]">All Recordings</span>
                             </div>
-                            <div className="flex items-center gap-3 text-white/40 group-hover:text-white/70 transition-colors">
+                            <div className="flex items-center gap-3 text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors">
                                 <span className="text-[14px] font-medium">3</span>
                                 <ChevronRight size={16} />
                             </div>
                         </Link>
                         
-                        <Link href="#" className="flex items-center justify-between p-5 hover:bg-white/5 transition-colors group rounded-b-2xl">
+                        <Link href="#" className="flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-b-2xl">
                             <div className="flex items-center gap-3">
                                 <Trash2 size={18} className="text-red-500" />
-                                <span className="text-[14px] font-medium text-white/90">Recently Deleted</span>
+                                <span className="text-[14px] font-medium text-[rgba(var(--text),0.9)]">Recently Deleted</span>
                             </div>
-                            <div className="flex items-center gap-3 text-white/40 group-hover:text-white/70 transition-colors">
+                            <div className="flex items-center gap-3 text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors">
                                 <span className="text-[14px] font-medium">0</span>
                                 <ChevronRight size={16} />
                             </div>
@@ -69,27 +69,27 @@ export default function HistoryPage() {
                     {/* My Folders Section */}
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col gap-3">
-                            <h2 className="text-lg font-semibold text-white/90 tracking-wide">
+                            <h2 className="text-lg font-semibold text-[rgba(var(--text),0.9)] tracking-wide">
                                 My Folders
                             </h2>
                             <div className="flex items-center gap-3">
                                 <button 
                                     onClick={() => setIsNewFolderModalOpen(true)}
-                                    className="w-9 h-9 flex items-center justify-center rounded-full border border-white/10 bg-[#101625] hover:bg-white/10 transition-colors text-white/80"
+                                    className="w-9 h-9 flex items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] hover:bg-[rgba(var(--text),0.1)] transition-colors text-[rgba(var(--text),0.8)]"
                                 >
                                     <FolderPlus size={16} />
                                 </button>
                                 {isEditing ? (
                                     <button 
                                         onClick={() => setIsEditing(false)}
-                                        className="px-5 py-1.5 rounded-full bg-blue-500 hover:bg-blue-600 transition-colors text-[13px] font-bold text-white shadow-lg shadow-blue-500/20"
+                                        className="px-5 py-1.5 rounded-full bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary-pressed))] transition-colors text-[13px] font-bold text-[rgb(var(--text))] shadow-lg shadow-[rgba(var(--primary),0.2)]"
                                     >
                                         Save
                                     </button>
                                 ) : (
                                     <button 
                                         onClick={() => setIsEditing(true)}
-                                        className="px-4 py-1.5 rounded-full border border-white/10 bg-[#101625] hover:bg-white/10 transition-colors text-[13px] font-medium text-white/80"
+                                        className="px-4 py-1.5 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] hover:bg-[rgba(var(--text),0.1)] transition-colors text-[13px] font-medium text-[rgba(var(--text),0.8)]"
                                     >
                                         Edit
                                     </button>
@@ -98,7 +98,7 @@ export default function HistoryPage() {
                         </div>
 
                         {/* Folders List */}
-                        <div className="bg-[#101625] border border-white/5 rounded-2xl flex flex-col mt-2 overflow-hidden">
+                        <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl flex flex-col mt-2 overflow-hidden">
                             <FolderItem name="ok" count={3} isEditing={isEditing} onDelete={(e) => handleDeleteClick("ok", e)} />
                             <FolderItem name="ik" count={0} isEditing={isEditing} onDelete={(e) => handleDeleteClick("ik", e)} />
                             <FolderItem name="iL" count={0} isEditing={isEditing} onDelete={(e) => handleDeleteClick("iL", e)} />
@@ -115,34 +115,34 @@ export default function HistoryPage() {
                         className="absolute inset-0 bg-[#000000]/40 backdrop-blur-sm"
                         onClick={() => setIsDeleteModalOpen(false)}
                     ></div>
-                    <div className="relative bg-[#0b0e14] border border-white/10 rounded-3xl w-[500px] p-8 shadow-2xl flex flex-col scale-100 animate-in zoom-in-95 duration-200">
+                    <div className="relative bg-[rgb(var(--bg))] border border-[rgb(var(--border))] rounded-3xl w-[500px] p-8 shadow-2xl flex flex-col scale-100 animate-in zoom-in-95 duration-200">
                         
                         <button 
                             onClick={() => setIsDeleteModalOpen(false)}
-                            className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors"
+                            className="absolute top-6 right-6 text-[rgba(var(--muted),1)] hover:text-[rgb(var(--text))] transition-colors"
                         >
                             <X size={20} />
                         </button>
 
-                        <h2 className="text-[18px] font-bold text-white mb-2 pr-8">
+                        <h2 className="text-[18px] font-bold text-[rgb(var(--text))] mb-2 pr-8">
                             Delete this Folder?
                         </h2>
                         
-                        <p className="text-[13px] text-white/70 mb-10 font-medium">
+                        <p className="text-[13px] text-[rgba(var(--text-secondary),1)] mb-10 font-medium">
                             This action cannot be undone. The folder will be permanently deleted.
                         </p>
 
                         <div className="flex items-center justify-end gap-5 text-[14px] font-semibold">
                             <button 
                                 onClick={() => setIsDeleteModalOpen(false)}
-                                className="text-white/90 hover:text-white transition-colors"
+                                className="text-[rgba(var(--text),0.9)] hover:text-[rgb(var(--text))] transition-colors"
                             >
                                 Cancel
                             </button>
-                            <div className="w-px h-4 bg-white/20"></div>
+                            <div className="w-px h-4 bg-[rgba(var(--text),0.2)]"></div>
                             <button 
                                 onClick={confirmDelete}
-                                className="text-white hover:text-red-400 transition-colors"
+                                className="text-[rgb(var(--text))] hover:text-red-400 transition-colors"
                             >
                                 Delete
                             </button>
@@ -161,24 +161,24 @@ export default function HistoryPage() {
                             setNewFolderName("");
                         }}
                     ></div>
-                    <div className="relative bg-[#0a0e14] border border-white/5 rounded-[32px] w-[550px] p-10 shadow-2xl flex flex-col scale-100 animate-in zoom-in-95 duration-200">
+                    <div className="relative bg-[rgb(var(--bg))] border border-[rgb(var(--border))] rounded-[32px] w-[550px] p-10 shadow-2xl flex flex-col scale-100 animate-in zoom-in-95 duration-200">
                         
-                        <h2 className="text-[28px] font-bold text-white mb-2">
+                        <h2 className="text-[28px] font-bold text-[rgb(var(--text))] mb-2">
                             New Folder
                         </h2>
                         
-                        <p className="text-[16px] text-white/60 mb-8 font-medium">
+                        <p className="text-[16px] text-[rgba(var(--text-secondary),1)] mb-8 font-medium">
                             Enter a name for this folder.
                         </p>
 
-                        <div className="w-full bg-[#101420] rounded-[18px] px-5 py-4 mb-10 border border-white/10 focus-within:border-white/50 transition-colors">
+                        <div className="w-full bg-[rgb(var(--surface))] rounded-[18px] px-5 py-4 mb-10 border border-[rgb(var(--border))] focus-within:border-[rgba(var(--border),0.5)] transition-colors">
                             <input
                                 type="text"
                                 placeholder="Name"
                                 value={newFolderName}
                                 onChange={(e) => setNewFolderName(e.target.value)}
                                 autoFocus
-                                className="w-full bg-transparent border-none outline-none text-white text-[16px] placeholder:text-white/30"
+                                className="w-full bg-transparent border-none outline-none text-[rgb(var(--text))] text-[16px] placeholder:text-[rgba(var(--muted),0.8)]"
                             />
                         </div>
 
@@ -188,7 +188,7 @@ export default function HistoryPage() {
                                     setIsNewFolderModalOpen(false);
                                     setNewFolderName("");
                                 }}
-                                className="flex-1 py-4 rounded-[16px] bg-[#1c2336] hover:bg-[#252f48] transition-colors text-white text-[17px] font-bold"
+                                className="flex-1 py-4 rounded-[16px] bg-[rgb(var(--surface-muted))] hover:bg-[rgb(var(--surface-muted))] transition-colors text-[rgb(var(--text))] text-[17px] font-bold"
                             >
                                 Cancel
                             </button>
@@ -202,8 +202,8 @@ export default function HistoryPage() {
                                 disabled={newFolderName.trim().length === 0}
                                 className={`flex-1 py-4 rounded-[16px] text-[17px] font-bold transition-colors ${
                                     newFolderName.trim().length > 0 
-                                        ? 'bg-[#2563eb] hover:bg-[#1d4ed8] text-white' 
-                                        : 'bg-[#1c2336] text-white/20 cursor-not-allowed'
+                                        ? 'bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary-pressed))] text-[rgb(var(--text))]' 
+                                        : 'bg-[rgb(var(--surface-muted))] text-[rgba(var(--muted),0.5)] cursor-not-allowed'
                                 }`}
                             >
                                 Save
@@ -220,8 +220,8 @@ function FolderItem({ name, count, isEditing, onDelete, isLast = false }: { name
     return (
         <Link 
             href="/folder" 
-            className={`flex items-center justify-between p-5 hover:bg-white/5 transition-colors group ${
-                !isLast ? 'border-b border-white/5' : ''
+            className={`flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group ${
+                !isLast ? 'border-b border-[rgb(var(--border))]' : ''
             }`}
         >
             <div className="flex items-center gap-4">
@@ -230,16 +230,16 @@ function FolderItem({ name, count, isEditing, onDelete, isLast = false }: { name
                         <Trash2 size={16} />
                     </button>
                 )}
-                <Folder size={18} className="text-blue-400" />
-                <span className="text-[14px] font-medium text-white/90">{name}</span>
+                <Folder size={18} className="text-[rgb(var(--primary))]" />
+                <span className="text-[14px] font-medium text-[rgba(var(--text),0.9)]">{name}</span>
             </div>
             
             {isEditing ? (
-                <div className="flex items-center text-white/40 hover:text-white transition-colors">
+                <div className="flex items-center text-[rgba(var(--muted),1)] hover:text-[rgb(var(--text))] transition-colors">
                     <Pencil size={16} />
                 </div>
             ) : (
-                <div className="flex items-center gap-3 text-white/40 group-hover:text-white/70 transition-colors">
+                <div className="flex items-center gap-3 text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors">
                     <span className="text-[14px] font-medium">{count}</span>
                     <ChevronRight size={16} />
                 </div>

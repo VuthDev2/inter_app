@@ -22,7 +22,7 @@ const defaultSettings: SettingsState = {
     sessionAlerts: true,
     soundEffects: true,
     hapticFeedback: false,
-    darkMode: true, // The current design defaults to dark mode
+    darkMode: false, // Default to light mode (matching mobile)
     compactView: false,
     language: "English",
     micInput: "Default",
