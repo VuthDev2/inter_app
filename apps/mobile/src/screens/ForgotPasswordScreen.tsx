@@ -53,20 +53,22 @@ export function ForgotPasswordScreen({
 
   return (
     <AuthScreenLayout title={"Forgot\nYour password"} titleVariant="password">
-      <View style={styles.form}>
-        <AuthTextField
-          icon="mail-outline"
-          keyboardType="email-address"
-          onChangeText={setEmail}
-          placeholder="Email"
-          value={email}
-        />
-        <Pressable accessibilityRole="button" onPress={onBack} style={styles.backLink}>
-          <Text style={styles.backText}>
-            Remember your password? <Text style={styles.link}>Back to sign in</Text>
-          </Text>
-        </Pressable>
-        <View style={styles.passwordActionSpacing}>
+      <View style={styles.formShell}>
+        <View style={styles.formTop}>
+          <AuthTextField
+            icon="mail-outline"
+            keyboardType="email-address"
+            onChangeText={setEmail}
+            placeholder="Email"
+            value={email}
+          />
+          <Pressable accessibilityRole="button" onPress={onBack} style={styles.backLink}>
+            <Text style={styles.backText}>
+              Remember your password? <Text style={styles.link}>Back to sign in</Text>
+            </Text>
+          </Pressable>
+        </View>
+        <View style={styles.formBottom}>
           <PrimaryButton
             authSize
             disabled={!canSend}
@@ -86,7 +88,9 @@ const styles = StyleSheet.create({
   backLink: { alignSelf: "flex-start", paddingVertical: 2 },
   backText: { color: "#555555", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
   buttonText: { fontFamily: "Poppins_600SemiBold" },
-  form: { gap: 22, marginTop: 32 },
+  formShell: { flex: 1, marginTop: 32 },
+  formTop: { gap: 12 },
+  formBottom: { marginTop: "auto" },
   link: { color: authColors.blue },
   passwordActionSpacing: { marginTop: 18 },
 });

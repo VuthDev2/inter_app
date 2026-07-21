@@ -138,52 +138,56 @@ export function CreateAccountScreen({ onSignIn }: { onSignIn: () => void }) {
       titleStyle={isJapanese ? styles.japaneseTitle : undefined}
       topSpacing="compact"
     >
-      <View style={styles.form}>
-        <AuthTextField onChangeText={setUsername} placeholder="User name" value={username} />
-        <AuthTextField
-          keyboardType="email-address"
-          onChangeText={setEmail}
-          placeholder="Email"
-          value={email}
-        />
-        <AuthTextField
-          onChangeText={setPassword}
-          onToggleSecure={() => setShowPassword((current) => !current)}
-          placeholder="Password"
-          secureTextEntry={!showPassword}
-          value={password}
-        />
-        <AuthTextField
-          onChangeText={setConfirmPassword}
-          onToggleSecure={() => setShowConfirmPassword((current) => !current)}
-          placeholder="Confirm Password"
-          secureTextEntry={!showConfirmPassword}
-          value={confirmPassword}
-        />
+      <View style={styles.formShell}>
+        <View style={styles.formTop}>
+          <AuthTextField onChangeText={setUsername} placeholder="User name" value={username} />
+          <AuthTextField
+            keyboardType="email-address"
+            onChangeText={setEmail}
+            placeholder="Email"
+            value={email}
+          />
+          <AuthTextField
+            onChangeText={setPassword}
+            onToggleSecure={() => setShowPassword((current) => !current)}
+            placeholder="Password"
+            secureTextEntry={!showPassword}
+            value={password}
+          />
+          <AuthTextField
+            onChangeText={setConfirmPassword}
+            onToggleSecure={() => setShowConfirmPassword((current) => !current)}
+            placeholder="Confirm Password"
+            secureTextEntry={!showConfirmPassword}
+            value={confirmPassword}
+          />
 
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: acceptedTerms }}
-          onPress={() => setAcceptedTerms((current) => !current)}
-          style={styles.termsRow}
-        >
-          <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-            {acceptedTerms ? <Ionicons name="checkmark" color="#FFFFFF" size={12} /> : null}
-          </View>
-          <Text style={styles.termsText}>I accept the terms and privacy policy</Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: acceptedTerms }}
+            onPress={() => setAcceptedTerms((current) => !current)}
+            style={styles.termsRow}
+          >
+            <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+              {acceptedTerms ? <Ionicons name="checkmark" color="#FFFFFF" size={12} /> : null}
+            </View>
+            <Text style={styles.termsText}>I accept the terms and privacy policy</Text>
+          </Pressable>
+        </View>
 
-        <PrimaryButton
-          authSize
-          disabled={!authReady || busy}
-          onPress={submit}
-          textStyle={styles.buttonText}
-          tone="dark"
-        >
-          {busy ? "Please wait…" : "Continue"}
-        </PrimaryButton>
-        <AuthDivider />
-        <SocialAuthButtons />
+        <View style={styles.formBottom}>
+          <PrimaryButton
+            authSize
+            disabled={!authReady || busy}
+            onPress={submit}
+            textStyle={styles.buttonText}
+            tone="dark"
+          >
+            {busy ? "Please wait…" : "Continue"}
+          </PrimaryButton>
+          <AuthDivider />
+          <SocialAuthButtons />
+        </View>
       </View>
     </AuthScreenLayout>
   );
