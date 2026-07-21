@@ -1,3 +1,4 @@
+import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Poppins_800ExtraBold, useFonts } from "@expo-google-fonts/poppins";
 import type { ComponentProps, ReactNode } from "react";
