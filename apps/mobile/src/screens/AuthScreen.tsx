@@ -151,40 +151,36 @@ export function AuthScreen({
       title={`${animatedTitle}${showTypingCursor && cursorVisible ? "|" : ""}`}
       titleStyle={isJapanese ? styles.japaneseTitle : undefined}
     >
-      <View style={styles.formShell}>
-        <View style={styles.formTop}>
-          <AuthTextField
-            icon="mail-outline"
-            keyboardType="email-address"
-            onChangeText={setEmail}
-            placeholder="Email"
-            value={email}
-          />
-          <AuthTextField
-            icon="lock-closed-outline"
-            onChangeText={setPassword}
-            onToggleSecure={() => setShowPassword((current) => !current)}
-            placeholder="Password"
-            secureTextEntry={!showPassword}
-            value={password}
-          />
-          <Pressable accessibilityRole="button" onPress={onForgotPassword} style={styles.forgot}>
-            <Text style={styles.forgotText}>Forgot Password ?</Text>
-          </Pressable>
-        </View>
-        <View style={styles.formBottom}>
-          <PrimaryButton
-            authSize
-            disabled={!canSubmit}
-            onPress={submit}
-            textStyle={styles.buttonText}
-            tone="dark"
-          >
-            {busy ? "Please wait…" : cooldown > 0 ? `Wait ${cooldown}s` : "Continue"}
-          </PrimaryButton>
-          <AuthDivider />
-          <SocialAuthButtons />
-        </View>
+      <View style={styles.form}>
+        <AuthTextField
+          icon="mail-outline"
+          keyboardType="email-address"
+          onChangeText={setEmail}
+          placeholder="Email"
+          value={email}
+        />
+        <AuthTextField
+          icon="lock-closed-outline"
+          onChangeText={setPassword}
+          onToggleSecure={() => setShowPassword((current) => !current)}
+          placeholder="Password"
+          secureTextEntry={!showPassword}
+          value={password}
+        />
+        <Pressable accessibilityRole="button" onPress={onForgotPassword} style={styles.forgot}>
+          <Text style={styles.forgotText}>Forgot Password ?</Text>
+        </Pressable>
+        <PrimaryButton
+          authSize
+          disabled={!canSubmit}
+          onPress={submit}
+          textStyle={styles.buttonText}
+          tone="dark"
+        >
+          {busy ? "Please wait…" : cooldown > 0 ? `Wait ${cooldown}s` : "Continue"}
+        </PrimaryButton>
+        <AuthDivider />
+        <SocialAuthButtons />
       </View>
     </AuthScreenLayout>
   );

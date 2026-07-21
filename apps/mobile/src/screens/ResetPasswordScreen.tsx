@@ -44,24 +44,22 @@ export function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
 
   return (
     <AuthScreenLayout title={"Change\nYour password"} titleVariant="password">
-      <View style={styles.formShell}>
-        <View style={styles.formTop}>
-          <AuthTextField
-            onChangeText={setPassword}
-            onToggleSecure={() => setShowPassword((current) => !current)}
-            placeholder="New Password"
-            secureTextEntry={!showPassword}
-            value={password}
-          />
-          <AuthTextField
-            onChangeText={setConfirmPassword}
-            onToggleSecure={() => setShowConfirmPassword((current) => !current)}
-            placeholder="Confirm New Password"
-            secureTextEntry={!showConfirmPassword}
-            value={confirmPassword}
-          />
-        </View>
-        <View style={styles.formBottom}>
+      <View style={styles.form}>
+        <AuthTextField
+          onChangeText={setPassword}
+          onToggleSecure={() => setShowPassword((current) => !current)}
+          placeholder="New Password"
+          secureTextEntry={!showPassword}
+          value={password}
+        />
+        <AuthTextField
+          onChangeText={setConfirmPassword}
+          onToggleSecure={() => setShowConfirmPassword((current) => !current)}
+          placeholder="Confirm New Password"
+          secureTextEntry={!showConfirmPassword}
+          value={confirmPassword}
+        />
+        <View style={styles.passwordActionSpacing}>
           <PrimaryButton
             authSize
             disabled={busy || !authReady}
