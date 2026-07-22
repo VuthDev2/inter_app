@@ -63,5 +63,31 @@ target 'QuickVoice' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    # Expo Constants currently generates a shell command that breaks when the
+    # project path contains spaces. Invoke its script directly and quote the
+    # PROJECT_DIR use inside the script so this workspace remains buildable.
+    installer.pods_project.targets.each do |pod_target|
+      next unless pod_target.name == 'EXConstants'
+
+      pod_target.shell_script_build_phases.each do |phase|
+        next unless phase.name == '[CP-User] Generate app.config for prebuilt Constants.manifest'
+
+        phase.shell_script = 'bash -l "$PODS_TARGET_SRCROOT/../scripts/get-app-config-ios.sh"'
+      end
+    end
+
+    expo_constants_script = File.expand_path(
+      '../../../node_modules/expo-constants/scripts/get-app-config-ios.sh',
+      __dir__,
+    )
+    if File.exist?(expo_constants_script)
+      contents = File.read(expo_constants_script)
+      contents = contents.gsub(
+        'PROJECT_DIR_BASENAME=$(basename $PROJECT_DIR)',
+        'PROJECT_DIR_BASENAME=$(basename "$PROJECT_DIR")',
+      )
+      File.write(expo_constants_script, contents)
+    end
   end
 end

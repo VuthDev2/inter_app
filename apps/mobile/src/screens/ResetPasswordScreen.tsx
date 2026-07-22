@@ -46,6 +46,7 @@ export function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
     <AuthScreenLayout title={"Change\nYour password"} titleVariant="password">
       <View style={styles.form}>
         <AuthTextField
+          icon="lock-closed-outline"
           onChangeText={setPassword}
           onToggleSecure={() => setShowPassword((current) => !current)}
           placeholder="New Password"
@@ -53,6 +54,7 @@ export function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
           value={password}
         />
         <AuthTextField
+          icon="lock-closed-outline"
           onChangeText={setConfirmPassword}
           onToggleSecure={() => setShowConfirmPassword((current) => !current)}
           placeholder="Confirm New Password"

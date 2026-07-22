@@ -26,6 +26,7 @@ apps/mobile/android/.gradle/
 apps/mobile/android/app/build/
 
 # Expo cache
+.expo/
 apps/mobile/.expo/
 apps/web/.next/
 *.tsbuildinfo

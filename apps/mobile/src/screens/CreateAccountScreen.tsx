@@ -113,6 +113,13 @@ export function CreateAccountScreen({ onSignIn }: { onSignIn: () => void }) {
       Alert.alert("Terms required", "Accept the terms and privacy policy to continue.");
       return;
     }
+    if (!authReady) {
+      Alert.alert(
+        "Authentication unavailable",
+        "QuickVoice could not load the Supabase configuration. Restart Expo with the cache cleared.",
+      );
+      return;
+    }
 
     setBusy(true);
     const result = await signUp(email.trim(), password, username.trim());
@@ -139,14 +146,21 @@ export function CreateAccountScreen({ onSignIn }: { onSignIn: () => void }) {
       topSpacing="compact"
     >
       <View style={styles.form}>
-        <AuthTextField onChangeText={setUsername} placeholder="User name" value={username} />
         <AuthTextField
+          icon="person-outline"
+          onChangeText={setUsername}
+          placeholder="User name"
+          value={username}
+        />
+        <AuthTextField
+          icon="mail-outline"
           keyboardType="email-address"
           onChangeText={setEmail}
           placeholder="Email"
           value={email}
         />
         <AuthTextField
+          icon="lock-closed-outline"
           onChangeText={setPassword}
           onToggleSecure={() => setShowPassword((current) => !current)}
           placeholder="Password"
@@ -154,6 +168,7 @@ export function CreateAccountScreen({ onSignIn }: { onSignIn: () => void }) {
           value={password}
         />
         <AuthTextField
+          icon="lock-closed-outline"
           onChangeText={setConfirmPassword}
           onToggleSecure={() => setShowConfirmPassword((current) => !current)}
           placeholder="Confirm Password"
@@ -175,7 +190,7 @@ export function CreateAccountScreen({ onSignIn }: { onSignIn: () => void }) {
 
         <PrimaryButton
           authSize
-          disabled={!authReady || busy}
+          disabled={busy}
           onPress={submit}
           textStyle={styles.buttonText}
           tone="dark"

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PrimaryButton } from "../components/ui";
 import { useAuth } from "../features/auth/auth";
 
 const COOLDOWN = 60;
@@ -167,23 +168,14 @@ export function OTPScreen({
           </View>
 
           {/* ── Verify button ── */}
-          <Pressable
+          <PrimaryButton
+            authSize
             disabled={busy || !authReady}
             onPress={submit}
-            style={({ pressed }) => [{
-              alignItems: "center", backgroundColor: busy || !authReady ? "#A0B4D8" : PRIMARY,
-              borderRadius: 14, flexDirection: "row", gap: 8, justifyContent: "center",
-              minHeight: 54, paddingHorizontal: 24, paddingVertical: 16,
-              shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: busy || !authReady ? 0 : 0.2, shadowRadius: 10,
-              elevation: busy || !authReady ? 0 : 4,
-            }, pressed && !busy && authReady && { backgroundColor: "#3A5EA8" }]}
+            tone="dark"
           >
-            <Ionicons name="checkmark-outline" size={20} color="#FFFFFF" />
-            <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600", letterSpacing: 0.2 }}>
-              {busy ? "Verifying…" : "Verify Code"}
-            </Text>
-          </Pressable>
+            {busy ? "Verifying…" : "Verify Code"}
+          </PrimaryButton>
 
           {/* ── Resend ── */}
           <View style={{ alignItems: "center", marginTop: 24 }}>

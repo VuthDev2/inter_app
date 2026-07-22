@@ -3,80 +3,92 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   Switch,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
 import { atoms } from "../theme/atoms";
-import { recordingTemplates } from "../constants/data";
-import type { RecordingTemplate } from "../constants/data";
-import { saveRecordingSession } from "../services/storage";
+import { languages, recordingTemplates } from "../constants/data";
+import type { LanguageCode, RecordingTemplate, SavedRecordingSession } from "../constants/data";
+import { loadSavedRecordingSessions, saveRecordingSession } from "../services/storage";
 import { colors, spacing } from "../theme/theme";
 import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
 import { usePreferences } from "../features/preferences/context";
 
+const RECORD_CATEGORIES = [
+  { color: "#8E7CF6", icon: "school-outline" as const, templateId: "lecture", title: "School" },
+  { color: "#39A8F5", icon: "briefcase-outline" as const, templateId: "meeting", title: "Work" },
+  { color: "#FF8A68", icon: "person-outline" as const, templateId: "voice-note", title: "Personal" },
+] as const;
 type ViewMode = "grid" | "list";
 
 // ─── Template Picker ──────────────────────────────────────────────────────────
-export function RecordScreen() {
+export function RecordScreen({ setActiveTab }: { setActiveTab?: (tab: "history") => void }) {
   const [activeTemplate, setActiveTemplate] = useState<RecordingTemplate | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [recent, setRecent] = useState<SavedRecordingSession[]>([]);
+
+  const loadRecent = useCallback(() => {
+    loadSavedRecordingSessions().then((items) => setRecent(items.slice(0, 3)));
+  }, []);
+
+  useEffect(loadRecent, [loadRecent]);
 
   if (activeTemplate) {
     return (
       <RecordingSessionScreen
         template={activeTemplate}
-        onBack={() => setActiveTemplate(null)}
+        onBack={() => {
+          setActiveTemplate(null);
+          loadRecent();
+        }}
       />
     );
   }
 
   return (
-    <View style={atoms.gapLg}>
-      {/* Page header */}
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", letterSpacing: 0.2 }}>Recording templates</Text>
-        <Text style={{ color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5, lineHeight: 36 }}>Record</Text>
-        <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 2 }}>
-          Record the
-        </Text>
+    <View style={rs.page}>
+      <Text style={rs.pageSubtitle}>Choose where this recording belongs.</Text>
+
+      <View style={rs.sectionHeader}>
+        <Text style={rs.sectionTitle}>Categories</Text>
+      </View>
+      <View style={rs.categoryList}>
+        {RECORD_CATEGORIES.map((category) => {
+          const base = recordingTemplates.find((item) => item.id === category.templateId)!;
+          const selected: RecordingTemplate = { ...base, title: category.title };
+          return (
+            <Pressable key={category.title} onPress={() => setActiveTemplate(selected)} style={({ pressed }) => [rs.categoryCard, pressed && rs.pressed]}>
+              <View style={[rs.categoryIcon, { backgroundColor: `${category.color}18` }]}><Ionicons name={category.icon} size={23} color={category.color} /></View>
+              <View style={atoms.flex1}>
+                <Text style={rs.categoryTitle}>{category.title}</Text>
+                <Text style={rs.categoryMeta}>Tap to start a new recording</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#A4AAB3" />
+            </Pressable>
+          );
+        })}
       </View>
 
-      {/* Quick-start button */}
-      <Pressable
-        style={({ pressed }) => [atoms.flexRow, atoms.itemsCenter, { alignSelf: "flex-start", backgroundColor: colors.primary, borderRadius: 8, gap: 7, paddingHorizontal: 16, paddingVertical: 10 }, pressed && { backgroundColor: colors.primaryPressed }]}
-        onPress={() => setActiveTemplate(recordingTemplates[0])}
-        accessibilityRole="button"
-      >
-        <Ionicons name="mic-outline" size={16} color="#fff" />
-        <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>Start Recording</Text>
-      </Pressable>
-
-      {/* Template grid / list */}
-      <View style={{ gap: spacing.sm }}>
-        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween]}>
-          <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "600", letterSpacing: 0.5, textTransform: "uppercase" }}>Templates</Text>
-          <Pressable
-            onPress={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
-            style={[atoms.flexRow, atoms.itemsCenter, { backgroundColor: colors.secondary, borderRadius: 6, gap: 5, paddingHorizontal: 10, paddingVertical: 6 }]}
-          >
-            <Ionicons name={viewMode === "grid" ? "list-outline" : "grid-outline"} size={14} color={colors.muted} />
-            <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "500" }}>{viewMode === "grid" ? "List" : "Grid"}</Text>
+      <View style={[rs.sectionHeader, { marginTop: 28 }]}>
+        <Text style={rs.sectionTitle}>Recently Recorded</Text>
+        <Pressable onPress={() => setActiveTab?.("history")}><Text style={rs.seeAll}>History</Text></Pressable>
+      </View>
+      <View style={rs.recentCard}>
+        {recent.length === 0 ? (
+          <View style={rs.emptyRecent}><Ionicons name="mic-outline" size={25} color="#AAB0BA" /><Text style={rs.emptyRecentText}>Your latest recordings will appear here.</Text></View>
+        ) : recent.map((item, index) => (
+          <Pressable key={item.id} onPress={() => setActiveTab?.("history")} style={({ pressed }) => [rs.recentRow, index < recent.length - 1 && rs.recentBorder, pressed && rs.pressed]}>
+              <View style={rs.recentIcon}><Ionicons name="pulse-outline" size={17} color="#007AFF" /></View>
+            <View style={atoms.flex1}><Text numberOfLines={1} style={rs.recentTitle}>{item.title}</Text><Text style={rs.recentMeta}>{new Date(item.createdAt).toLocaleDateString()} · {item.recordingType}</Text></View>
+            <Ionicons name="play-circle" size={27} color="#007AFF" />
           </Pressable>
-        </View>
-        <View style={viewMode === "grid" ? [atoms.flexRow, atoms.flexWrap, atoms.gapMd] : { gap: 8 }}>
-          {recordingTemplates.map((template) => (
-            <TemplateCard
-              key={template.id}
-              template={template}
-              viewMode={viewMode}
-              onPress={() => setActiveTemplate(template)}
-            />
-          ))}
-        </View>
+        ))}
       </View>
     </View>
   );
@@ -156,12 +168,38 @@ function RecordingSessionScreen({
   template: RecordingTemplate;
   onBack: () => void;
 }) {
-  const { preferred_source_lang, preferred_target_lang } = usePreferences();
-  const interp = useLiveInterpretation(preferred_source_lang, preferred_target_lang);
+  const { preferred_source_lang, preferred_target_lang, update: updatePrefs } = usePreferences();
+  const [sourceLang, setSourceLang] = useState<LanguageCode>(preferred_source_lang);
+  const [targetLang, setTargetLang] = useState<LanguageCode>(preferred_target_lang);
+  const [pickerOpen, setPickerOpen] = useState<"source" | "target" | null>(null);
+  const interp = useLiveInterpretation(sourceLang, targetLang);
   const [sourceAudio, setSourceAudio] = useState(template.sourceAudio);
   const [speakerLabels, setSpeakerLabels] = useState(template.speakerLabels);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sourceLabel = languages.find((item) => item.code === sourceLang)?.label ?? sourceLang;
+  const targetLabel = languages.find((item) => item.code === targetLang)?.label ?? targetLang;
+
+  const selectLanguage = (side: "source" | "target", code: LanguageCode) => {
+    if (side === "source") {
+      setSourceLang(code);
+      updatePrefs({ preferred_source_lang: code });
+      if (code === targetLang) {
+        const fallback = code === "en" ? "ja" : "en";
+        setTargetLang(fallback);
+        updatePrefs({ preferred_target_lang: fallback });
+      }
+    } else {
+      setTargetLang(code);
+      updatePrefs({ preferred_target_lang: code });
+      if (code === sourceLang) {
+        const fallback = code === "en" ? "ja" : "en";
+        setSourceLang(fallback);
+        updatePrefs({ preferred_source_lang: fallback });
+      }
+    }
+    setPickerOpen(null);
+  };
 
   useEffect(() => {
     if (interp.isListening) {
@@ -212,186 +250,158 @@ function RecordingSessionScreen({
   }, [interp]);
 
   return (
-    <ScrollView
-      style={atoms.bgBackground}
-      contentContainerStyle={{ gap: spacing.lg, padding: spacing.lg, paddingBottom: 120 }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ── Back + header ── */}
-      <Pressable onPress={onBack} style={[atoms.flexRow, atoms.itemsCenter, { gap: 5, marginBottom: -4 }]} accessibilityRole="button">
-        <Ionicons name="arrow-back-outline" size={16} color={colors.muted} />
-        <Text style={{ color: colors.muted, fontSize: 13, fontWeight: "500" }}>Templates</Text>
-      </Pressable>
-
-      <View style={[atoms.flexRow, atoms.itemsStart, atoms.gapMd, atoms.justifyBetween]}>
-        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.gapMd]}>
-          <View style={{ alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: 8, height: 48, justifyContent: "center", width: 48 }}>
-            <Ionicons name={template.icon as any} size={24} color={colors.primary} />
-          </View>
-          <View>
-            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "500" }}>{preferred_source_lang.toUpperCase()} → {preferred_target_lang.toUpperCase()}</Text>
-            <Text style={{ color: colors.text, fontSize: 24, fontWeight: "700", letterSpacing: -0.4 }}>Live Interpretation</Text>
-          </View>
-        </View>
-        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.bgSurface, atoms.border1, { borderColor: colors.border, borderRadius: 99, gap: 5, paddingHorizontal: 10, paddingVertical: 6 }]}>
-          <View style={{ backgroundColor: interp.isListening ? colors.red : colors.primary, borderRadius: 99, height: 7, width: 7 }} />
-          <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{interp.isListening ? "Listening" : "Ready"}</Text>
-          <Text style={{ color: colors.muted, fontSize: 12 }}>{formatTime(elapsed)}</Text>
-        </View>
-      </View>
-
-      {interp.error && (
-        <View style={{ backgroundColor: "rgba(192,57,43,0.12)", borderRadius: 10, padding: spacing.md }}>
-          <Text style={{ color: colors.red, fontSize: 13, lineHeight: 18 }}>{interp.error}</Text>
-        </View>
-      )}
-
-      {/* ── Dark interpretation panel ── */}
-      <View style={{ backgroundColor: "#0d1020", borderRadius: 22, gap: spacing.md, overflow: "hidden", padding: spacing.lg }}>
-        {/* Panel header */}
-        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { borderBottomColor: "rgba(255,255,255,0.1)", borderBottomWidth: 1, marginHorizontal: -spacing.lg, marginTop: -spacing.lg, paddingBottom: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md }]}>
-          <View>
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: "700", letterSpacing: 1.4, textTransform: "uppercase" }}>{template.title.toUpperCase()}</Text>
-            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", letterSpacing: -0.3, marginTop: 1 }}>
-              {interp.isListening ? "Listening…" : "Interpretation"}
-            </Text>
-          </View>
-          <View style={{ backgroundColor: "rgba(75,113,196,0.15)", borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <Text style={{ color: "#6b93d6", fontSize: 11, fontWeight: "600" }}>
-              {preferred_source_lang.toUpperCase()} → {preferred_target_lang.toUpperCase()}
-            </Text>
-          </View>
+    <>
+      <ScrollView style={atoms.bgBackground} contentContainerStyle={rs.sessionContent} showsVerticalScrollIndicator={false}>
+        <View style={rs.sessionHeader}>
+          <Pressable onPress={onBack} style={rs.backButton} accessibilityRole="button"><Ionicons name="chevron-back" size={20} color="#171A20" /></Pressable>
+          <View style={atoms.flex1}><Text style={rs.sessionCategory}>{template.title.toUpperCase()}</Text><Text style={rs.sessionTitle}>New Recording</Text></View>
+          <View style={rs.timerPill}><View style={[rs.statusDot, interp.isListening && rs.statusDotLive]} /><Text style={rs.timerText}>{formatTime(elapsed)}</Text></View>
         </View>
 
-        {/* Transcript entries */}
-        <View style={{ backgroundColor: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.08)", borderRadius: 14, borderWidth: 1, minHeight: 140, padding: spacing.md }}>
-          {interp.entries.length === 0 && !interp.interimText ? (
-            <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, fontWeight: "500" }}>
-              {interp.isListening ? "Listening for speech…" : "Tap the mic to start live interpretation"}
-            </Text>
+        {interp.error ? <View style={rs.errorCard}><Ionicons name="alert-circle-outline" size={19} color="#C63B32" /><Text style={rs.errorText}>{interp.error}</Text></View> : null}
+
+        <View style={rs.speechCard}>
+          <Text style={rs.cardLabel}>{sourceLabel}</Text>
+          <Text style={[rs.speechText, !interp.interimText && interp.entries.length === 0 && rs.placeholderText]}>
+            {interp.interimText || interp.entries[interp.entries.length - 1]?.original || (interp.isListening ? "Listening…" : "Your original speech will appear here.")}
+          </Text>
+        </View>
+
+        <View style={rs.languageBar}>
+          <Pressable disabled={interp.isListening} onPress={() => setPickerOpen("source")} style={rs.languagePill}><Text numberOfLines={1} style={rs.languageText}>{sourceLabel}</Text><Ionicons name="chevron-down" size={13} color="#66707D" /></Pressable>
+          {interp.isListening ? (
+            <View style={rs.waveform}>
+              {Array.from({ length: 15 }, (_, i) => {
+                const levels = [12, 24, 17, 33, 20, 40, 27, 44, 25, 37, 18, 31, 15, 26, 11];
+                const volume = Math.max(0.32, Math.min(1, (interp.volume + 50) / 50));
+                return <View key={i} style={[rs.waveBar, { height: Math.max(5, levels[i] * volume) }]} />;
+              })}
+            </View>
           ) : (
-            <View style={{ gap: 2 }}>
-              {interp.entries.map((entry) => (
-                <View key={entry.id} style={{ gap: 3, paddingVertical: 5 }}>
-                  <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 16, lineHeight: 23 }}>{entry.original}</Text>
-                  <Text style={{ color: "#6b93d6", fontSize: 16, lineHeight: 23, fontWeight: "500" }}>{entry.translation}</Text>
-                  <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)", marginTop: 4 }} />
-                </View>
-              ))}
-              {interp.interimText ? (
-                <View style={{ gap: 3, paddingVertical: 5 }}>
-                  <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, lineHeight: 23, fontStyle: "italic" }}>{interp.interimText}</Text>
-                </View>
-              ) : null}
-            </View>
+            <Pressable onPress={toggleMic} style={({ pressed }) => [rs.micButton, interp.entries.length > 0 && rs.micButtonSmall, pressed && rs.pressed]} accessibilityLabel="Start listening"><Ionicons name="mic" size={interp.entries.length > 0 ? 22 : 29} color="#FFFFFF" /></Pressable>
           )}
+          <Pressable disabled={interp.isListening} onPress={() => setPickerOpen("target")} style={rs.languagePill}><Text numberOfLines={1} style={rs.languageText}>{targetLabel}</Text><Ionicons name="chevron-down" size={13} color="#66707D" /></Pressable>
+        </View>
+        {interp.isListening ? <Pressable onPress={handleStop} style={rs.stopListening}><View style={rs.stopSquare} /><Text style={rs.stopText}>Listening… tap to stop</Text></Pressable> : null}
+
+        <View style={rs.translationCard}>
+          <Text style={rs.cardLabel}>{targetLabel}</Text>
+          <Text style={[rs.translationText, !interp.liveTranslation && interp.entries.length === 0 && rs.placeholderText]}>
+            {interp.liveTranslation || interp.entries[interp.entries.length - 1]?.translation || "Translation will appear here."}
+          </Text>
         </View>
 
-        {/* Waveform — driven by volume */}
-        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { gap: 4, height: 56, paddingHorizontal: spacing.md }]}>
-          {Array.from({ length: 20 }, (_, i) => {
-            const baseHeights = [18, 32, 24, 44, 28, 52, 34, 56, 32, 48, 26, 40, 22, 38, 28, 44, 22, 36, 20, 30];
-            const base = baseHeights[i % baseHeights.length];
-            const vol = interp.isListening ? Math.max(0.3, Math.min(1, (interp.volume + 2) / 10)) : 0.2;
-            const h = interp.isListening ? base * (0.5 + vol * 0.5) : base * 0.2;
-            return (
-              <View
-                key={i}
-                style={{
-                  backgroundColor: interp.isListening ? "#4B71C4" : "rgba(255,255,255,0.2)",
-                  borderRadius: 99, width: 4,
-                  height: Math.max(3, h),
-                  opacity: interp.isListening ? 0.6 + vol * 0.4 : 0.2,
-                }}
-              />
-            );
-          })}
-        </View>
+        {interp.entries.length > 0 ? (
+          <Pressable onPress={handleSave} style={({ pressed }) => [rs.saveButton, pressed && rs.pressed]}><Ionicons name="checkmark-circle" size={20} color="#FFFFFF" /><Text style={rs.saveText}>Save to {template.title}</Text></Pressable>
+        ) : null}
 
-        {/* Mic button */}
-        <View style={[atoms.itemsCenter, atoms.justifyCenter]}>
-          <Pressable
-            onPress={toggleMic}
-            style={({ pressed }) => ({
-              alignItems: "center",
-              borderRadius: 99,
-              height: 80,
-              justifyContent: "center",
-              width: 80,
-              shadowOffset: { width: 0, height: 0 },
-              shadowRadius: 20,
-              elevation: 8,
-              backgroundColor: interp.isListening ? "#e53e3e" : colors.primary,
-              shadowColor: interp.isListening ? "#e53e3e" : colors.primary,
-              shadowOpacity: interp.isListening ? 0.5 : 0.4,
-              transform: pressed ? [{ scale: 0.93 }] : interp.isListening ? [{ scale: 1.06 }] : [],
-            })}
-            accessibilityRole="button"
-            accessibilityLabel={interp.isListening ? "Stop listening" : "Start listening"}
-          >
-            <Ionicons name={interp.isListening ? "mic" : "mic-outline"} size={32} color="#fff" />
-          </Pressable>
+        <View style={rs.optionsCard}>
+          <Text style={rs.optionsTitle}>Recording options</Text>
+          <SettingRow icon="headset-outline" label="Source Audio" description="Store audio with the transcript." value={sourceAudio} onChange={setSourceAudio} />
+          <SettingRow icon="document-text-outline" label="Speaker Labels" description="Separate multiple speakers." value={speakerLabels} onChange={setSpeakerLabels} />
         </View>
+      </ScrollView>
 
-        {/* Stop + Save */}
-        <View style={[atoms.flexRow, atoms.justifyCenter, atoms.gapMd]}>
-          <Pressable
-            onPress={handleStop}
-            style={[atoms.flexRow, atoms.itemsCenter, { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 8, gap: 6, paddingHorizontal: 20, paddingVertical: 10 }]}
-            accessibilityRole="button"
-          >
-            <Ionicons name="stop-outline" size={15} color="rgba(255,255,255,0.8)" />
-            <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, fontWeight: "600" }}>Stop</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleSave}
-            style={[atoms.flexRow, atoms.itemsCenter, { backgroundColor: "#ffffff", borderRadius: 8, gap: 6, paddingHorizontal: 20, paddingVertical: 10 }]}
-            accessibilityRole="button"
-          >
-            <Ionicons name="save-outline" size={15} color="#0d1020" />
-            <Text style={{ color: "#0d1020", fontSize: 14, fontWeight: "700" }}>Save</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* ── Settings card ── */}
-      <View style={atoms.card}>
-        <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.2 }}>Template Settings</Text>
-        <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: -6 }}>Settings from the selected template.</Text>
-
-        <View style={{ gap: spacing.sm }}>
-          <SettingRow
-            icon="headset-outline"
-            label="Source Audio"
-            description="Store audio with the transcript."
-            value={sourceAudio}
-            onChange={setSourceAudio}
-          />
-          <SettingRow
-            icon="document-text-outline"
-            label="Speaker Labels"
-            description="Sections for multiple speakers."
-            value={speakerLabels}
-            onChange={setSpeakerLabels}
-          />
-        </View>
-      </View>
-
-      {/* ── Metadata card ── */}
-      <View style={atoms.card}>
-        <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.2 }}>Session Metadata</Text>
-        <View style={{ gap: 2 }}>
-          {[{ label: "Template", value: template.title }, { label: "Direction", value: `${preferred_source_lang.toUpperCase()} → ${preferred_target_lang.toUpperCase()}` }, { label: "Entries", value: String(interp.entries.length) }].map((r) => (
-            <View key={r.label} style={[atoms.flexRow, atoms.justifyBetween, { borderTopColor: colors.border, borderTopWidth: 1, paddingVertical: 10 }]}>
-              <Text style={{ color: colors.muted, fontSize: 13 }}>{r.label}</Text>
-              <Text style={{ color: colors.text, fontSize: 13, fontWeight: "500" }}>{r.value}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    </ScrollView>
+      <RecordLanguagePicker visible={pickerOpen !== null} selected={pickerOpen === "source" ? sourceLang : targetLang} title={pickerOpen === "source" ? "Source Language" : "Translation Language"} onClose={() => setPickerOpen(null)} onSelect={(code) => pickerOpen && selectLanguage(pickerOpen, code)} />
+    </>
   );
 }
+
+function RecordLanguagePicker({
+  visible,
+  selected,
+  title,
+  onClose,
+  onSelect,
+}: {
+  visible: boolean;
+  selected: LanguageCode;
+  title: string;
+  onClose: () => void;
+  onSelect: (code: LanguageCode) => void;
+}) {
+  return (
+    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
+      <Pressable onPress={onClose} style={rs.pickerBackdrop} />
+      <View style={rs.pickerSheet}>
+        <View style={rs.pickerHandle} />
+        <Text style={rs.pickerTitle}>{title}</Text>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {languages.map((language, index) => (
+            <TouchableOpacity key={language.code} activeOpacity={0.6} onPress={() => onSelect(language.code)} style={[rs.pickerRow, index < languages.length - 1 && rs.pickerBorder]}>
+              <Text style={[rs.pickerText, language.code === selected && rs.pickerSelected]}>{language.label}</Text>
+              {language.code === selected ? <Ionicons name="checkmark" size={19} color="#007AFF" /> : null}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const rs = StyleSheet.create({
+  backButton: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 999, height: 40, justifyContent: "center", shadowColor: "#1B2638", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 7, width: 40 },
+  cardLabel: { color: "#69727F", fontSize: 12, fontWeight: "700", letterSpacing: 0.7, marginBottom: 14, textTransform: "uppercase" },
+  categoryCard: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 18, flexDirection: "row", gap: 14, minHeight: 76, paddingHorizontal: 16, paddingVertical: 13, shadowColor: "#162034", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.06, shadowRadius: 15, elevation: 2 },
+  categoryIcon: { alignItems: "center", borderRadius: 14, height: 48, justifyContent: "center", width: 48 },
+  categoryList: { gap: 11 },
+  categoryMeta: { color: "#8A929E", fontSize: 12, marginTop: 3 },
+  categoryTitle: { color: "#11141A", fontSize: 17, fontWeight: "600" },
+  emptyRecent: { alignItems: "center", gap: 9, paddingVertical: 25 },
+  emptyRecentText: { color: "#8A929E", fontSize: 13 },
+  errorCard: { alignItems: "center", backgroundColor: "#FFF0EF", borderRadius: 14, flexDirection: "row", gap: 9, padding: 13 },
+  errorText: { color: "#A5322B", flex: 1, fontSize: 13 },
+  eyebrow: { color: "#007AFF", fontSize: 11, fontWeight: "700", letterSpacing: 1.3 },
+  languageBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 },
+  languagePill: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 17, flexDirection: "row", gap: 5, justifyContent: "center", maxWidth: "32%", minHeight: 48, paddingHorizontal: 13, shadowColor: "#1B2638", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12 },
+  languageText: { color: "#20242B", flexShrink: 1, fontSize: 13, fontWeight: "600" },
+  micButton: { alignItems: "center", backgroundColor: "#007AFF", borderRadius: 999, height: 66, justifyContent: "center", shadowColor: "#007AFF", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.26, shadowRadius: 16, width: 66 },
+  micButtonSmall: { height: 50, width: 50 },
+  optionsCard: { backgroundColor: "#FFFFFF", borderRadius: 20, gap: 10, padding: 16 },
+  optionsTitle: { color: "#171A20", fontSize: 15, fontWeight: "700", marginBottom: 2 },
+  page: { paddingBottom: 12 },
+  pageHeading: { gap: 6, paddingTop: 8 },
+  pageSubtitle: { color: "#76808D", fontSize: 14, lineHeight: 20 },
+  pageTitle: { color: "#0E1117", fontSize: 34, fontWeight: "700", letterSpacing: -0.8 },
+  pickerBackdrop: { backgroundColor: "rgba(0,0,0,0.32)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
+  pickerBorder: { borderBottomColor: "#E8EBF0", borderBottomWidth: 1 },
+  pickerHandle: { alignSelf: "center", backgroundColor: "#D3D7DD", borderRadius: 4, height: 4, marginBottom: 17, width: 40 },
+  pickerRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingVertical: 15 },
+  pickerSelected: { color: "#007AFF", fontWeight: "700" },
+  pickerSheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 26, borderTopRightRadius: 26, bottom: 0, left: 0, maxHeight: "62%", paddingBottom: 34, paddingHorizontal: 20, paddingTop: 12, position: "absolute", right: 0 },
+  pickerText: { color: "#272B32", fontSize: 16 },
+  pickerTitle: { color: "#11141A", fontSize: 18, fontWeight: "700", marginBottom: 10 },
+  placeholderText: { color: "#A0A7B2", fontWeight: "500" },
+  pressed: { opacity: 0.65, transform: [{ scale: 0.985 }] },
+  recentBorder: { borderBottomColor: "#EBEDF1", borderBottomWidth: 1 },
+  recentCard: { backgroundColor: "#FFFFFF", borderRadius: 20, overflow: "hidden", paddingHorizontal: 15, shadowColor: "#162034", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.05, shadowRadius: 16 },
+  recentIcon: { alignItems: "center", backgroundColor: "#EAF3FF", borderRadius: 11, height: 38, justifyContent: "center", width: 38 },
+  recentMeta: { color: "#8A929E", fontSize: 11, marginTop: 3, textTransform: "capitalize" },
+  recentRow: { alignItems: "center", flexDirection: "row", gap: 11, minHeight: 68, paddingVertical: 10 },
+  recentTitle: { color: "#171A20", fontSize: 14, fontWeight: "600" },
+  saveButton: { alignItems: "center", backgroundColor: "#007AFF", borderRadius: 16, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 54 },
+  saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  sectionHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 12, marginTop: 26 },
+  sectionTitle: { color: "#11141A", fontSize: 19, fontWeight: "700", letterSpacing: -0.3 },
+  seeAll: { color: "#007AFF", fontSize: 13, fontWeight: "600" },
+  sessionCategory: { color: "#007AFF", fontSize: 10, fontWeight: "800", letterSpacing: 1 },
+  sessionContent: { gap: 16, paddingBottom: 120, paddingHorizontal: 2, paddingTop: 4 },
+  sessionHeader: { alignItems: "center", flexDirection: "row", gap: 12 },
+  sessionTitle: { color: "#101319", fontSize: 23, fontWeight: "700", letterSpacing: -0.5, marginTop: 1 },
+  speechCard: { backgroundColor: "#FFFFFF", borderRadius: 22, minHeight: 190, padding: 19, shadowColor: "#172136", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.07, shadowRadius: 19 },
+  speechText: { color: "#171A20", fontSize: 19, lineHeight: 29 },
+  statusDot: { backgroundColor: "#34C759", borderRadius: 99, height: 7, width: 7 },
+  statusDotLive: { backgroundColor: "#FF3B30" },
+  stopListening: { alignItems: "center", alignSelf: "center", flexDirection: "row", gap: 7, marginTop: -7, padding: 6 },
+  stopSquare: { backgroundColor: "#FF3B30", borderRadius: 2, height: 9, width: 9 },
+  stopText: { color: "#707986", fontSize: 12, fontWeight: "600" },
+  timerPill: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 999, flexDirection: "row", gap: 6, paddingHorizontal: 11, paddingVertical: 8 },
+  timerText: { color: "#4F5763", fontSize: 12, fontVariant: ["tabular-nums"], fontWeight: "600" },
+  translationCard: { backgroundColor: "#FFFFFF", borderRadius: 22, minHeight: 170, padding: 19, shadowColor: "#172136", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.07, shadowRadius: 19 },
+  translationText: { color: "#007AFF", fontSize: 19, fontWeight: "500", lineHeight: 29 },
+  waveBar: { backgroundColor: "#007AFF", borderRadius: 99, width: 3 },
+  waveform: { alignItems: "center", flexDirection: "row", gap: 3, height: 54, justifyContent: "center", width: 112 },
+});
 
 // ─── Setting row ──────────────────────────────────────────────────────────────
 function SettingRow({

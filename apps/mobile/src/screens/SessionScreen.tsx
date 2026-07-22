@@ -3,12 +3,15 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
+  Easing,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -26,15 +29,15 @@ const LOCALES: Record<string, string> = {
   de: "de", zh: "zh", ko: "ko", kh: "km",
 };
 
-// ─── Dark palette ─────────────────────────────────────────────────────────────
-const BG = "#0c0e17";
-const SURFACE = "#252836";
-const INDIGO = "#6366f1";
+// ─── iOS-inspired palette ─────────────────────────────────────────────────────
+const BG = "#F5F7FA";
+const SURFACE = "#FFFFFF";
+const INDIGO = "#007AFF";
 const RED = "#e53e3e";
 const WHITE = "#FFFFFF";
-const DIM = "rgba(255,255,255,0.55)";
-const FAINT = "rgba(255,255,255,0.18)";
-const BDRY = "rgba(255,255,255,0.08)";
+const DIM = "#6E7785";
+const FAINT = "#A0A7B2";
+const BDRY = "#E7EAF0";
 
 // ─── Language helpers ─────────────────────────────────────────────────────────
 const FLAGS: Record<string, string> = {
@@ -43,43 +46,70 @@ const FLAGS: Record<string, string> = {
 };
 const getFlag = (c: string) => FLAGS[c] ?? "🌐";
 const getLabel = (c: string) => languages.find((l) => l.code === c)?.label ?? c;
+const INPUT_PROMPTS: Partial<Record<LanguageCode, string>> = {
+  en: "Type something…",
+  ja: "日本語を入力…",
+  kh: "សូមវាយអត្ថបទ…",
+};
+const LISTENING_LABELS: Partial<Record<LanguageCode, string>> = {
+  en: "Listening…",
+  ja: "聞き取り中…",
+  kh: "កំពុងស្តាប់…",
+};
+const WAITING_LABELS: Partial<Record<LanguageCode, string>> = {
+  en: "Waiting…",
+  ja: "待機中…",
+  kh: "កំពុងរង់ចាំ…",
+};
+const inputPrompt = (code: LanguageCode) => INPUT_PROMPTS[code] ?? `${getLabel(code)} text…`;
 
 // ─── Waveform ─────────────────────────────────────────────────────────────────
-const WAVE_H = 72;
-const N_BARS = 38;
-const BAR_PX = Array.from({ length: N_BARS }, (_, i) => {
-  const d = Math.abs(i - N_BARS / 2) / (N_BARS / 2);
-  return Math.round(Math.max(3, Math.min(1, 0.18 + d * 0.55 + Math.sin(i * 1.7) * 0.22 + Math.sin(i * 0.9) * 0.12)) * WAVE_H);
-});
+const WAVE_H = 42;
+const BAR_PX = [12, 19, 29, 20, 34, 25, 16, 27, 38, 23, 31, 18, 26, 14, 21, 11];
 
 function Waveform({ active }: { active: boolean }) {
-  const anim = useRef(new Animated.Value(0)).current;
+  const levels = useRef(BAR_PX.map(() => new Animated.Value(0.35))).current;
 
   useEffect(() => {
     if (active) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(anim, { toValue: 1, duration: 600, useNativeDriver: false }),
-          Animated.timing(anim, { toValue: 0, duration: 600, useNativeDriver: false }),
-        ])
-      ).start();
+      const animations = levels.map((level, index) =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay((index % 5) * 34),
+            Animated.timing(level, {
+              duration: 230 + (index % 4) * 48,
+              easing: Easing.inOut(Easing.sin),
+              toValue: 0.72 + (index % 3) * 0.14,
+              useNativeDriver: true,
+            }),
+            Animated.timing(level, {
+              duration: 270 + ((index + 2) % 5) * 42,
+              easing: Easing.inOut(Easing.sin),
+              toValue: 0.28 + (index % 4) * 0.05,
+              useNativeDriver: true,
+            }),
+          ])
+        )
+      );
+      Animated.parallel(animations).start();
     } else {
-      anim.stopAnimation();
-      anim.setValue(0);
+      levels.forEach((level) => {
+        level.stopAnimation();
+        level.setValue(0.35);
+      });
     }
-  }, [active]);
+  }, [active, levels]);
 
   return (
     <View style={wv.row}>
       {BAR_PX.map((h, i) => {
-        const gap = i >= N_BARS / 2 - 2 && i <= N_BARS / 2 + 2;
         return (
-          <View
+          <Animated.View
             key={i}
             style={[wv.bar, {
-              height: active ? h : Math.max(3, Math.round(h * 0.28)),
-              opacity: gap ? 0 : active ? 0.85 : 0.28,
-              backgroundColor: active ? "#14b8a6" : "rgba(255,255,255,0.45)",
+              height: h,
+              opacity: active ? 0.9 : 0.32,
+              transform: [{ scaleY: active ? levels[i] : 0.35 }],
             }]}
           />
         );
@@ -89,8 +119,8 @@ function Waveform({ active }: { active: boolean }) {
 }
 
 const wv = StyleSheet.create({
-  row: { alignItems: "center", flex: 1, flexDirection: "row", gap: 2, paddingHorizontal: 4 },
-  bar: { borderRadius: 99, flex: 1 },
+  row: { alignItems: "center", flex: 1, flexDirection: "row", gap: 4, justifyContent: "center", paddingHorizontal: 4 },
+  bar: { backgroundColor: "#4A90F7", borderRadius: 99, width: 4 },
 });
 
 // ─── Language pill + picker ───────────────────────────────────────────────────
@@ -106,7 +136,7 @@ function LangPill({ value, onChange, disabled, showDot = false }: {
       <Pressable disabled={disabled} onPress={() => setOpen(true)} style={[pl.pill, disabled && pl.pillOff]}>
         {showDot ? <View style={pl.dot} /> : <Text style={pl.flag}>{getFlag(value)}</Text>}
         <Text style={pl.lbl}>{getLabel(value)}</Text>
-        <Ionicons name="chevron-down" size={11} color="rgba(255,255,255,0.4)" />
+        <Ionicons name="chevron-down" size={11} color="#6E7785" />
       </Pressable>
       <Modal transparent animationType="slide" visible={open} onRequestClose={() => setOpen(false)}>
         <Pressable style={pl.backdrop} onPress={() => setOpen(false)} />
@@ -137,20 +167,20 @@ function LangPill({ value, onChange, disabled, showDot = false }: {
 }
 
 const pl = StyleSheet.create({
-  pill: { alignItems: "center", backgroundColor: SURFACE, borderRadius: 99, flexDirection: "row", gap: 6, paddingHorizontal: 14, paddingVertical: 11 },
+  pill: { alignItems: "center", alignSelf: "flex-start", backgroundColor: "#EEF0F3", borderRadius: 99, flexDirection: "row", gap: 6, paddingHorizontal: 13, paddingVertical: 10 },
   pillOff: { opacity: 0.4 },
   dot: { backgroundColor: RED, borderRadius: 99, height: 13, width: 13 },
   flag: { fontSize: 15 },
-  lbl: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: "500" },
+  lbl: { color: "#171A20", fontSize: 13, fontWeight: "600" },
   backdrop: { backgroundColor: "rgba(0,0,0,0.55)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
-  sheet: { backgroundColor: "#1c1f2e", borderTopLeftRadius: 24, borderTopRightRadius: 24, bottom: 0, left: 0, maxHeight: "62%", paddingBottom: 32, paddingHorizontal: 20, paddingTop: 12, position: "absolute", right: 0 },
-  handle: { alignSelf: "center", backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 3, height: 4, marginBottom: 16, width: 40 },
-  sheetTitle: { color: WHITE, fontSize: 15, fontWeight: "700", marginBottom: 12 },
+  sheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, bottom: 0, left: 0, maxHeight: "62%", paddingBottom: 32, paddingHorizontal: 20, paddingTop: 12, position: "absolute", right: 0 },
+  handle: { alignSelf: "center", backgroundColor: "#D4D7DD", borderRadius: 3, height: 4, marginBottom: 16, width: 40 },
+  sheetTitle: { color: "#111318", fontSize: 17, fontWeight: "700", marginBottom: 12 },
   item: { alignItems: "center", flexDirection: "row", gap: 12, paddingVertical: 14 },
   itemBorder: { borderBottomColor: BDRY, borderBottomWidth: 1 },
   itemFlag: { fontSize: 18 },
-  itemText: { color: DIM, flex: 1, fontSize: 15 },
-  itemSel: { color: WHITE, fontWeight: "600" },
+  itemText: { color: "#4D5562", flex: 1, fontSize: 15 },
+  itemSel: { color: INDIGO, fontWeight: "600" },
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -168,10 +198,12 @@ export function SessionScreen({
   initialSource,
   initialTarget,
   onBack,
+  embedded = false,
 }: {
   initialSource: LanguageCode;
   initialTarget: LanguageCode;
-  onBack: () => void;
+  onBack?: () => void;
+  embedded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -179,6 +211,8 @@ export function SessionScreen({
 
   const [src, setSrc] = useState<LanguageCode>(initialSource);
   const [tgt, setTgt] = useState<LanguageCode>(initialTarget);
+  const [draftSource, setDraftSource] = useState("");
+  const [draftTarget, setDraftTarget] = useState("");
   const [status, setStatus] = useState<string>("TAP \u25CF TO SPEAK");
   const [utterances, setUtterances] = useState<Utterance[]>([]);
   const live = useLiveInterpretation(src, tgt);
@@ -193,11 +227,21 @@ export function SessionScreen({
   const sessionId = useRef(`live-${Date.now()}`);
   const sessionStart = useRef(new Date().toISOString());
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const controlTransition = useRef(new Animated.Value(live.isListening ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(controlTransition, {
+      duration: 520,
+      easing: Easing.inOut(Easing.cubic),
+      toValue: live.isListening ? 1 : 0,
+      useNativeDriver: true,
+    }).start();
+  }, [controlTransition, live.isListening]);
 
   // Auto-scroll on new utterance
   useEffect(() => {
     if (utterances.length > 0) {
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+      setTimeout(() => scrollRef.current?.scrollTo({ animated: true, y: 0 }), 80);
     }
   }, [utterances.length]);
 
@@ -277,7 +321,7 @@ export function SessionScreen({
         endedAt: new Date().toISOString(),
       }).catch(() => { });
     }
-    onBack();
+    onBack?.();
   };
 
   const busy = live.isListening;
@@ -285,165 +329,197 @@ export function SessionScreen({
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={[atoms.flex1, { backgroundColor: BG, paddingTop: insets.top }]}>
-
-      {/* ── Top bar ── */}
-      <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { paddingBottom: 8, paddingHorizontal: 20, paddingTop: 8 }]}>
-        <Pressable onPress={handleBack} style={{ alignItems: "center", height: 40, justifyContent: "center", width: 40 }} accessibilityLabel="Back">
-          <Ionicons name="menu-outline" size={22} color={DIM} />
-        </Pressable>
-
-        <View style={[{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 99, flexDirection: "row", padding: 4 }, busy && { opacity: 0.4 }]}>
-          <Pressable
-            onPress={() => !busy && updatePrefs({ session_mode: "one-way" })}
-            style={[{ borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8 }, mode === "one-way" && { backgroundColor: WHITE }]}
-          >
-            <Text style={[{ color: DIM, fontSize: 13, fontWeight: "600" }, mode === "one-way" && { color: BG }]}>1-way</Text>
+      <View style={ss.topBar}>
+        {embedded ? <View style={ss.circleButtonPlaceholder} /> : (
+          <Pressable onPress={handleBack} style={ss.circleButton} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={22} color="#171A20" />
           </Pressable>
-          <Pressable
-            onPress={() => !busy && updatePrefs({ session_mode: "two-way" })}
-            style={[{ borderRadius: 99, paddingHorizontal: 16, paddingVertical: 8 }, mode === "two-way" && { backgroundColor: INDIGO }]}
-          >
-            <Text style={[{ color: DIM, fontSize: 13, fontWeight: "600" }, mode === "two-way" && { color: WHITE }]}>2-way</Text>
-          </Pressable>
-        </View>
-
+        )}
+        <Text style={ss.screenTitle}>Live Interpreter</Text>
         <Pressable
-          onPress={() => updatePrefs({ auto_speak: !autoSpeak })}
-          style={{ alignItems: "center", backgroundColor: INDIGO, borderRadius: 99, height: 38, justifyContent: "center", width: 38 }}
-          accessibilityLabel="Toggle auto-speak"
+          onPress={() => Alert.alert("Live Interpreter", "Choose an action", [
+            { text: autoSpeak ? "Turn Off Auto-Speak" : "Turn On Auto-Speak", onPress: () => updatePrefs({ auto_speak: !autoSpeak }) },
+            { text: "Swap Languages", onPress: swap, style: live.isListening ? "cancel" : "default" },
+            { text: "Cancel", style: "cancel" },
+          ])}
+          style={ss.circleButton}
+          accessibilityLabel="Live Interpreter actions"
         >
-          <Ionicons
-            name={autoSpeak ? "volume-high-outline" : "volume-mute-outline"}
-            size={18}
-            color={WHITE}
-          />
+          <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
         </Pressable>
       </View>
 
-      {/* ── Main text area ── */}
       <ScrollView
         ref={scrollRef}
         style={atoms.flex1}
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 16, paddingHorizontal: 20, paddingTop: 14 }}
+        contentContainerStyle={ss.conversation}
         showsVerticalScrollIndicator={false}
       >
-        {/* Previous utterance bubbles */}
-        {utterances.length > 1 && utterances.slice(0, -1).map((u) => (
-          <View key={u.id} style={{ backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12, marginBottom: 10, padding: 12 }}>
-            <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginBottom: 4 }}>{getFlag(u.sourceLang)} {u.original}</Text>
-            <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, lineHeight: 24 }}>{u.translation}</Text>
-          </View>
+        {live.error ? <View style={ss.errorCard}><Ionicons name="alert-circle-outline" size={20} color="#C63B32" /><Text style={ss.errorText}>{live.error}</Text></View> : null}
+
+        {live.isListening && (live.interimText || live.liveTranslation) ? (
+          <Animated.View style={[ss.card, ss.cardLeft, { opacity: fadeAnim }]}>
+            <View style={ss.cardHeader}><Text style={ss.cardLanguage}>{getLabel(src)}</Text><View style={ss.liveDot} /><Text style={ss.liveLabel}>LIVE</Text></View>
+            <Text style={ss.cardOriginal}>{live.interimText || "Listening…"}</Text>
+            {!!live.liveTranslation && <><View style={ss.divider} /><Text style={ss.cardTranslation}>{live.liveTranslation}</Text></>}
+          </Animated.View>
+        ) : null}
+
+        {utterances.slice().reverse().map((u, index) => (
+          <Animated.View key={u.id} style={[ss.card, index % 2 === 0 ? ss.cardRight : ss.cardLeft, index === 0 && { opacity: fadeAnim }]}>
+            <View style={ss.cardHeader}>
+              <Text style={ss.cardLanguage}>{getLabel(u.sourceLang)}</Text>
+              <Pressable onPress={() => Speech.speak(u.translation, { language: LOCALES[u.targetLang] ?? "en", rate: speedRef.current })} style={ss.playButton} accessibilityLabel="Play translation">
+                <Ionicons name="play" size={13} color={WHITE} />
+              </Pressable>
+            </View>
+            <Text style={ss.cardOriginal}>{u.original}</Text>
+            <View style={ss.divider} />
+            <Text style={ss.translationLabel}>{getLabel(u.targetLang)}</Text>
+            <Text style={ss.cardTranslation}>{u.translation}</Text>
+          </Animated.View>
         ))}
 
-        {/* Current state */}
-        {live.isListening && (live.interimText || live.liveTranslation) ? (
-          /* ── Live streaming subtitle ── */
-          <View>
-            <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 6, marginBottom: 10 }]}>
-              <View style={{ backgroundColor: "#14b8a6", borderRadius: 99, height: 8, width: 8 }} />
-              <Text style={{ color: "#14b8a6", fontSize: 11, fontWeight: "700", letterSpacing: 1.5 }}>LIVE</Text>
+        {utterances.length === 0 && !live.interimText ? (
+          <View style={ss.emptyState}>
+            <View style={[ss.waitingCard, ss.cardRight]}>
+              <LangPill value={tgt} onChange={(value) => { if (!busy) setTgt(value); }} disabled={busy} />
+              <View style={ss.contentTransition}>
+                <Animated.View
+                  pointerEvents={busy ? "none" : "auto"}
+                  style={{
+                    opacity: controlTransition.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 0, 0] }),
+                    transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
+                  }}
+                >
+                  <TextInput multiline editable={!busy} onChangeText={setDraftTarget} placeholder={inputPrompt(tgt)} placeholderTextColor={FAINT} scrollEnabled={false} style={ss.draftInput} value={draftTarget} />
+                </Animated.View>
+                <Animated.Text
+                  style={[
+                    ss.waitingText,
+                    ss.transitionText,
+                    {
+                      opacity: controlTransition.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 1] }),
+                      transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }],
+                    },
+                  ]}
+                >
+                  {WAITING_LABELS[tgt] ?? "Waiting…"}
+                </Animated.Text>
+              </View>
             </View>
-            <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 26, fontWeight: "300", letterSpacing: -0.3, lineHeight: 38 }}>
-              {getFlag(src)} {live.interimText}
-            </Text>
-            {!!live.liveTranslation && (
-              <Text style={{ color: WHITE, fontSize: 30, fontWeight: "300", letterSpacing: -0.4, lineHeight: 44, marginTop: 12 }}>
-                {live.liveTranslation}
-              </Text>
-            )}
+            <View style={[ss.waitingCard, ss.cardLeft]}>
+              <LangPill value={src} onChange={(value) => { if (!busy) setSrc(value); }} disabled={busy} />
+              <View style={ss.contentTransition}>
+                <Animated.View
+                  pointerEvents={busy ? "none" : "auto"}
+                  style={{
+                    opacity: controlTransition.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 0, 0] }),
+                    transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
+                  }}
+                >
+                  <TextInput multiline editable={!busy} onChangeText={setDraftSource} placeholder={inputPrompt(src)} placeholderTextColor={FAINT} scrollEnabled={false} style={ss.draftInput} value={draftSource} />
+                </Animated.View>
+                <Animated.Text
+                  style={[
+                    ss.waitingText,
+                    ss.transitionText,
+                    {
+                      opacity: controlTransition.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 1] }),
+                      transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }],
+                    },
+                  ]}
+                >
+                  {LISTENING_LABELS[src] ?? "Listening…"}
+                </Animated.Text>
+              </View>
+            </View>
           </View>
-        ) : utterances.length > 0 ? (
-          <Animated.View style={{ opacity: fadeAnim }}>
-            <Text style={[{ color: WHITE, fontSize: 30, fontWeight: "300", letterSpacing: -0.4, lineHeight: 44 }, { fontSize: 24, color: "rgba(255,255,255,0.7)", marginBottom: 8 }]}>
-              {getFlag(utterances[utterances.length - 1].sourceLang)} {utterances[utterances.length - 1].original}
-            </Text>
-            <Text style={{ color: WHITE, fontSize: 30, fontWeight: "300", letterSpacing: -0.4, lineHeight: 44 }}>
-              {utterances[utterances.length - 1].translation}
-            </Text>
-          </Animated.View>
-        ) : (
-          <Text style={[{ color: FAINT, fontSize: 12, fontWeight: "600", letterSpacing: 2 }, live.isListening && { color: "#14b8a6" }]}>
-            {status}
-          </Text>
-        )}
-
-        {/* Original below latest translation */}
-        {!live.isListening && utterances.length > 0 && (
-          <Text style={{ color: "rgba(255,255,255,0.22)", fontSize: 14, marginTop: 12 }}>
-            {getFlag(utterances[utterances.length - 1].sourceLang)}{" "}
-            {utterances[utterances.length - 1].original}
-          </Text>
-        )}
+        ) : null}
       </ScrollView>
 
-      {/* ── Waveform + record button ── */}
-      <View style={[atoms.itemsCenter, atoms.justifyCenter, { height: WAVE_H + 20, marginBottom: 4 }]}>
-        <View style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}>
-          <Waveform active={live.isListening} />
-        </View>
-        <Pressable
-          onPress={toggle}
-          style={({ pressed }) => ({
-            alignItems: "center",
-            backgroundColor: live.isListening ? "#c53030" : RED,
-            borderRadius: 99,
-            elevation: 10,
-            height: 62,
-            justifyContent: "center",
-            shadowColor: RED,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.6,
-            shadowRadius: 18,
-            width: 62,
-            transform: pressed ? [{ scale: 0.91 }] : live.isListening ? [{ scale: 1.08 }] : [],
-          })}
-          accessibilityRole="button"
-          accessibilityLabel={live.isListening ? "Stop listening" : "Start listening"}
+      <View style={[ss.listeningControl, !live.isListening && ss.listeningControlIdle]}>
+        <Animated.View
+          pointerEvents={live.isListening ? "auto" : "none"}
+          style={[
+            ss.waveWrap,
+            {
+              opacity: controlTransition,
+              transform: [{
+                scale: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1] }),
+              }],
+            },
+          ]}
         >
-          {live.isListening ? (
-            <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 5 }]}>
-              <View style={{ backgroundColor: WHITE, borderRadius: 3, height: 20, width: 4 }} />
-              <View style={{ backgroundColor: WHITE, borderRadius: 3, height: 20, width: 4 }} />
-            </View>
-          ) : (
-            <View style={{ backgroundColor: WHITE, borderRadius: 99, height: 18, width: 18 }} />
-          )}
-        </Pressable>
+          <Pressable accessibilityLabel="Stop listening" accessibilityRole="button" onPress={toggle} style={ss.fill}>
+            <Waveform active={live.isListening} />
+          </Pressable>
+        </Animated.View>
+        <Animated.View
+          pointerEvents={live.isListening ? "none" : "auto"}
+          style={[
+            ss.micLayer,
+            {
+              opacity: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+              transform: [{
+                scale: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [1, 0.76] }),
+              }],
+            },
+          ]}
+        >
+          <Pressable onPress={toggle} style={({ pressed }) => [ss.micButton, pressed && { transform: [{ scale: 0.94 }] }]} accessibilityRole="button" accessibilityLabel="Start listening">
+            <Ionicons name="mic" size={35} color={WHITE} />
+          </Pressable>
+        </Animated.View>
+        <Animated.Text style={[ss.statusText, { opacity: controlTransition.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 0, 0] }) }]}>
+          {status === "TAP ● TO SPEAK" ? "Tap to speak" : status}
+        </Animated.Text>
       </View>
-
-      {/* ── Bottom control bar ── */}
-      <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyCenter, { gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <LangPill
-          value={src}
-          onChange={(v) => { if (!busy) setSrc(v); }}
-          disabled={busy}
-          showDot
-        />
-        <Pressable
-          onPress={swap}
-          disabled={busy}
-          style={[{ alignItems: "center", height: 40, justifyContent: "center", width: 40 }, busy && { opacity: 0.3 }]}
-          accessibilityLabel="Swap languages"
-        >
-          <Ionicons name="swap-horizontal-outline" size={20} color="rgba(255,255,255,0.65)" />
-        </Pressable>
-        <LangPill
-          value={tgt}
-          onChange={(v) => { if (!busy) setTgt(v); }}
-          disabled={busy}
-        />
-        <Pressable
-          onPress={() => updatePrefs({ auto_speak: !autoSpeak })}
-          style={{ alignItems: "center", height: 40, justifyContent: "center", width: 40 }}
-          accessibilityLabel="Toggle auto-speak"
-        >
-          <Ionicons
-            name={autoSpeak ? "headset-outline" : "volume-mute-outline"}
-            size={20}
-            color={autoSpeak ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.25)"}
-          />
-        </Pressable>
-      </View>
+      <View style={{ height: Math.max(insets.bottom, 12) }} />
     </View>
   );
 }
+
+const ss = StyleSheet.create({
+  card: { backgroundColor: SURFACE, borderRadius: 20, marginBottom: 14, maxWidth: "88%", padding: 16, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18, elevation: 3 },
+  cardHeader: { alignItems: "center", flexDirection: "row", marginBottom: 10 },
+  cardLanguage: { color: "#69717E", flex: 1, fontSize: 12, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase" },
+  cardLeft: { alignSelf: "flex-start" },
+  cardOriginal: { color: "#15181E", fontSize: 21, fontWeight: "600", letterSpacing: -0.25, lineHeight: 29 },
+  cardRight: { alignSelf: "flex-end" },
+  cardTranslation: { color: INDIGO, fontSize: 20, fontWeight: "600", lineHeight: 28 },
+  circleButton: { alignItems: "center", backgroundColor: WHITE, borderRadius: 999, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 },
+  circleButtonPlaceholder: { height: 40, width: 40 },
+  conversation: { flexGrow: 1, paddingBottom: 12, paddingHorizontal: 20, paddingTop: 18 },
+  divider: { backgroundColor: "#E9ECF1", height: StyleSheet.hairlineWidth, marginVertical: 11 },
+  contentTransition: { marginTop: 10, minHeight: 25, position: "relative" },
+  draftInput: { color: "#171A20", fontSize: 18, fontWeight: "500", lineHeight: 25, minHeight: 25, padding: 0, textAlignVertical: "top" },
+  emptyState: { flex: 1, justifyContent: "center", minHeight: 300, transform: [{ translateY: 155 }] },
+  errorCard: { alignItems: "center", backgroundColor: "#FFF0EF", borderRadius: 14, flexDirection: "row", gap: 9, marginBottom: 14, padding: 13 },
+  errorText: { color: "#A5322B", flex: 1, fontSize: 13, lineHeight: 18 },
+  fill: { flex: 1 },
+  languageControl: { alignItems: "center", flexDirection: "row", justifyContent: "center", paddingHorizontal: 20, paddingTop: 12 },
+  listeningControl: { alignItems: "center", minHeight: 104, paddingHorizontal: 28, paddingTop: 4 },
+  listeningControlIdle: { minHeight: 104 },
+  liveDot: { backgroundColor: "#30C574", borderRadius: 99, height: 7, marginRight: 4, width: 7 },
+  liveLabel: { color: "#27985B", fontSize: 10, fontWeight: "800", letterSpacing: 0.7 },
+  micButton: { alignItems: "center", backgroundColor: INDIGO, borderRadius: 999, height: 72, justifyContent: "center", shadowColor: INDIGO, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8, width: 72 },
+  micButtonActive: { backgroundColor: "#FF3B30", shadowColor: "#FF3B30", top: 30 },
+  micLayer: { alignItems: "center", left: 0, position: "absolute", right: 0, top: 14 },
+  modeButton: { borderRadius: 999, paddingHorizontal: 15, paddingVertical: 7 },
+  modeButtonActive: { backgroundColor: WHITE, shadowColor: "#222A38", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 5 },
+  modeControl: { alignSelf: "center", backgroundColor: "#E9ECF1", borderRadius: 999, flexDirection: "row", marginTop: 12, padding: 3 },
+  modeText: { color: "#737B87", fontSize: 12, fontWeight: "600" },
+  modeTextActive: { color: "#171A20" },
+  playButton: { alignItems: "center", backgroundColor: INDIGO, borderRadius: 999, height: 28, justifyContent: "center", width: 28 },
+  screenTitle: { color: "#111318", fontSize: 20, fontWeight: "700", letterSpacing: -0.35 },
+  statusText: { color: DIM, fontSize: 12, fontWeight: "600", marginTop: 86 },
+  swapButton: { alignItems: "center", height: 42, justifyContent: "center", marginHorizontal: 7, width: 42 },
+  topBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 8 },
+  translationLabel: { color: "#8A929E", fontSize: 10, fontWeight: "700", letterSpacing: 0.6, marginBottom: 4, textTransform: "uppercase" },
+  waitingCard: { backgroundColor: WHITE, borderRadius: 20, marginVertical: 9, maxWidth: "76%", minWidth: "54%", padding: 14, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 18 },
+  waitingLanguage: { color: "#68717D", fontSize: 12, fontWeight: "700", marginBottom: 8 },
+  transitionText: { left: 0, position: "absolute", right: 0, top: 0 },
+  waitingText: { color: FAINT, fontSize: 18, fontWeight: "600", lineHeight: 25 },
+  waveWrap: { alignSelf: "center", height: WAVE_H, position: "absolute", top: 13, width: 140 },
+});

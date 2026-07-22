@@ -4,14 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 export type LanguageCode = "en" | "ja" | "es" | "fr" | "de" | "zh" | "ko" | "kh";
 
 export const languages: Array<{ code: LanguageCode; label: string }> = [
-  { code: "kh", label: "Khmer" },
   { code: "en", label: "English" },
   { code: "ja", label: "Japanese" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "zh", label: "Chinese" },
-  { code: "ko", label: "Korean" },
 ];
 
 export type RecordingTemplateId =

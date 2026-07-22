@@ -1,18 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { atoms } from "./src/theme/atoms";
 import { AuthProvider, useAuth } from "./src/features/auth/auth";
 import { AuthScreen } from "./src/screens/AuthScreen";
+import { CreateAccountScreen } from "./src/screens/CreateAccountScreen";
 import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { OTPScreen } from "./src/screens/OTPScreen";
 import { PreferencesProvider } from "./src/features/preferences/context";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
+import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { RecordScreen } from "./src/screens/RecordScreen";
 import { ResetPasswordScreen } from "./src/screens/ResetPasswordScreen";
@@ -27,20 +31,31 @@ const TABS: Array<{
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }> = [
-  { key: "live",     label: "Live",     icon: "radio-outline"    },
-  { key: "record",   label: "Record",   icon: "mic-outline"      },
-  { key: "history",  label: "History",   icon: "time-outline"     },
-  { key: "settings", label: "Settings", icon: "settings-outline" },
+  { key: "live",     label: "Live Interpreter", icon: "pulse-outline" },
+  { key: "record",   label: "Record",           icon: "mic-outline" },
+  { key: "history",  label: "History",          icon: "time-outline" },
+  { key: "settings", label: "Settings",         icon: "settings-outline" },
 ];
 
-type AuthFlow = "forgot-password" | "otp" | "reset-password" | null;
+type UnauthenticatedStackParamList = {
+  Onboarding: undefined;
+  Authentication: undefined;
+  CreateAccount: undefined;
+  ForgotPassword: undefined;
+  OTP: { email: string };
+  ResetPassword: undefined;
+};
+
+const UnauthenticatedStack = createNativeStackNavigator<UnauthenticatedStackParamList>();
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <PreferencesProvider>
-          <AppFrame />
+          <NavigationContainer>
+            <AppFrame />
+          </NavigationContainer>
         </PreferencesProvider>
       </AuthProvider>
     </SafeAreaProvider>
@@ -49,11 +64,21 @@ export default function App() {
 
 function AppFrame() {
   const { initialized, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("live");
-  const [authFlow, setAuthFlow] = useState<AuthFlow>(null);
-  const [authEmail, setAuthEmail] = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("home");
   const [showUpdatePassword, setShowUpdatePassword] = useState(false);
+  const previousUserId = useRef<string | null>(null);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    const userId = user?.id ?? null;
+
+    if (userId && userId !== previousUserId.current) {
+      setActiveTab("home");
+      setShowUpdatePassword(false);
+    }
+
+    previousUserId.current = userId;
+  }, [user?.id]);
 
   if (!initialized) {
     return (
@@ -68,32 +93,7 @@ function AppFrame() {
   }
 
   if (!user) {
-    switch (authFlow) {
-      case "forgot-password":
-        return (
-          <ForgotPasswordScreen
-            onBack={() => setAuthFlow(null)}
-            onOtpSent={(email) => {
-              setAuthEmail(email);
-              setAuthFlow("otp");
-            }}
-          />
-        );
-      case "otp":
-        return (
-          <OTPScreen
-            email={authEmail}
-            onBack={() => setAuthFlow("forgot-password")}
-            onVerified={() => setAuthFlow("reset-password")}
-          />
-        );
-      case "reset-password":
-        return (
-          <ResetPasswordScreen onDone={() => { setAuthFlow(null); setAuthEmail(""); }} />
-        );
-      default:
-        return <AuthScreen onForgotPassword={() => setAuthFlow("forgot-password")} />;
-    }
+    return <UnauthenticatedFlow />;
   }
 
   if (showUpdatePassword) {
@@ -102,53 +102,55 @@ function AppFrame() {
 
   // pill height + gap above bottom + safe-area
   const TAB_HEIGHT = 68;
-  const TAB_GAP    = 12;
-  const tabBarBottom = TAB_GAP + insets.bottom;
+  const tabBarBottom = Math.max(6, insets.bottom - 10);
 
   return (
     <View style={[atoms.flex1, atoms.bgBackground]}>
       <StatusBar style="dark" />
 
       {/* ── Header ── */}
-      <SafeAreaView edges={["top"]} style={{ backgroundColor: colors.surface }}>
-        <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, atoms.bgSurface, { borderBottomColor: colors.border, borderBottomWidth: 1, paddingHorizontal: spacing.lg, paddingVertical: 13 }]}>
-          <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 8 }]}>
-            <Image source={require("./assets/logo.png")} style={{ borderRadius: 6, height: 30, width: 30 }} />
-            <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.3 }}>
-              <Text style={{ color: colors.primary }}>Quick</Text>Voice
-            </Text>
-          </View>
-          <Pressable
-            accessibilityLabel="Profile"
-            onPress={() => setActiveTab("profile")}
-            style={{ padding: 2 }}
-          >
-            <Ionicons
-              name="person-circle-outline"
-              size={27}
-              color={activeTab === "profile" ? colors.primary : colors.muted}
-            />
-          </Pressable>
+      {activeTab !== "live" ? <SafeAreaView edges={["top"]} style={{ backgroundColor: colors.background }}>
+        <View style={{ alignItems: activeTab === "history" ? "flex-start" : "center", height: 64, justifyContent: "center", paddingHorizontal: spacing.lg }}>
+          <Text style={{ color: "#111318", fontSize: activeTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: activeTab === "history" ? -0.6 : -0.35, marginLeft: activeTab === "history" ? 8 : 0, textAlign: activeTab === "history" ? "left" : "center" }}>
+            {activeTab === "record" ? "Record" : activeTab === "history" ? "History" : activeTab === "settings" ? "Settings" : activeTab === "profile" ? "Profile" : "Home"}
+          </Text>
+          {activeTab === "record" ? (
+            <Pressable
+              accessibilityLabel="Record actions"
+              accessibilityRole="button"
+              onPress={() => Alert.alert("Record", "Choose an action", [
+                { text: "View Recording History", onPress: () => setActiveTab("history") },
+                { text: "How to Record", onPress: () => Alert.alert("How to Record", "Choose a category, select your languages, then tap the microphone to begin.") },
+                { text: "Cancel", style: "cancel" },
+              ])}
+              style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "#FFFFFF", borderRadius: 999, height: 40, justifyContent: "center", position: "absolute", right: spacing.lg, shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+            >
+              <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
+            </Pressable>
+          ) : null}
         </View>
-      </SafeAreaView>
+      </SafeAreaView> : null}
 
       {/* ── Content ── */}
-      <ScrollView
+      {activeTab === "live" ? (
+        <View style={{ flex: 1, paddingBottom: TAB_HEIGHT + tabBarBottom }}>
+          <LiveScreen />
+        </View>
+      ) : <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {activeTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
-        {activeTab === "live"     && <LiveScreen />}
-        {activeTab === "record"   && <RecordScreen />}
+        {activeTab === "record"   && <RecordScreen setActiveTab={setActiveTab} />}
         {activeTab === "history"  && <HistoryScreen />}
         {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onUpdatePassword={() => setShowUpdatePassword(true)} />}
         {activeTab === "profile"  && <ProfileScreen />}
-      </ScrollView>
+      </ScrollView>}
 
       {/* ── Floating pill tab bar ── */}
-      <View style={{ left: 16, position: "absolute", right: 16, bottom: tabBarBottom }} pointerEvents="box-none">
-        <View style={{ alignItems: "center", backgroundColor: colors.surface, borderRadius: 50, elevation: 16, flexDirection: "row", height: 68, justifyContent: "space-around", paddingHorizontal: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16 }}>
+      <View style={{ left: 14, position: "absolute", right: 14, bottom: tabBarBottom }} pointerEvents="box-none">
+        <View style={{ alignItems: "center", backgroundColor: "rgba(255,255,255,0.98)", borderColor: "rgba(25,35,50,0.06)", borderRadius: 28, borderWidth: 1, elevation: 16, flexDirection: "row", height: 72, justifyContent: "space-around", paddingHorizontal: 6, shadowColor: "#172033", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 22 }}>
           {TABS.map((tab) => {
             const active = activeTab === tab.key;
             return (
@@ -158,14 +160,14 @@ function AppFrame() {
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={tab.label}
                 onPress={() => setActiveTab(tab.key)}
-                style={{ alignItems: "center", flex: 1, gap: 3, justifyContent: "center", paddingVertical: 6 }}
+                style={{ alignItems: "center", backgroundColor: active ? "#EAF3FF" : "transparent", borderRadius: 20, flex: 1, gap: 3, justifyContent: "center", marginHorizontal: 2, minHeight: 56, paddingHorizontal: 2, paddingVertical: 6 }}
               >
                 <Ionicons
                   name={tab.icon}
                   size={24}
-                  color={active ? colors.primary : colors.tabInactive}
+                  color={active ? "#007AFF" : "#5F6670"}
                 />
-                <Text style={[{ color: colors.tabInactive, fontSize: 11, fontWeight: "500", letterSpacing: 0.1 }, active && { color: colors.primary, fontWeight: "600" }]}>
+                <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={1} style={[{ color: "#5F6670", fontSize: 10, fontWeight: "500", letterSpacing: -0.1, maxWidth: "100%", textAlign: "center" }, active && { color: "#007AFF", fontWeight: "700" }]}>
                   {tab.label}
                 </Text>
               </Pressable>
@@ -174,5 +176,76 @@ function AppFrame() {
         </View>
       </View>
     </View>
+  );
+}
+
+function UnauthenticatedFlow() {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduceMotion,
+    );
+    return () => subscription.remove();
+  }, []);
+
+  return (
+    <UnauthenticatedStack.Navigator
+      screenOptions={{
+        animation: reduceMotion ? "fade" : "simple_push",
+        animationDuration: reduceMotion ? 180 : 360,
+        animationMatchesGesture: true,
+        contentStyle: { backgroundColor: "#FFFFFF" },
+        fullScreenGestureEnabled: !reduceMotion,
+        gestureEnabled: true,
+        headerShown: false,
+      }}
+    >
+      <UnauthenticatedStack.Screen name="Onboarding" options={{ gestureEnabled: false }}>
+        {({ navigation }) => (
+          <OnboardingScreen onFinished={() => navigation.navigate("Authentication")} />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen
+        name="Authentication"
+        options={{ animation: "fade", animationDuration: 220 }}
+      >
+        {({ navigation }) => (
+          <AuthScreen
+            onForgotPassword={() => navigation.navigate("ForgotPassword")}
+            onSignUp={() => navigation.navigate("CreateAccount")}
+          />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="CreateAccount">
+        {({ navigation }) => (
+          <CreateAccountScreen onSignIn={() => navigation.goBack()} />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="ForgotPassword">
+        {({ navigation }) => (
+          <ForgotPasswordScreen
+            onBack={() => navigation.goBack()}
+            onOtpSent={(email) => navigation.navigate("OTP", { email })}
+          />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="OTP">
+        {({ navigation, route }) => (
+          <OTPScreen
+            email={route.params.email}
+            onBack={() => navigation.goBack()}
+            onVerified={() => navigation.navigate("ResetPassword")}
+          />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="ResetPassword">
+        {({ navigation }) => (
+          <ResetPasswordScreen onDone={() => navigation.popTo("Authentication")} />
+        )}
+      </UnauthenticatedStack.Screen>
+    </UnauthenticatedStack.Navigator>
   );
 }

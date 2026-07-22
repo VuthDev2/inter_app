@@ -5,6 +5,7 @@ import type { ComponentProps, ReactNode } from "react";
 import {
   Alert,
   Animated,
+  Easing,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -111,14 +112,14 @@ export function AuthTextField({
   React.useEffect(() => {
     Animated.timing(anim, {
       toValue: isActive ? 1 : 0,
-      duration: 150,
-      useNativeDriver: false,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
     }).start();
   }, [isActive, anim]);
 
-  const labelTranslateY = anim.interpolate({ inputRange: [0, 1], outputRange: [12, -10] });
-  const labelFontSize = anim.interpolate({ inputRange: [0, 1], outputRange: [14, 11] });
-  const labelColor = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const labelTranslateY = anim.interpolate({ inputRange: [0, 1], outputRange: [0, -27] });
+  const labelScale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.82] });
 
   return (
     <View style={styles.fieldShell}>
@@ -126,9 +127,10 @@ export function AuthTextField({
       <View style={styles.inputContainer}>
         <Animated.Text
           numberOfLines={1}
+          pointerEvents="none"
           style={[
             styles.floatingLabel,
-            { transform: [{ translateY: labelTranslateY }], fontSize: labelFontSize },
+            { transform: [{ translateY: labelTranslateY }, { scale: labelScale }] },
           ]}
         >
           {placeholder}
@@ -210,7 +212,14 @@ function SocialButton({
       style={({ pressed }) => [styles.socialButton, pressed && styles.socialPressed]}
     >
       <Ionicons name={icon} size={26} color={iconColor} />
-      <Text style={styles.socialText}>{label}</Text>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
+        numberOfLines={1}
+        style={styles.socialText}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -271,7 +280,13 @@ const styles = StyleSheet.create({
   },
   socialPressed: { backgroundColor: "#F5F5F5" },
   socialRow: { flexDirection: "row", gap: 14 },
-  socialText: { color: "#151515", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  socialText: {
+    color: "#151515",
+    flexShrink: 1,
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+    paddingHorizontal: 3,
+  },
   title: {
     color: "#050505",
     fontFamily: "Poppins_700Bold",
@@ -292,10 +307,15 @@ const styles = StyleSheet.create({
   passwordTitleSmall: { fontSize: 42, letterSpacing: 0.42, lineHeight: 52 },
   inputContainer: { flex: 1, position: "relative", paddingTop: 10 },
   floatingLabel: {
-    position: "absolute",
-    left: 0,
-    top: 12,
+    backgroundColor: "#FFFFFF",
     color: authColors.muted,
     fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+    paddingHorizontal: 5,
+    position: "absolute",
+    left: -5,
+    top: 17,
+    zIndex: 1,
   },
 });

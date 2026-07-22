@@ -122,6 +122,13 @@ export function AuthScreen({
       Alert.alert("Missing details", "Add your email and password first.");
       return;
     }
+    if (!authReady) {
+      Alert.alert(
+        "Authentication unavailable",
+        "QuickVoice could not load the Supabase configuration. Restart Expo with the cache cleared.",
+      );
+      return;
+    }
     setBusy(true);
     const result = await signIn(email.trim(), password);
     setBusy(false);
@@ -136,7 +143,7 @@ export function AuthScreen({
     }
   };
 
-  const canSubmit = !busy && authReady && cooldown === 0;
+  const canSubmit = !busy && cooldown === 0;
 
   return (
     <AuthScreenLayout

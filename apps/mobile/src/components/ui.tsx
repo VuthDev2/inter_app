@@ -16,7 +16,6 @@ import {
   TextInput,
   type StyleProp,
   type TextStyle,
-  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -76,10 +75,6 @@ export function PrimaryButton({
   tone?: "brand" | "dark";
   onPress: () => void;
 }) {
-  const { width } = useWindowDimensions();
-  // Wider auth button for authentication screens to accommodate longer labels
-  const responsiveAuthWidth = Math.min(380, Math.round(Math.min(width, 600) * 0.9));
-
   return (
     <Pressable
       accessibilityRole="button"
@@ -94,9 +89,10 @@ export function PrimaryButton({
           alignSelf: "center",
           borderRadius: 16,
           height: 50,
+          maxWidth: 380,
           minHeight: 50,
           paddingVertical: 0,
-          width: responsiveAuthWidth,
+          width: "100%",
         },
         danger && styles.dangerButton,
         disabled && dimWhenDisabled && !authSize && styles.disabledButton,
@@ -106,6 +102,9 @@ export function PrimaryButton({
     >
       {icon ? <Ionicons name={icon} size={18} color="#FFFFFF" /> : null}
       <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        numberOfLines={1}
         style={[
           styles.primaryButtonText,
           tone === "dark" && styles.darkPrimaryButtonText,
@@ -390,6 +389,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.1,
     flexShrink: 1,
+    paddingHorizontal: 4,
     textAlign: "center",
   },
 
