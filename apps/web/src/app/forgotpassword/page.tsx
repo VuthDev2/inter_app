@@ -32,7 +32,11 @@ export default function ForgotPasswordPage() {
         const result = await sendOTP(email);
         setLoading(false);
         if (result.error) {
-            setError(result.error);
+            const errObj = result.error as any;
+            const msg = typeof errObj === "string" 
+                ? errObj 
+                : errObj?.message || (errObj?.error ? String(errObj.error) : JSON.stringify(errObj));
+            setError(msg && msg !== "{}" && msg !== "[object Object]" ? msg : "Failed to send instructions. Please try again.");
         } else {
             setSent(true);
             router.push(`/verify?email=${encodeURIComponent(email)}`);

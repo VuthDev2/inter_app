@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 export type TranslateResult = {
   ok: boolean;
   translation: string;
@@ -44,8 +46,15 @@ function baseUrl(): string {
 }
 
 /** WebSocket URL for the live interpretation endpoint. */
-export function liveWsUrl(): string {
-  return baseUrl().replace(/^http/, "ws") + "/ws/live";
+export async function liveWsUrl(): Promise<string> {
+  let url = baseUrl().replace(/^http/, "ws") + "/ws/live";
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) {
+      url += `?token=${encodeURIComponent(data.session.access_token)}`;
+    }
+  }
+  return url;
 }
 
 
@@ -90,8 +99,17 @@ export async function transcribeAudio(
     } as any);
     form.append("language", language);
 
+    const headers: Record<string, string> = {};
+    if (supabase) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        headers["Authorization"] = `Bearer ${data.session.access_token}`;
+      }
+    }
+
     const res = await fetch(`${baseUrl()}/transcribe`, {
       method: "POST",
+      headers,
       body: form,
     });
 
@@ -112,9 +130,17 @@ async function translateViaBackend(
   target: string,
 ): Promise<string | null> {
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (supabase) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        headers["Authorization"] = `Bearer ${data.session.access_token}`;
+      }
+    }
+
     const res = await fetch(`${baseUrl()}/translate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ text, source, target }),
     });
     if (res.ok) {

@@ -30,7 +30,7 @@ function apiBase(): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const router = useRouter();
-  const pendingOTP = useRef<{ otp: string; expiresAt: number; email?: string } | null>(null);
+  const pendingOTP = useRef<{ otp: string; expiresAt: number; email?: string; resetToken?: string } | null>(null);
   const useSupabaseOTP = useRef(false);
 
   const [initialized, setInitialized] = useState(!supabase);
@@ -113,38 +113,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       },
       sendOTP: async (email) => {
-        if (!supabase) return { error: "Supabase is not configured." };
-        useSupabaseOTP.current = false;
+        const cleanEmail = email.trim().toLowerCase();
         try {
           const res = await fetch(`${apiBase()}/api/send-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
+            body: JSON.stringify({ email: cleanEmail }),
           });
-          if (res.ok) {
-            const data = await res.json();
-            pendingOTP.current = { otp: data.otp, expiresAt: Date.now() + 10 * 60 * 1000, email };
+          const data = await res.json();
+          if (res.ok && data.ok) {
+            pendingOTP.current = { otp: "", expiresAt: Date.now() + 10 * 60 * 1000, email: cleanEmail };
+            useSupabaseOTP.current = true;
             return {};
           }
-          if (res.status >= 500) throw new Error("Server error");
-          const data = await res.json();
-          return { error: data.error || "Failed to send code." };
+          if (data && data.error && res.status < 500) {
+            return { error: data.error };
+          }
         } catch {
-          return { error: "Backend server unreachable or failed to send OTP." };
+          // Backend not reachable, fallback to Supabase
         }
+
+        if (!supabase) return { error: "Supabase is not configured." };
+        const { error } = await supabase.auth.signInWithOtp({ email: cleanEmail });
+        if (!error) {
+          pendingOTP.current = { otp: "", expiresAt: Date.now() + 10 * 60 * 1000, email: cleanEmail };
+          return {};
+        }
+        return { error: typeof error === "string" ? error : error?.message || "Failed to send verification code." };
       },
-      verifyOTP: async (_email, token) => {
-        const stored = pendingOTP.current;
-        if (!stored || Date.now() > stored.expiresAt) {
+      verifyOTP: async (email, token) => {
+        const cleanEmail = (email || pendingOTP.current?.email || "").trim().toLowerCase();
+        if (!cleanEmail) return { error: "Email is required." };
+
+        if (useSupabaseOTP.current) {
+          try {
+            const res = await fetch(`${apiBase()}/api/verify-otp`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: cleanEmail, token: token.trim() }),
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+              pendingOTP.current = { otp: token.trim(), expiresAt: Date.now() + 10 * 60 * 1000, email: cleanEmail, resetToken: data.resetToken };
+              return {};
+            }
+            return { error: data.error || "Invalid verification code." };
+          } catch {
+            return { error: "Failed to connect to backend for verification." };
+          }
+        }
+
+        if (!supabase) return { error: "Supabase is not configured." };
+        try {
+          const { data, error } = await supabase.auth.verifyOtp({
+            email: cleanEmail,
+            token: token.trim(),
+            type: "email",
+          });
+          if (error || !data.session) {
+            return { error: error?.message || "Invalid code." };
+          }
           pendingOTP.current = null;
-          return { error: "Code expired. Request a new one." };
+          return {};
+        } catch {
+          return { error: "Verification failed." };
         }
-        if (stored.otp !== token) {
-          return { error: "Incorrect code. Try again." };
-        }
-        useSupabaseOTP.current = true;
-        pendingOTP.current = stored;
-        return {};
       },
       updatePassword: async (password) => {
         if (!supabase) return { error: "Supabase is not configured." };
@@ -159,7 +192,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const res = await fetch(`${apiBase()}/api/reset-password`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email: pendingOTP.current.email, password }),
+              body: JSON.stringify({ 
+                email: pendingOTP.current.email, 
+                password,
+                resetToken: pendingOTP.current.resetToken
+              }),
             });
             if (res.ok) {
               pendingOTP.current = null;

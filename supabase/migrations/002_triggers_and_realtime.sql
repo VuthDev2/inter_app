@@ -1,8 +1,3 @@
--- ===========================================================================
--- 002_triggers_and_realtime.sql — Helper functions, triggers, and realtime.
--- Every statement is idempotent — safe to run multiple times.
--- ===========================================================================
-
 -- ─── Updated-at trigger function ───────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.tg_set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$

@@ -1,5 +1,3 @@
-
-
 -- ── 1. Drop old QR-room tables ────────────────────────────────────────────────
 DROP TABLE IF EXISTS public.session_participants CASCADE;
 DROP TABLE IF EXISTS public.sessions               CASCADE;

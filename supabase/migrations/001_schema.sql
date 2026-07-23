@@ -1,15 +1,5 @@
--- ===========================================================================
--- 001_schema.sql — All tables, RLS policies, and indexes.
--- Every statement is idempotent — safe to run multiple times.
--- ===========================================================================
-
--- ─── Drop old tables from previous schema versions ─────────────────────────────
--- These were part of the original QR-room feature and old-style transcripts
--- that were later refactored. Safe to drop — no production data.
 DROP TABLE IF EXISTS public.session_participants CASCADE;
 DROP TABLE IF EXISTS public.sessions               CASCADE;
--- Old transcripts linked to sessions (not live_sessions). The new transcripts
--- table below links to live_sessions instead.
 DROP TABLE IF EXISTS public.recording_sessions     CASCADE;
 
 -- ─── Profiles ──────────────────────────────────────────────────────────────────

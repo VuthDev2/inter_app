@@ -154,7 +154,8 @@ export function useLiveInterpretation(
       return;
     }
 
-    const ws = new WebSocket(liveWsUrl());
+    const url = await liveWsUrl();
+    const ws = new WebSocket(url);
     wsRef.current = ws;
 
     ws.onopen = () => {
