@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "patch-package",
     "start": "npm run mobile",
     "mobile": "npm --prefix apps/mobile run start",
     "ios": "npm --prefix apps/mobile run ios",
@@ -14,5 +15,8 @@
     "web": "npm --prefix apps/web run dev",
     "backend": "npm --prefix backend run dev",
     "typecheck": "npm --prefix apps/mobile run typecheck"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
   }
 }

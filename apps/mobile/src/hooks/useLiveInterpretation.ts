@@ -8,6 +8,8 @@ export type InterpretationEntry = {
   id: string;
   original: string;
   translation: string;
+  sourceLang: LanguageCode;
+  targetLang: LanguageCode;
 };
 
 export type LiveInterpretationState = {
@@ -25,24 +27,26 @@ export function useLiveInterpretation(sourceLang: LanguageCode, targetLang: Lang
   const [liveTranslation, setLiveTranslation] = useState("");
   const [entries, setEntries] = useState<InterpretationEntry[]>([]);
   const [translationError, setTranslationError] = useState<string | null>(null);
-  const [completedTurn, setCompletedTurn] = useState(0);
+  const [recognitionTurn, setRecognitionTurn] = useState(0);
   const handledFinalRef = useRef("");
   const requestIdRef = useRef(0);
   const sessionActiveRef = useRef(false);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const speechLanguage = sourceLang === "ja" ? "ja-JP" : "en-US";
+  const segmentSourceRef = useRef<LanguageCode>(sourceLang);
+  const segmentTargetRef = useRef<LanguageCode>(targetLang);
 
   const start = useCallback(
     async () => {
       sessionActiveRef.current = true;
       setSessionActive(true);
+      segmentSourceRef.current = sourceLang;
+      segmentTargetRef.current = targetLang;
       handledFinalRef.current = "";
-      requestIdRef.current += 1;
       setLiveTranslation("");
       setTranslationError(null);
-      await speech.startListening(speechLanguage);
+      await speech.startListening(sourceLang === "ja" ? "ja-JP" : "en-US");
     },
-    [speech.startListening, speechLanguage],
+    [sourceLang, speech.startListening, targetLang],
   );
 
   const stop = useCallback(() => {
@@ -64,7 +68,7 @@ export function useLiveInterpretation(sourceLang: LanguageCode, targetLang: Lang
     silenceTimerRef.current = setTimeout(() => {
       silenceTimerRef.current = null;
       if (sessionActiveRef.current) void speech.stopListening();
-    }, 1500);
+    }, 1000);
 
     return () => {
       if (silenceTimerRef.current) {
@@ -81,13 +85,20 @@ export function useLiveInterpretation(sourceLang: LanguageCode, targetLang: Lang
     handledFinalRef.current = transcript;
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    const turnSource = segmentSourceRef.current;
+    const turnTarget = segmentTargetRef.current;
+
+    // Open the next speaker's microphone immediately. Translation continues in
+    // parallel and no longer creates a several-second dead zone.
+    segmentSourceRef.current = turnTarget;
+    segmentTargetRef.current = turnSource;
+    if (sessionActiveRef.current) setRecognitionTurn((turn) => turn + 1);
+
     setLiveTranslation("");
     setTranslationError(null);
 
-    void translateTextViaApi(transcript, sourceLang, targetLang)
+    void translateTextViaApi(transcript, turnSource, turnTarget)
       .then((translation) => {
-        if (requestIdRef.current !== requestId) return;
-
         setLiveTranslation(translation);
         setEntries((previous) => [
           ...previous,
@@ -95,39 +106,46 @@ export function useLiveInterpretation(sourceLang: LanguageCode, targetLang: Lang
             id: `utterance-${Date.now()}-${requestId}`,
             original: transcript,
             translation,
+            sourceLang: turnSource,
+            targetLang: turnTarget,
           },
         ]);
       })
       .catch((reason: unknown) => {
-        if (requestIdRef.current !== requestId) return;
         setTranslationError(
           reason instanceof Error ? reason.message : "Translation failed.",
         );
-      })
-      .finally(() => {
-        if (requestIdRef.current === requestId && sessionActiveRef.current) {
-          setCompletedTurn((turn) => turn + 1);
-        }
       });
-  }, [sourceLang, speech.finalTranscript, targetLang]);
+  }, [speech.finalTranscript]);
 
-  // After translating a completed turn, begin a fresh recognition segment.
-  // In two-way mode the parent swaps source/target first, so the cleanup below
-  // cancels the old timer and restarts with the next speaker's locale.
+  // Recognition restarts as soon as a turn ends; it does not wait for NLLB.
   useEffect(() => {
-    if (!sessionActive || completedTurn === 0 || speech.isListening) return;
+    if (!sessionActive || recognitionTurn === 0 || speech.isListening) return;
 
     const restartTimer = setTimeout(() => {
       if (!sessionActiveRef.current) return;
       handledFinalRef.current = "";
-      void speech.startListening(speechLanguage);
-    }, 350);
+      const nextLanguage = segmentSourceRef.current === "ja" ? "ja-JP" : "en-US";
+      void speech.startListening(nextLanguage);
+    }, 300);
 
     return () => clearTimeout(restartTimer);
-  }, [completedTurn, sessionActive, sourceLang, speech.isListening, speech.startListening, speechLanguage]);
+  }, [recognitionTurn, sessionActive, speech.isListening, speech.startListening]);
 
   useEffect(() => {
     if (!speech.error) return;
+
+    // An empty recognition window is normal in a live conversation. Keep the
+    // overall session active and immediately open another listening segment
+    // instead of silently leaving person two with a stopped microphone.
+    if (
+      (speech.error.code === "no_speech" || speech.error.code === "recoverable_interruption") &&
+      sessionActiveRef.current
+    ) {
+      setRecognitionTurn((turn) => turn + 1);
+      return;
+    }
+
     sessionActiveRef.current = false;
     setSessionActive(false);
   }, [speech.error]);

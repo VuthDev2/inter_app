@@ -22,6 +22,7 @@ import { RecordScreen } from "./src/screens/RecordScreen";
 import { ResetPasswordScreen } from "./src/screens/ResetPasswordScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { UpdatePasswordScreen } from "./src/screens/UpdatePasswordScreen";
+import { AnchoredMenu } from "./src/components/AnchoredMenu";
 import { colors, spacing } from "./src/theme/theme";
 
 export type Tab = "home" | "live" | "record" | "history" | "settings" | "profile";
@@ -65,6 +66,8 @@ export default function App() {
 function AppFrame() {
   const { initialized, user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("live");
+  const [recordSessionActive, setRecordSessionActive] = useState(false);
+  const [recordBackRequest, setRecordBackRequest] = useState(0);
   const [showUpdatePassword, setShowUpdatePassword] = useState(false);
   const [tabBarWidth, setTabBarWidth] = useState(0);
   const previousUserId = useRef<string | null>(null);
@@ -175,21 +178,38 @@ function AppFrame() {
           <SafeAreaView edges={["top"]} style={{ backgroundColor: "transparent" }}>
             <View style={{ alignItems: activeTab === "history" ? "flex-start" : "center", height: 64, justifyContent: "center", paddingHorizontal: spacing.lg }}>
               <Text style={{ color: "#111318", fontSize: activeTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: activeTab === "history" ? -0.6 : -0.35, marginLeft: activeTab === "history" ? 8 : 0, textAlign: activeTab === "history" ? "left" : "center" }}>
-                {activeTab === "record" ? "Record" : activeTab === "history" ? "History" : activeTab === "settings" ? "Settings" : activeTab === "profile" ? "Profile" : "Home"}
+                {activeTab === "record" ? (recordSessionActive ? "New Recording" : "Record") : activeTab === "history" ? "History" : activeTab === "settings" ? "Settings" : activeTab === "profile" ? "Profile" : "Home"}
               </Text>
-              {activeTab === "record" ? (
+              {activeTab === "record" && recordSessionActive ? (
                 <Pressable
-                  accessibilityLabel="Record actions"
+                  accessibilityLabel="Back to recording categories"
                   accessibilityRole="button"
-                  onPress={() => Alert.alert("Record", "Choose an action", [
-                    { text: "View Recording History", onPress: () => setActiveTab("history") },
-                    { text: "How to Record", onPress: () => Alert.alert("How to Record", "Choose a category, select your languages, then tap the microphone to begin.") },
-                    { text: "Cancel", style: "cancel" },
-                  ])}
-                  style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "rgba(255,255,255,0.92)", borderRadius: 999, height: 40, justifyContent: "center", position: "absolute", right: spacing.lg, shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+                  onPress={() => setRecordBackRequest((request) => request + 1)}
+                  style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "rgba(255,255,255,0.92)", borderColor: "#D7DBE1", borderRadius: 999, borderWidth: 0.5, height: 40, justifyContent: "center", left: spacing.lg, position: "absolute", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
                 >
-                  <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
+                  <Ionicons name="chevron-back" size={22} color="#171A20" />
                 </Pressable>
+              ) : null}
+              {activeTab === "record" ? (
+                <View style={{ position: "absolute", right: spacing.lg }}>
+                  <AnchoredMenu
+                    items={[
+                      { key: "history", label: "Recording History", icon: "time-outline", onPress: () => setActiveTab("history") },
+                      { key: "help", label: "How to Record", icon: "help-circle-outline", onPress: () => Alert.alert("How to Record", "Choose a category, select your languages, then tap the microphone to begin.") },
+                    ]}
+                  >
+                    {(open) => (
+                      <Pressable
+                        accessibilityLabel="Record actions"
+                        accessibilityRole="button"
+                        onPress={open}
+                        style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "rgba(255,255,255,0.92)", borderColor: "#D7DBE1", borderRadius: 999, borderWidth: 0.5, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+                      >
+                        <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
+                      </Pressable>
+                    )}
+                  </AnchoredMenu>
+                </View>
               ) : null}
             </View>
           </SafeAreaView>
@@ -209,11 +229,12 @@ function AppFrame() {
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg, paddingTop: pageHeaderHeight + spacing.sm }}
         keyboardShouldPersistTaps="handled"
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: pageScrollY } } }], { useNativeDriver: true })}
+        scrollEnabled={activeTab !== "record" || !recordSessionActive}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         {activeTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
-        {activeTab === "record"   && <RecordScreen setActiveTab={setActiveTab} />}
+        {activeTab === "record"   && <RecordScreen setActiveTab={setActiveTab} onSessionChange={setRecordSessionActive} backRequest={recordBackRequest} />}
         {activeTab === "history"  && <HistoryScreen />}
         {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onUpdatePassword={() => setShowUpdatePassword(true)} />}
         {activeTab === "profile"  && <ProfileScreen />}

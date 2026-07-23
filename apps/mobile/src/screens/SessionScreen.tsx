@@ -5,13 +5,11 @@ import {
   Alert,
   Animated,
   Easing,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePreferences } from "../features/preferences/context";
 import TTSService from "../features/live-interpreter/services/tts/TTSService";
 import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
+import { AnchoredMenu } from "../components/AnchoredMenu";
 import { atoms } from "../theme/atoms";
 import { languages, type LanguageCode } from "../constants/data";
 import { saveLiveSessionLocally } from "../services/storage";
@@ -31,7 +30,6 @@ const RED = "#e53e3e";
 const WHITE = "#FFFFFF";
 const DIM = "#6E7785";
 const FAINT = "#A0A7B2";
-const BDRY = "#E7EAF0";
 
 // ─── Language helpers ─────────────────────────────────────────────────────────
 const FLAGS: Record<string, string> = {
@@ -124,57 +122,33 @@ function LangPill({ value, onChange, disabled, showDot = false }: {
   disabled: boolean;
   showDot?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <>
-      <Pressable disabled={disabled} onPress={() => setOpen(true)} style={[pl.pill, disabled && pl.pillOff]}>
-        {showDot ? <View style={pl.dot} /> : <Text style={pl.flag}>{getFlag(value)}</Text>}
-        <Text style={pl.lbl}>{getLabel(value)}</Text>
-        <Ionicons name="chevron-down" size={11} color="#6E7785" />
-      </Pressable>
-      <Modal transparent animationType="slide" visible={open} onRequestClose={() => setOpen(false)}>
-        <Pressable style={pl.backdrop} onPress={() => setOpen(false)} />
-        <View style={pl.sheet}>
-          <View style={pl.handle} />
-          <Text style={pl.sheetTitle}>Select Language</Text>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {languages.map((lang, idx) => {
-              const sel = lang.code === value;
-              return (
-                <TouchableOpacity
-                  key={lang.code}
-                  activeOpacity={0.6}
-                  onPress={() => { onChange(lang.code as LanguageCode); setOpen(false); }}
-                  style={[pl.item, idx < languages.length - 1 && pl.itemBorder]}
-                >
-                  <Text style={pl.itemFlag}>{getFlag(lang.code)}</Text>
-                  <Text style={[pl.itemText, sel && pl.itemSel]}>{lang.label}</Text>
-                  {sel && <Ionicons name="checkmark" size={16} color={INDIGO} />}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </Modal>
-    </>
+    <AnchoredMenu
+      items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({
+        key: language.code,
+        label: `${getFlag(language.code)}  ${language.label}`,
+        selected: language.code === value,
+        onPress: () => onChange(language.code as LanguageCode),
+      }))}
+      width={190}
+    >
+      {(open) => (
+        <Pressable disabled={disabled} onPress={open} style={[pl.pill, disabled && pl.pillOff]}>
+          {showDot ? <View style={pl.dot} /> : <Text style={pl.flag}>{getFlag(value)}</Text>}
+          <Text style={pl.lbl}>{getLabel(value)}</Text>
+          <Ionicons name="chevron-down" size={11} color="#6E7785" />
+        </Pressable>
+      )}
+    </AnchoredMenu>
   );
 }
 
 const pl = StyleSheet.create({
-  pill: { alignItems: "center", alignSelf: "flex-start", backgroundColor: "#EEF0F3", borderRadius: 99, flexDirection: "row", gap: 6, paddingHorizontal: 13, paddingVertical: 10 },
+  pill: { alignItems: "center", alignSelf: "flex-start", backgroundColor: "#EEF0F3", borderColor: "#D7DBE1", borderRadius: 99, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 6, paddingHorizontal: 13, paddingVertical: 10 },
   pillOff: { opacity: 0.4 },
   dot: { backgroundColor: RED, borderRadius: 99, height: 13, width: 13 },
   flag: { fontSize: 15 },
   lbl: { color: "#171A20", fontSize: 13, fontWeight: "600" },
-  backdrop: { backgroundColor: "rgba(0,0,0,0.55)", bottom: 0, left: 0, position: "absolute", right: 0, top: 0 },
-  sheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, bottom: 0, left: 0, maxHeight: "62%", paddingBottom: 32, paddingHorizontal: 20, paddingTop: 12, position: "absolute", right: 0 },
-  handle: { alignSelf: "center", backgroundColor: "#D4D7DD", borderRadius: 3, height: 4, marginBottom: 16, width: 40 },
-  sheetTitle: { color: "#111318", fontSize: 17, fontWeight: "700", marginBottom: 12 },
-  item: { alignItems: "center", flexDirection: "row", gap: 12, paddingVertical: 14 },
-  itemBorder: { borderBottomColor: BDRY, borderBottomWidth: 1 },
-  itemFlag: { fontSize: 18 },
-  itemText: { color: "#4D5562", flex: 1, fontSize: 15 },
-  itemSel: { color: INDIGO, fontWeight: "600" },
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -204,6 +178,7 @@ export function SessionScreen({
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const { session_mode: mode, auto_speak: autoSpeak, tts_speed, update: updatePrefs } = usePreferences();
+  const sessionMode = embedded ? "two-way" : mode;
 
   const [src, setSrc] = useState<LanguageCode>(initialSource);
   const [tgt, setTgt] = useState<LanguageCode>(initialTarget);
@@ -215,7 +190,7 @@ export function SessionScreen({
 
   const srcRef = useRef(src); useEffect(() => { srcRef.current = src; }, [src]);
   const tgtRef = useRef(tgt); useEffect(() => { tgtRef.current = tgt; }, [tgt]);
-  const modeRef = useRef(mode); useEffect(() => { modeRef.current = mode; }, [mode]);
+  const modeRef = useRef(sessionMode); useEffect(() => { modeRef.current = sessionMode; }, [sessionMode]);
   const speakRef = useRef(autoSpeak); useEffect(() => { speakRef.current = autoSpeak; }, [autoSpeak]);
   const speedRef = useRef(tts_speed); useEffect(() => { speedRef.current = tts_speed; }, [tts_speed]);
   const handledEntryIdRef = useRef<string | null>(null);
@@ -256,8 +231,8 @@ export function SessionScreen({
     if (!latest || handledEntryIdRef.current === latest.id) return;
     handledEntryIdRef.current = latest.id;
 
-    const s = srcRef.current;
-    const t = tgtRef.current;
+    const s = latest.sourceLang;
+    const t = latest.targetLang;
     const utterance: Utterance = {
       id: latest.id,
       original: latest.original,
@@ -280,7 +255,10 @@ export function SessionScreen({
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
 
-    if (speakRef.current && latest.translation) {
+    // Do not play generated audio into an always-live microphone. On iOS that
+    // interrupts the next recognition task and prevents person two from being
+    // heard. The translation card's Play button remains available.
+    if (speakRef.current && latest.translation && !live.isListening) {
       void TTSService.speak(
         latest.translation,
         t === "ja" ? "ja" : "en",
@@ -288,11 +266,11 @@ export function SessionScreen({
       ).catch(() => undefined);
     }
 
-    if (modeRef.current === "two-way") {
+    if (embedded || modeRef.current === "two-way") {
       setSrc(t as LanguageCode);
       setTgt(s as LanguageCode);
     }
-  }, [fadeAnim, live.entries]);
+  }, [embedded, fadeAnim, live.entries, live.isListening]);
 
   // ─── Toggle record ──────────────────────────────────────────────────────────
   const toggle = () => {
@@ -317,7 +295,7 @@ export function SessionScreen({
     if (utterances.length > 0) {
       await saveLiveSessionLocally({
         id: sessionId.current, sourceLang: src, targetLang: tgt,
-        mode, utterances, createdAt: sessionStart.current,
+        mode: sessionMode, utterances, createdAt: sessionStart.current,
         endedAt: new Date().toISOString(),
       }).catch(() => { });
     }
@@ -325,6 +303,8 @@ export function SessionScreen({
   };
 
   const busy = live.isListening;
+  const laneForLanguage = (language: LanguageCode | string) =>
+    language === initialTarget ? ss.cardRight : ss.cardLeft;
 
   useEffect(() => {
     if (!active && live.isListening) live.stop();
@@ -340,29 +320,45 @@ export function SessionScreen({
           </Pressable>
         )}
         <Text style={ss.screenTitle}>Live Interpreter</Text>
-        <Pressable
-          onPress={() => Alert.alert("Live Interpreter", "Choose an action", [
-            { text: autoSpeak ? "Turn Off Auto-Speak" : "Turn On Auto-Speak", onPress: () => updatePrefs({ auto_speak: !autoSpeak }) },
-            { text: "Swap Languages", onPress: swap, style: live.isListening ? "cancel" : "default" },
-            { text: "Cancel", style: "cancel" },
-          ])}
-          style={ss.circleButton}
-          accessibilityLabel="Live Interpreter actions"
+        <AnchoredMenu
+          items={[
+            {
+              key: "auto-speak",
+              label: autoSpeak ? "Turn Off Auto-Speak" : "Turn On Auto-Speak",
+              icon: autoSpeak ? "volume-mute-outline" : "volume-high-outline",
+              onPress: () => updatePrefs({ auto_speak: !autoSpeak }),
+            },
+            {
+              key: "swap",
+              label: "Swap Languages",
+              icon: "swap-horizontal-outline",
+              disabled: live.isListening,
+              onPress: swap,
+            },
+          ]}
         >
-          <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
-        </Pressable>
+          {(open) => (
+            <Pressable onPress={open} style={ss.circleButton} accessibilityLabel="Live Interpreter actions">
+              <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
+            </Pressable>
+          )}
+        </AnchoredMenu>
       </View>
 
       <ScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
         ref={scrollRef}
-        style={atoms.flex1}
+        style={[atoms.flex1, ss.conversationViewport]}
         contentContainerStyle={ss.conversation}
+        overScrollMode="never"
+        scrollsToTop
         showsVerticalScrollIndicator={false}
       >
         {live.error ? <View style={ss.errorCard}><Ionicons name="alert-circle-outline" size={20} color="#C63B32" /><Text style={ss.errorText}>{live.error}</Text></View> : null}
 
         {utterances.map((u, index) => (
-          <Animated.View key={u.id} style={[ss.card, index % 2 === 0 ? ss.cardRight : ss.cardLeft, index === utterances.length - 1 && { opacity: fadeAnim }]}>
+          <Animated.View key={u.id} style={[ss.card, laneForLanguage(u.sourceLang), index === utterances.length - 1 && { opacity: fadeAnim }]}>
             <View style={ss.cardHeader}>
               <Text style={ss.cardLanguage}>{getLabel(u.sourceLang)}</Text>
               <Pressable
@@ -504,9 +500,10 @@ const ss = StyleSheet.create({
   cardOriginal: { color: "#15181E", fontSize: 21, fontWeight: "600", letterSpacing: -0.25, lineHeight: 29 },
   cardRight: { alignSelf: "flex-end" },
   cardTranslation: { color: INDIGO, fontSize: 20, fontWeight: "600", lineHeight: 28 },
-  circleButton: { alignItems: "center", backgroundColor: WHITE, borderRadius: 999, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 },
+  circleButton: { alignItems: "center", backgroundColor: WHITE, borderColor: "#D7DBE1", borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 },
   circleButtonPlaceholder: { height: 40, width: 40 },
   conversation: { flexGrow: 1, justifyContent: "flex-end", paddingBottom: 12, paddingHorizontal: 20, paddingTop: 18 },
+  conversationViewport: { minHeight: 0, overflow: "hidden" },
   divider: { backgroundColor: "#E9ECF1", height: StyleSheet.hairlineWidth, marginVertical: 11 },
   contentTransition: { marginTop: 10, minHeight: 25, position: "relative" },
   draftInput: { color: "#171A20", fontSize: 18, fontWeight: "500", lineHeight: 25, minHeight: 25, padding: 0, textAlignVertical: "top" },
@@ -517,7 +514,7 @@ const ss = StyleSheet.create({
   languageControl: { alignItems: "center", flexDirection: "row", justifyContent: "center", paddingHorizontal: 20, paddingTop: 12 },
   listeningControl: { alignItems: "center", minHeight: 104, paddingHorizontal: 28, paddingTop: 4 },
   listeningControlIdle: { minHeight: 104 },
-  liveStatus: { justifyContent: "center", minHeight: 272, paddingHorizontal: 20 },
+  liveStatus: { flexShrink: 0, justifyContent: "center", minHeight: 272, paddingHorizontal: 20 },
   liveDot: { backgroundColor: "#30C574", borderRadius: 99, height: 7, marginRight: 4, width: 7 },
   liveLabel: { color: "#27985B", fontSize: 10, fontWeight: "800", letterSpacing: 0.7 },
   micButton: { alignItems: "center", backgroundColor: INDIGO, borderRadius: 999, height: 72, justifyContent: "center", shadowColor: INDIGO, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8, width: 72 },

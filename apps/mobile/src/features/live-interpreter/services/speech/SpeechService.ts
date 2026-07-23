@@ -31,8 +31,25 @@ function parseResult(event: SpeechResultsEvent): SpeechResult | null {
 
 function parseError(event: SpeechErrorEvent): SpeechRecognitionError {
   const nativeMessage = event.error?.message ?? "Speech recognition failed.";
+  const normalizedMessage = nativeMessage.toLowerCase();
 
-  if (nativeMessage.includes("300/") || nativeMessage.toLowerCase().includes("failed to initialize recognizer")) {
+  // Silence, an accidental tap, or audio that contains no recognizable words
+  // is a normal empty turn—not an error the user needs to see.
+  if (
+    normalizedMessage.includes("no speech") ||
+    normalizedMessage.includes("no match") ||
+    normalizedMessage.includes("retry") ||
+    normalizedMessage.includes("connection invalidated") ||
+    normalizedMessage.includes("recognition request was canceled") ||
+    /^(1101|1107|1110|216)\//.test(nativeMessage)
+  ) {
+    return {
+      code: "recoverable_interruption",
+      message: "",
+    };
+  }
+
+  if (nativeMessage.includes("300/") || normalizedMessage.includes("failed to initialize recognizer")) {
     return {
       code: "recognizer_unavailable",
       message: "Speech recognition is unavailable in this iOS Simulator. Please test on a physical iPhone.",
