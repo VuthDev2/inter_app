@@ -1,5 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
 import { WebSocketServer } from "ws";
+
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
 import { handleLiveConnection } from "./live.js";
+
+const supabase =
+  SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
 
 class ConnectionManager {
   constructor() {
@@ -35,19 +43,48 @@ class ConnectionManager {
 
 const manager = new ConnectionManager();
 
+function sendJson(ws, message) {
+  if (ws.readyState === 1) {
+    ws.send(JSON.stringify(message));
+  }
+}
+
+async function verifyToken(token) {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) return null;
+    return data.user;
+  } catch {
+    return null;
+  }
+}
+
 export function setupWebSocket(server) {
   const wss = new WebSocketServer({ server });
 
-  wss.on("connection", (ws, req) => {
+  wss.on("connection", async (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
-    // Route live interpretation connections
+    const token = url.searchParams.get("token");
+    if (!token) {
+      sendJson(ws, { type: "error", text: "Authentication required. Provide a token query parameter." });
+      ws.close(4001, "Authentication required");
+      return;
+    }
+
+    const user = await verifyToken(token);
+    if (!user) {
+      sendJson(ws, { type: "error", text: "Invalid or expired token." });
+      ws.close(4001, "Invalid or expired token");
+      return;
+    }
+
     if (url.pathname === "/ws/live") {
       handleLiveConnection(ws);
       return;
     }
 
-    // Legacy room-based relay
     const room = url.pathname.replace("/ws/", "");
 
     if (!room) {

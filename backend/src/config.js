@@ -13,3 +13,7 @@ export const SMTP_FROM = process.env.SMTP_FROM || "QuickVoice <noreply@quickvoic
 
 export const HOST = process.env.HOST || "0.0.0.0";
 export const PORT = parseInt(process.env.PORT || "8000", 10);
+
+export const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+  : ["http://localhost:3000", "http://localhost:8081"];

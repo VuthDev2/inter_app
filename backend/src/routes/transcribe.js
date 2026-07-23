@@ -1,11 +1,15 @@
 import { Router } from "express";
 import multer from "multer";
 import { transcribeAudio } from "../services/gemini.js";
+import { requireAuth } from "../middleware/auth.js";
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 const router = Router();
 
-router.post("/transcribe", upload.single("file"), async (req, res) => {
+router.post("/transcribe", requireAuth, upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
@@ -16,12 +20,17 @@ router.post("/transcribe", upload.single("file"), async (req, res) => {
     const text = await transcribeAudio(file.buffer, file.originalname, language);
 
     if (!text) {
-      return res.json({ ok: false, text: "", error: "Transcription failed or Gemini key not configured" });
+      const keyMissing = !process.env.GEMINI_API_KEY;
+      return res.json({
+        ok: false,
+        text: "",
+        error: keyMissing ? "Gemini API key not configured on the server." : "Transcription failed.",
+      });
     }
 
     res.json({ ok: true, text });
-  } catch (err) {
-    res.status(500).json({ ok: false, text: "", error: err.message });
+  } catch {
+    res.status(500).json({ ok: false, text: "", error: "Transcription failed." });
   }
 });
 
