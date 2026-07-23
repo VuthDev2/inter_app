@@ -16,14 +16,6 @@ const supabasePublic =
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
-
-/**
- * POST /api/signup
- * Body: { email, password, displayName }
- * Creates the user in Supabase and sends a welcome email via Resend.
- * Uses admin API when service_role key is available (no confirmation email),
- * otherwise falls back to regular signUp.
- */
 router.post("/api/signup", async (req, res) => {
   try {
     const { email, password, displayName } = req.body;

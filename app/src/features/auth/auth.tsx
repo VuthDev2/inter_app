@@ -1,5 +1,10 @@
+import { Alert, Linking } from "react-native";
+import { createURL } from "expo-linking";
 import type { Session, User } from "@supabase/supabase-js";
+import * as WebBrowser from "expo-web-browser";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+
+WebBrowser.maybeCompleteAuthSession();
 
 import { supabase } from "../../services/supabase";
 
@@ -14,6 +19,7 @@ type AuthContextValue = {
   sendOTP: (email: string) => Promise<{ error?: string }>;
   verifyOTP: (_email: string, token: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
+  signInWithGoogle: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -48,7 +54,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
     });
 
-    return () => subscription.unsubscribe();
+    const handleUrl = (event: { url: string }) => {
+      const { url } = event;
+      if (!url.includes("oauth")) return;
+
+      const fragment = url.split("#")[1];
+      if (!fragment) return;
+
+      const params = new URLSearchParams(fragment.replace(/\/$/, ""));
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      if (accessToken) {
+        supabase?.auth.setSession({ access_token: accessToken, refresh_token: refreshToken || "" });
+      }
+    };
+
+    const urlListener = Linking.addEventListener("url", handleUrl);
+
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl({ url });
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      urlListener.remove();
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -90,6 +120,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         await supabase?.auth.signOut();
+      },
+      signInWithGoogle: async () => {
+        if (!supabase) {
+          Alert.alert("Error", "Supabase not configured on this device.");
+          return;
+        }
+        try {
+          const redirectUrl = createURL("oauth");
+          const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+              redirectTo: redirectUrl,
+              skipBrowserRedirect: true,
+              queryParams: {
+                prompt: "select_account",
+              },
+            },
+          });
+          if (error) {
+            Alert.alert("Auth Error", error.message);
+            return;
+          }
+          if (!data?.url) {
+            Alert.alert("Error", "No OAuth URL returned.");
+            return;
+          }
+          
+          const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+          if (result.type === "success" && result.url) {
+            const fragment = result.url.split("#")[1];
+            if (fragment) {
+              const params = new URLSearchParams(fragment.replace(/\/$/, ""));
+              const accessToken = params.get("access_token");
+              const refreshToken = params.get("refresh_token");
+              if (accessToken) {
+                await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken || "",
+                });
+              }
+            }
+          }
+        } catch (e: any) {
+          Alert.alert("Error", e?.message || "Google sign-in failed.");
+        }
       },
       sendOTP: async (email) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };

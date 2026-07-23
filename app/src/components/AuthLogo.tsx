@@ -12,7 +12,7 @@ export function AuthLogo() {
         shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
       }}>
         <Image
-          source={require("../../assets/logo.png")}
+          source={require("../../assets/logo-l.png")}
           style={{ height: 50, width: 50 }}
           resizeMode="contain"
         />

@@ -16,6 +16,7 @@ type AuthContextValue = {
   sendOTP: (email: string) => Promise<{ error?: string }>;
   verifyOTP: (_email: string, token: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
+  signInWithGoogle: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -27,17 +28,15 @@ function apiBase(): string {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [initialized, setInitialized] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const router = useRouter();
   const pendingOTP = useRef<{ otp: string; expiresAt: number; email?: string } | null>(null);
   const useSupabaseOTP = useRef(false);
 
+  const [initialized, setInitialized] = useState(!supabase);
+
   useEffect(() => {
-    if (!supabase) {
-      setInitialized(true);
-      return;
-    }
+    if (!supabase) return;
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -103,6 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         await supabase?.auth.signOut();
         router.push("/login");
+      },
+      signInWithGoogle: async () => {
+        if (!supabase) return;
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+          },
+        });
       },
       sendOTP: async (email) => {
         if (!supabase) return { error: "Supabase is not configured." };

@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
     const router = useRouter();
-    const { signIn, user, initialized } = useAuth();
+    const { signIn, signInWithGoogle, user, initialized } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -233,7 +233,7 @@ export default function LoginPage() {
                     </div>
 
                     <div className="flex flex-col gap-4">
-                        <button type="button" className="w-full bg-[#f4f7fe] hover:bg-[#ebf0fc] text-slate-700 font-bold text-sm rounded-xl py-4 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0">
+                        <button type="button" onClick={signInWithGoogle} className="w-full bg-[#f4f7fe] hover:bg-[#ebf0fc] text-slate-700 font-bold text-sm rounded-xl py-4 flex items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0">
                             <svg className="w-5 h-5" viewBox="0 0 24 24">
                                 <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0112 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.27 0 3.198 2.698 1.24 6.65l4.026 3.115z"/>
                                 <path fill="#34A853" d="M16.04 18.013c-1.09.703-2.474 1.078-4.04 1.078a7.077 7.077 0 01-6.723-4.806L1.24 17.35C3.198 21.302 7.269 24 12 24c3.24 0 5.966-1.08 7.96-2.916l-3.92-3.071z"/>

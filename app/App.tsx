@@ -62,7 +62,7 @@ function AppFrame() {
     return (
       <SafeAreaView style={[{ backgroundColor: c.background }, atoms.flex1, atoms.itemsCenter, atoms.justifyCenter]}>
         <StatusBar style="dark" />
-        <Image source={require("./assets/logo.png")} style={{ borderRadius: 14, height: 56, width: 56 }} />
+        <Image source={require("./assets/logo-l.png")} style={{ borderRadius: 14, height: 56, width: 56 }} />
         <Text style={{ color: c.text, fontSize: 22, fontWeight: "700", letterSpacing: -0.3, marginTop: spacing.md }}>
           <Text style={{ color: c.primary }}>Quick</Text>Voice
         </Text>
@@ -116,7 +116,7 @@ function AppFrame() {
       <SafeAreaView edges={["top"]} style={{ backgroundColor: c.surface }}>
         <View style={[atoms.flexRow, atoms.itemsCenter, atoms.justifyBetween, { backgroundColor: c.surface, borderBottomColor: c.border, borderBottomWidth: 1, paddingHorizontal: spacing.lg, paddingVertical: 13 }]}>
           <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 8 }]}>
-            <Image source={require("./assets/logo.png")} style={{ borderRadius: 6, height: 30, width: 30 }} />
+            <Image source={require("./assets/logo-l.png")} style={{ borderRadius: 6, height: 30, width: 30 }} />
             <Text style={{ color: c.text, fontSize: 17, fontWeight: "700", letterSpacing: -0.3 }}>
               <Text style={{ color: c.primary }}>Quick</Text>Voice
             </Text>

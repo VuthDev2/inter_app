@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, Volume2, FileText, Square, Pause, Play, MicOff, X, Copy, Download, ArrowLeftRight, Clock, Calendar, ArrowLeft, ArrowRight, Folder, ChevronDown, Plus } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
+import { useLiveInterpretation } from "@/hooks/useLiveInterpretation";
 
 const LANGUAGES = [
     "English (US)",
@@ -15,79 +16,44 @@ const LANGUAGES = [
     "Korean",
 ];
 
-type TranscriptLine = {
-    id: number;
-    source: string;
-    translated: string;
-};
-
-const DEMO_LINES: Omit<TranscriptLine, "id">[] = [
-    {
-        source: "Hello, I'd like to discuss the project timeline for the upcoming launch.",
-        translated: "こんにちは、今後の打ち合わせのプロジェクトのタイムラインについて話し合いたいと思います。",
-    },
-    {
-        source: "Can we push the review to next Tuesday?",
-        translated: "レビューを来週の火曜日に延期できますか？",
-    },
-    {
-        source: "That works for me, I'll update the calendar.",
-        translated: "それで大丈夫です。カレンダーを更新します。",
-    },
-];
-
 export default function InterpreterPage() {
     const [inputLang, setInputLang] = useState("English (US)");
     const [outputLang, setOutputLang] = useState("Japanese");
-    const [isListening, setIsListening] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
-    const [isTwoWay, setIsTwoWay] = useState(true);
+    const [isTwoWay, setIsTwoWay] = useState(() =>
+        typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('mode') !== 'oneway'
+            : true
+    );
     const [saveModalState, setSaveModalState] = useState<'hidden' | 'loading' | 'saved'>('hidden');
-    const [lines, setLines] = useState<TranscriptLine[]>([
-        { id: 0, ...DEMO_LINES[0] },
-    ]);
     const [showTranscript, setShowTranscript] = useState(false);
     const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
-    const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+    const [selectedFolder, setSelectedFolder] = useState<string | null>(() => {
+        if (typeof window !== 'undefined') {
+            return new URLSearchParams(window.location.search).get('folder');
+        }
+        return null;
+    });
     const MOCK_FOLDERS = ["ok", "ik", "IL", "Po"];
-    const nextIndex = useRef(1);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
 
-    // Read initial mode and folder from URL
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('mode') === 'oneway') {
-                setIsTwoWay(false);
-            } else {
-                setIsTwoWay(true);
-            }
-            
-            const folderParam = params.get('folder');
-            if (folderParam) {
-                setSelectedFolder(folderParam);
-            }
-        }
-    }, []);
-
-    // Simulate incoming interpreted speech while listening & not paused
-    useEffect(() => {
-        if (!isListening || isPaused) return;
-        const interval = setInterval(() => {
-            const demo = DEMO_LINES[nextIndex.current % DEMO_LINES.length];
-            setLines((prev) => [...prev, { id: Date.now(), ...demo }]);
-            nextIndex.current += 1;
-        }, 6000);
-        return () => clearInterval(interval);
-    }, [isListening, isPaused]);
+    const {
+        isListening,
+        interimText,
+        liveTranslation,
+        entries,
+        error,
+        start,
+        stop,
+    } = useLiveInterpretation(inputLang, outputLang);
 
     useEffect(() => {
         transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [lines, showTranscript]);
+    }, [entries, showTranscript]);
 
     const handleSaveSession = () => {
-        setIsListening(false);
+        if (isListening) stop();
         setSaveModalState('loading');
         setTimeout(() => {
             setSaveModalState('saved');
@@ -95,6 +61,13 @@ export default function InterpreterPage() {
     };
 
     const handleTogglePause = () => {
+        if (isListening) {
+            if (!isPaused) {
+                stop();
+            } else {
+                start();
+            }
+        }
         setIsPaused((p) => !p);
     };
 
@@ -155,7 +128,12 @@ export default function InterpreterPage() {
                                     </span>
                                 </div>
                             </div>
-                            <TranscriptCard lines={lines} langKey="source" />
+                            <TranscriptCard entries={entries} langKey="original" />
+                            {interimText && isListening && (
+                                <div className="mt-3 text-[14px] text-[rgba(var(--text-secondary),0.7)] italic pl-6 border-l-2 border-[rgb(var(--primary))]/40">
+                                    {interimText}
+                                </div>
+                            )}
                         </div>
 
                         {/* Output side */}
@@ -182,28 +160,46 @@ export default function InterpreterPage() {
                                     <Waveform active={isListening && !isPaused && !isMuted} />
                                 </div>
                             </div>
-                            <TranscriptCard lines={lines} langKey="translated" align="right" />
+                            <TranscriptCard entries={entries} langKey="translation" align="right" />
+                            {liveTranslation && isListening && (
+                                <div className="mt-3 text-[14px] text-right text-[rgba(var(--text-secondary),0.7)] italic pr-6 border-r-2 border-[rgb(var(--primary))]/40">
+                                    {liveTranslation}
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     {/* Center mic + status */}
                     <div className="flex flex-col items-center justify-center mt-2 flex-shrink-0">
                         <button
-                            onClick={() => setIsListening((l) => !l)}
+                            onClick={() => {
+                                if (isListening) {
+                                    stop();
+                                } else {
+                                    start();
+                                }
+                            }}
                             className="h-16 w-16 rounded-full bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))] transition-colors flex items-center justify-center shadow-[0_0_30px_rgba(var(--primary),0.3)]"
                             aria-label={isListening ? "Stop session" : "Start session"}
                         >
                             {isListening ? <Mic size={26} /> : <MicOff size={26} />}
                         </button>
-                        <div className="flex items-center gap-2 mt-4 text-xs font-medium text-[rgb(var(--emerald))]">
-                            <span
-                                className={`h-2 w-2 rounded-full ${isListening && !isPaused
-                                    ? "bg-[rgb(var(--emerald))] animate-pulse"
-                                    : "bg-[rgba(var(--text),0.2)]"
-                                    }`}
-                            />
-                            {isListening && !isPaused ? "AI Live Sync Enabled" : "Sync Paused"}
-                        </div>
+                        {error && (
+                            <div className="mt-3 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] text-red-400 text-center max-w-sm">
+                                {error}
+                            </div>
+                        )}
+                        {!error && (
+                            <div className="flex items-center gap-2 mt-4 text-xs font-medium text-[rgb(var(--emerald))]">
+                                <span
+                                    className={`h-2 w-2 rounded-full ${isListening && !isPaused
+                                        ? "bg-[rgb(var(--emerald))] animate-pulse"
+                                        : "bg-[rgba(var(--text),0.2)]"
+                                        }`}
+                                />
+                                {isListening && !isPaused ? "AI Live Sync Enabled" : "Sync Paused"}
+                            </div>
+                        )}
                     </div>
 
                     {/* Bottom control bar */}
@@ -249,21 +245,21 @@ export default function InterpreterPage() {
 
                         {/* List */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(var(--text),0.1)] [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(var(--text),0.2)]">
-                            {lines.map((line) => (
-                                <div key={line.id} className="flex flex-col gap-5 border-b border-[rgb(var(--border))] pb-8 last:border-0 last:pb-0">
+                            {entries.map((entry) => (
+                                <div key={entry.id} className="flex flex-col gap-5 border-b border-[rgb(var(--border))] pb-8 last:border-0 last:pb-0">
                                     <div className="flex flex-col gap-2 relative group">
                                         <div className="flex items-center justify-between">
                                             <span className="text-[10px] font-bold tracking-wider text-[rgb(var(--primary))] uppercase">{inputLang}</span>
                                             <span className="text-[10px] text-[rgba(var(--muted),0.8)]">10:42:01</span>
                                         </div>
-                                        <p className="text-[14px] text-[rgba(var(--text),0.8)] leading-relaxed pr-4">{line.source}</p>
+                                        <p className="text-[14px] text-[rgba(var(--text),0.8)] leading-relaxed pr-4">{entry.original}</p>
                                     </div>
                                     <div className="flex flex-col gap-2 relative group">
                                         <div className="flex items-center justify-between">
                                             <span className="text-[10px] font-bold tracking-wider text-[rgba(var(--muted),1)] uppercase">{outputLang}</span>
                                             <span className="text-[10px] text-[rgba(var(--muted),0.8)]">10:42:03</span>
                                         </div>
-                                        <p className="text-[14px] text-[rgba(var(--text),0.8)] leading-relaxed pr-4">{line.translated}</p>
+                                        <p className="text-[14px] text-[rgba(var(--text),0.8)] leading-relaxed pr-4">{entry.translation}</p>
                                     </div>
                                 </div>
                             ))}
@@ -407,12 +403,12 @@ export default function InterpreterPage() {
 }
 
             function TranscriptCard({
-                lines,
+                entries,
                 langKey,
                 align = "left",
 }: {
-                lines: TranscriptLine[];
-            langKey: "source" | "translated";
+                entries: { id: string; original: string; translation: string }[];
+            langKey: "original" | "translation";
             align?: "left" | "right";
 }) {
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -424,7 +420,7 @@ export default function InterpreterPage() {
                         behavior: "smooth",
                     });
         }
-    }, [lines]);
+    }, [entries]);
 
                 return (
                 <div
@@ -433,13 +429,13 @@ export default function InterpreterPage() {
                 >
                     <div className="flex-1 flex flex-col justify-end">
                         <div className="flex flex-col space-y-5 pt-10">
-                            {lines.map((line) => (
+                            {entries.map((entry) => (
                                 <p
-                                    key={line.id}
+                                    key={entry.id}
                                     className={`text-[15px] leading-relaxed tracking-wide ${align === "right" ? "text-right text-[rgba(var(--text-secondary),1)]" : "text-[rgba(var(--text),0.9)]"
                                         }`}
                                 >
-                                    {line[langKey]}
+                                    {entry[langKey]}
                                 </p>
                             ))}
                         </div>
