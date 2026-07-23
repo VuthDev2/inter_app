@@ -37,7 +37,14 @@
           "microphonePermission": "Allow QuickVoice to access the microphone for real-time interpretation."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "@react-native-voice/voice",
+        {
+          "microphonePermission": "Allow QuickVoice to access the microphone for live interpretation.",
+          "speechRecognitionPermission": "Allow QuickVoice to recognize speech for live interpretation."
+        }
+      ]
     ]
   }
 }

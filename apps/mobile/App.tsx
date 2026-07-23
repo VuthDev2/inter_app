@@ -2,8 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AccessibilityInfo, Alert, Animated, Image, PanResponder, Pressable, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { atoms } from "./src/theme/atoms";
@@ -64,21 +64,70 @@ export default function App() {
 
 function AppFrame() {
   const { initialized, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [activeTab, setActiveTab] = useState<Tab>("live");
   const [showUpdatePassword, setShowUpdatePassword] = useState(false);
+  const [tabBarWidth, setTabBarWidth] = useState(0);
   const previousUserId = useRef<string | null>(null);
+  const pageScrollY = useRef(new Animated.Value(0)).current;
+  const tabIndicatorPosition = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const userId = user?.id ?? null;
 
     if (userId && userId !== previousUserId.current) {
-      setActiveTab("home");
+      setActiveTab("live");
       setShowUpdatePassword(false);
     }
 
     previousUserId.current = userId;
   }, [user?.id]);
+
+  useEffect(() => {
+    pageScrollY.setValue(0);
+  }, [activeTab, pageScrollY]);
+
+  useEffect(() => {
+    const index = activeTab === "home" ? 0 : activeTab === "profile" ? 3 : TABS.findIndex((tab) => tab.key === activeTab);
+    if (index < 0) return;
+    Animated.spring(tabIndicatorPosition, {
+      damping: 21,
+      mass: 0.72,
+      stiffness: 185,
+      toValue: index,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, tabIndicatorPosition]);
+
+  const tabPanResponder = useMemo(() => {
+    const positionForPageX = (pageX: number) => {
+      if (tabBarWidth <= 0) return 0;
+      const slotWidth = (tabBarWidth - 12) / TABS.length;
+      const localX = pageX - 14;
+      return Math.max(0, Math.min(TABS.length - 1, (localX - 6 - slotWidth / 2) / slotWidth));
+    };
+
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (_event, gestureState) => {
+        tabIndicatorPosition.stopAnimation();
+        tabIndicatorPosition.setValue(positionForPageX(gestureState.x0));
+      },
+      onPanResponderMove: (_event, gestureState) => {
+        tabIndicatorPosition.setValue(positionForPageX(gestureState.moveX));
+      },
+      onPanResponderRelease: (_event, gestureState) => {
+        const index = Math.round(positionForPageX(gestureState.moveX || gestureState.x0));
+        Animated.spring(tabIndicatorPosition, { damping: 21, mass: 0.72, stiffness: 185, toValue: index, useNativeDriver: true }).start();
+        setActiveTab(TABS[index].key);
+      },
+      onPanResponderTerminate: () => {
+        const index = activeTab === "home" ? 0 : activeTab === "profile" ? 3 : Math.max(0, TABS.findIndex((tab) => tab.key === activeTab));
+        Animated.spring(tabIndicatorPosition, { damping: 21, mass: 0.72, stiffness: 185, toValue: index, useNativeDriver: true }).start();
+      },
+    });
+  }, [activeTab, tabBarWidth, tabIndicatorPosition]);
 
   if (!initialized) {
     return (
@@ -103,42 +152,64 @@ function AppFrame() {
   // pill height + gap above bottom + safe-area
   const TAB_HEIGHT = 68;
   const tabBarBottom = Math.max(6, insets.bottom - 10);
+  const pageHeaderHeight = insets.top + 64;
 
   return (
     <View style={[atoms.flex1, atoms.bgBackground]}>
       <StatusBar style="dark" />
 
       {/* ── Header ── */}
-      {activeTab !== "live" ? <SafeAreaView edges={["top"]} style={{ backgroundColor: colors.background }}>
-        <View style={{ alignItems: activeTab === "history" ? "flex-start" : "center", height: 64, justifyContent: "center", paddingHorizontal: spacing.lg }}>
-          <Text style={{ color: "#111318", fontSize: activeTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: activeTab === "history" ? -0.6 : -0.35, marginLeft: activeTab === "history" ? 8 : 0, textAlign: activeTab === "history" ? "left" : "center" }}>
-            {activeTab === "record" ? "Record" : activeTab === "history" ? "History" : activeTab === "settings" ? "Settings" : activeTab === "profile" ? "Profile" : "Home"}
-          </Text>
-          {activeTab === "record" ? (
-            <Pressable
-              accessibilityLabel="Record actions"
-              accessibilityRole="button"
-              onPress={() => Alert.alert("Record", "Choose an action", [
-                { text: "View Recording History", onPress: () => setActiveTab("history") },
-                { text: "How to Record", onPress: () => Alert.alert("How to Record", "Choose a category, select your languages, then tap the microphone to begin.") },
-                { text: "Cancel", style: "cancel" },
-              ])}
-              style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "#FFFFFF", borderRadius: 999, height: 40, justifyContent: "center", position: "absolute", right: spacing.lg, shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
-            >
-              <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
-            </Pressable>
-          ) : null}
-        </View>
-      </SafeAreaView> : null}
+      {activeTab !== "live" ? (
+        <Animated.View
+          pointerEvents="box-none"
+          style={{
+            left: 0,
+            opacity: pageScrollY.interpolate({ inputRange: [0, 38, 66], outputRange: [1, 0.45, 0], extrapolate: "clamp" }),
+            position: "absolute",
+            right: 0,
+            top: 0,
+            transform: [{ translateY: pageScrollY.interpolate({ inputRange: [0, 66], outputRange: [0, -pageHeaderHeight], extrapolate: "clamp" }) }],
+            zIndex: 20,
+          }}
+        >
+          <SafeAreaView edges={["top"]} style={{ backgroundColor: "transparent" }}>
+            <View style={{ alignItems: activeTab === "history" ? "flex-start" : "center", height: 64, justifyContent: "center", paddingHorizontal: spacing.lg }}>
+              <Text style={{ color: "#111318", fontSize: activeTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: activeTab === "history" ? -0.6 : -0.35, marginLeft: activeTab === "history" ? 8 : 0, textAlign: activeTab === "history" ? "left" : "center" }}>
+                {activeTab === "record" ? "Record" : activeTab === "history" ? "History" : activeTab === "settings" ? "Settings" : activeTab === "profile" ? "Profile" : "Home"}
+              </Text>
+              {activeTab === "record" ? (
+                <Pressable
+                  accessibilityLabel="Record actions"
+                  accessibilityRole="button"
+                  onPress={() => Alert.alert("Record", "Choose an action", [
+                    { text: "View Recording History", onPress: () => setActiveTab("history") },
+                    { text: "How to Record", onPress: () => Alert.alert("How to Record", "Choose a category, select your languages, then tap the microphone to begin.") },
+                    { text: "Cancel", style: "cancel" },
+                  ])}
+                  style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "rgba(255,255,255,0.92)", borderRadius: 999, height: 40, justifyContent: "center", position: "absolute", right: spacing.lg, shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
+                </Pressable>
+              ) : null}
+            </View>
+          </SafeAreaView>
+        </Animated.View>
+      ) : null}
 
       {/* ── Content ── */}
-      {activeTab === "live" ? (
-        <View style={{ flex: 1, paddingBottom: TAB_HEIGHT + tabBarBottom }}>
-          <LiveScreen />
-        </View>
-      ) : <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg }}
+      <View
+        style={[
+          { flex: 1, paddingBottom: TAB_HEIGHT + tabBarBottom },
+          activeTab !== "live" && { display: "none" },
+        ]}
+      >
+        <LiveScreen active={activeTab === "live"} />
+      </View>
+      {activeTab !== "live" ? <Animated.ScrollView
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg, paddingTop: pageHeaderHeight + spacing.sm }}
         keyboardShouldPersistTaps="handled"
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: pageScrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         {activeTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
@@ -146,13 +217,28 @@ function AppFrame() {
         {activeTab === "history"  && <HistoryScreen />}
         {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onUpdatePassword={() => setShowUpdatePassword(true)} />}
         {activeTab === "profile"  && <ProfileScreen />}
-      </ScrollView>}
+      </Animated.ScrollView> : null}
 
       {/* ── Floating pill tab bar ── */}
       <View style={{ left: 14, position: "absolute", right: 14, bottom: tabBarBottom }} pointerEvents="box-none">
-        <View style={{ alignItems: "center", backgroundColor: "rgba(255,255,255,0.98)", borderColor: "rgba(25,35,50,0.06)", borderRadius: 28, borderWidth: 1, elevation: 16, flexDirection: "row", height: 72, justifyContent: "space-around", paddingHorizontal: 6, shadowColor: "#172033", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 22 }}>
+        <View {...tabPanResponder.panHandlers} onLayout={(event) => setTabBarWidth(event.nativeEvent.layout.width)} style={{ alignItems: "center", backgroundColor: "#FFFFFF", borderColor: "#E3E6EB", borderRadius: 28, borderWidth: 1, elevation: 0, flexDirection: "row", height: 72, justifyContent: "space-around", paddingHorizontal: 6, shadowOpacity: 0 }}>
+          {tabBarWidth > 0 ? (
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                backgroundColor: "#EAF3FF",
+                borderRadius: 20,
+                height: 56,
+                left: 8,
+                position: "absolute",
+                top: 7,
+                transform: [{ translateX: Animated.multiply(tabIndicatorPosition, (tabBarWidth - 12) / 4) }],
+                width: (tabBarWidth - 12) / 4 - 4,
+              }}
+            />
+          ) : null}
           {TABS.map((tab) => {
-            const active = activeTab === tab.key;
+            const active = activeTab === tab.key || (activeTab === "home" && tab.key === "live") || (activeTab === "profile" && tab.key === "settings");
             return (
               <Pressable
                 key={tab.key}
@@ -160,7 +246,7 @@ function AppFrame() {
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={tab.label}
                 onPress={() => setActiveTab(tab.key)}
-                style={{ alignItems: "center", backgroundColor: active ? "#EAF3FF" : "transparent", borderRadius: 20, flex: 1, gap: 3, justifyContent: "center", marginHorizontal: 2, minHeight: 56, paddingHorizontal: 2, paddingVertical: 6 }}
+                style={{ alignItems: "center", backgroundColor: "transparent", borderRadius: 20, flex: 1, gap: 3, justifyContent: "center", marginHorizontal: 2, minHeight: 56, paddingHorizontal: 2, paddingVertical: 6 }}
               >
                 <Ionicons
                   name={tab.icon}

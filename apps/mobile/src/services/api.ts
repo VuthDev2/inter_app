@@ -1,3 +1,5 @@
+import { NativeModules, Platform } from "react-native";
+
 export type TranslateResult = {
   ok: boolean;
   translation: string;
@@ -125,6 +127,62 @@ async function translateViaBackend(
   return null;
 }
 
+/**
+ * Translate through the configured QuickVoice backend only.
+ *
+ * This is used by live interpretation so a missing local translation server is
+ * surfaced to the user instead of silently changing providers.
+ */
+export async function translateTextViaApi(
+  text: string,
+  sourceLang: string,
+  targetLang: string,
+): Promise<string> {
+  const normalizedText = text.trim();
+  if (!normalizedText) return "";
+  if (sourceLang === targetLang) return normalizedText;
+
+  const translated = await translateViaBackend(
+    normalizedText,
+    sourceLang,
+    targetLang,
+  );
+  if (!translated) {
+    throw new Error("Translation server unavailable. Start the QuickVoice Python server and try again.");
+  }
+  return translated;
+}
+
+export async function synthesizeSpeechViaApi(
+  text: string,
+  language: "en" | "ja",
+  speed = 1,
+): Promise<Uint8Array> {
+  const normalizedText = text.trim();
+  if (!normalizedText) {
+    throw new Error("Speech text cannot be blank.");
+  }
+
+  const response = await fetch(`${baseUrl()}/tts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: normalizedText, language, speed }),
+  });
+
+  if (!response.ok) {
+    let message = "Text-to-speech server unavailable.";
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === "string") message = body.detail;
+    } catch {
+      // Keep the stable fallback error when the server returns no JSON body.
+    }
+    throw new Error(message);
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 
 /**
  * Translate text — tries the backend first, falls back to MyMemory.
@@ -157,4 +215,3 @@ export async function translateText(
   } catch { /* ignore */ }
   return `[${sourceLang}→${targetLang}] ${text}`;
 }
-import { NativeModules, Platform } from "react-native";

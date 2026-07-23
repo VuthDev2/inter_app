@@ -130,6 +130,7 @@ export function AuthTextField({
           pointerEvents="none"
           style={[
             styles.floatingLabel,
+            { width: Math.min(200, Math.max(58, placeholder.length * 9 + 24)) },
             { transform: [{ translateY: labelTranslateY }, { scale: labelScale }] },
           ]}
         >

@@ -1,0 +1,22 @@
+export type SpeechLanguage = "en-US" | "ja-JP";
+
+export type SpeechResult = {
+  transcript: string;
+};
+
+export type SpeechRecognitionError = {
+  code: string;
+  message: string;
+};
+
+export type SpeechResultListener = (result: SpeechResult) => void;
+export type SpeechErrorListener = (error: SpeechRecognitionError) => void;
+export type SpeechSubscription = { remove: () => void };
+
+export interface SpeechServiceInterface {
+  startListening(language: SpeechLanguage): Promise<void>;
+  stopListening(): Promise<void>;
+  onPartialResult(listener: SpeechResultListener): SpeechSubscription;
+  onFinalResult(listener: SpeechResultListener): SpeechSubscription;
+  onError(listener: SpeechErrorListener): SpeechSubscription;
+}

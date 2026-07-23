@@ -4,7 +4,7 @@ import type { LanguageCode } from "../constants/data";
 import { usePreferences } from "../features/preferences/context";
 import { SessionScreen } from "./SessionScreen";
 
-export function LiveScreen() {
+export function LiveScreen({ active = true }: { active?: boolean }) {
   const {
     preferred_source_lang: defaultSource,
     preferred_target_lang: defaultTarget,
@@ -15,6 +15,7 @@ export function LiveScreen() {
   return (
     <SessionScreen
       embedded
+      active={active}
       initialSource={source}
       initialTarget={target}
     />

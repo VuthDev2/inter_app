@@ -81,12 +81,16 @@ export async function loadLiveSessions(): Promise<LiveSession[]> {
   }
 }
 
-export async function saveLiveSession(session: LiveSession): Promise<void> {
-  // 1. Save locally first
+export async function saveLiveSessionLocally(session: LiveSession): Promise<void> {
   const existing = await loadLiveSessions();
   const idx = existing.findIndex((s) => s.id === session.id);
   if (idx >= 0) existing[idx] = session; else existing.unshift(session);
   await appStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(existing.slice(0, 50)));
+}
+
+export async function saveLiveSession(session: LiveSession): Promise<void> {
+  // 1. Save locally first
+  await saveLiveSessionLocally(session);
 
   // 2. Cloud sync — save to sessions + transcripts tables
   if (!supabase || session.utterances.length === 0) return;

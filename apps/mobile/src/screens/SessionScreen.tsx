@@ -1,6 +1,5 @@
 
 import { Ionicons } from "@expo/vector-icons";
-import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -18,16 +17,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { usePreferences } from "../features/preferences/context";
+import TTSService from "../features/live-interpreter/services/tts/TTSService";
 import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
 import { atoms } from "../theme/atoms";
 import { languages, type LanguageCode } from "../constants/data";
-import { saveLiveSession } from "../services/storage";
-
-// ─── BCP-47 locale map ────────────────────────────────────────────────────────
-const LOCALES: Record<string, string> = {
-  en: "en", ja: "ja", es: "es", fr: "fr",
-  de: "de", zh: "zh", ko: "ko", kh: "km",
-};
+import { saveLiveSessionLocally } from "../services/storage";
 
 // ─── iOS-inspired palette ─────────────────────────────────────────────────────
 const BG = "#F5F7FA";
@@ -199,11 +193,13 @@ export function SessionScreen({
   initialTarget,
   onBack,
   embedded = false,
+  active = true,
 }: {
   initialSource: LanguageCode;
   initialTarget: LanguageCode;
   onBack?: () => void;
   embedded?: boolean;
+  active?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -241,7 +237,7 @@ export function SessionScreen({
   // Auto-scroll on new utterance
   useEffect(() => {
     if (utterances.length > 0) {
-      setTimeout(() => scrollRef.current?.scrollTo({ animated: true, y: 0 }), 80);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
     }
   }, [utterances.length]);
 
@@ -273,7 +269,7 @@ export function SessionScreen({
 
     setUtterances((prev) => {
       const next = [...prev, utterance];
-      saveLiveSession({
+      saveLiveSessionLocally({
         id: sessionId.current, sourceLang: s, targetLang: t,
         mode: modeRef.current, utterances: next,
         createdAt: sessionStart.current, endedAt: null,
@@ -285,7 +281,11 @@ export function SessionScreen({
     Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
 
     if (speakRef.current && latest.translation) {
-      Speech.speak(latest.translation, { language: LOCALES[t] ?? "en", rate: speedRef.current });
+      void TTSService.speak(
+        latest.translation,
+        t === "ja" ? "ja" : "en",
+        speedRef.current,
+      ).catch(() => undefined);
     }
 
     if (modeRef.current === "two-way") {
@@ -315,7 +315,7 @@ export function SessionScreen({
   const handleBack = async () => {
     if (live.isListening) live.stop();
     if (utterances.length > 0) {
-      await saveLiveSession({
+      await saveLiveSessionLocally({
         id: sessionId.current, sourceLang: src, targetLang: tgt,
         mode, utterances, createdAt: sessionStart.current,
         endedAt: new Date().toISOString(),
@@ -325,6 +325,10 @@ export function SessionScreen({
   };
 
   const busy = live.isListening;
+
+  useEffect(() => {
+    if (!active && live.isListening) live.stop();
+  }, [active, live.isListening, live.stop]);
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -357,19 +361,26 @@ export function SessionScreen({
       >
         {live.error ? <View style={ss.errorCard}><Ionicons name="alert-circle-outline" size={20} color="#C63B32" /><Text style={ss.errorText}>{live.error}</Text></View> : null}
 
-        {live.isListening && (live.interimText || live.liveTranslation) ? (
-          <Animated.View style={[ss.card, ss.cardLeft, { opacity: fadeAnim }]}>
-            <View style={ss.cardHeader}><Text style={ss.cardLanguage}>{getLabel(src)}</Text><View style={ss.liveDot} /><Text style={ss.liveLabel}>LIVE</Text></View>
-            <Text style={ss.cardOriginal}>{live.interimText || "Listening…"}</Text>
-            {!!live.liveTranslation && <><View style={ss.divider} /><Text style={ss.cardTranslation}>{live.liveTranslation}</Text></>}
-          </Animated.View>
-        ) : null}
-
-        {utterances.slice().reverse().map((u, index) => (
-          <Animated.View key={u.id} style={[ss.card, index % 2 === 0 ? ss.cardRight : ss.cardLeft, index === 0 && { opacity: fadeAnim }]}>
+        {utterances.map((u, index) => (
+          <Animated.View key={u.id} style={[ss.card, index % 2 === 0 ? ss.cardRight : ss.cardLeft, index === utterances.length - 1 && { opacity: fadeAnim }]}>
             <View style={ss.cardHeader}>
               <Text style={ss.cardLanguage}>{getLabel(u.sourceLang)}</Text>
-              <Pressable onPress={() => Speech.speak(u.translation, { language: LOCALES[u.targetLang] ?? "en", rate: speedRef.current })} style={ss.playButton} accessibilityLabel="Play translation">
+              <Pressable
+                onPress={() => {
+                  void TTSService.speak(
+                    u.translation,
+                    u.targetLang === "ja" ? "ja" : "en",
+                    speedRef.current,
+                  ).catch((error: unknown) => {
+                    Alert.alert(
+                      "Audio unavailable",
+                      error instanceof Error ? error.message : "Could not generate speech.",
+                    );
+                  });
+                }}
+                style={ss.playButton}
+                accessibilityLabel="Play translation"
+              >
                 <Ionicons name="play" size={13} color={WHITE} />
               </Pressable>
             </View>
@@ -379,64 +390,69 @@ export function SessionScreen({
             <Text style={ss.cardTranslation}>{u.translation}</Text>
           </Animated.View>
         ))}
+      </ScrollView>
 
-        {utterances.length === 0 && !live.interimText ? (
-          <View style={ss.emptyState}>
-            <View style={[ss.waitingCard, ss.cardRight]}>
-              <LangPill value={tgt} onChange={(value) => { if (!busy) setTgt(value); }} disabled={busy} />
-              <View style={ss.contentTransition}>
-                <Animated.View
-                  pointerEvents={busy ? "none" : "auto"}
-                  style={{
-                    opacity: controlTransition.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 0, 0] }),
-                    transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
-                  }}
-                >
-                  <TextInput multiline editable={!busy} onChangeText={setDraftTarget} placeholder={inputPrompt(tgt)} placeholderTextColor={FAINT} scrollEnabled={false} style={ss.draftInput} value={draftTarget} />
-                </Animated.View>
-                <Animated.Text
-                  style={[
-                    ss.waitingText,
-                    ss.transitionText,
-                    {
-                      opacity: controlTransition.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 1] }),
-                      transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }],
-                    },
-                  ]}
-                >
-                  {WAITING_LABELS[tgt] ?? "Waiting…"}
-                </Animated.Text>
-              </View>
-            </View>
-            <View style={[ss.waitingCard, ss.cardLeft]}>
-              <LangPill value={src} onChange={(value) => { if (!busy) setSrc(value); }} disabled={busy} />
-              <View style={ss.contentTransition}>
-                <Animated.View
-                  pointerEvents={busy ? "none" : "auto"}
-                  style={{
-                    opacity: controlTransition.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 0, 0] }),
-                    transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
-                  }}
-                >
-                  <TextInput multiline editable={!busy} onChangeText={setDraftSource} placeholder={inputPrompt(src)} placeholderTextColor={FAINT} scrollEnabled={false} style={ss.draftInput} value={draftSource} />
-                </Animated.View>
-                <Animated.Text
-                  style={[
-                    ss.waitingText,
-                    ss.transitionText,
-                    {
-                      opacity: controlTransition.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 1] }),
-                      transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }],
-                    },
-                  ]}
-                >
-                  {LISTENING_LABELS[src] ?? "Listening…"}
-                </Animated.Text>
-              </View>
+        <View style={ss.liveStatus}>
+          <View style={[ss.waitingCard, ss.cardRight]}>
+            <LangPill value={tgt} onChange={(value) => { if (!busy) setTgt(value); }} disabled={busy} />
+            <View style={ss.contentTransition}>
+              <Animated.View
+                pointerEvents={busy ? "none" : "auto"}
+                style={{
+                  opacity: controlTransition.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 0, 0] }),
+                  transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
+                }}
+              >
+                <TextInput multiline editable={!busy} onChangeText={setDraftTarget} placeholder={inputPrompt(tgt)} placeholderTextColor={FAINT} scrollEnabled={false} style={ss.draftInput} value={draftTarget} />
+              </Animated.View>
+              <Animated.Text
+                style={[
+                  ss.waitingText,
+                  ss.transitionText,
+                  {
+                    opacity: controlTransition.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 1] }),
+                    transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }],
+                  },
+                ]}
+              >
+                {WAITING_LABELS[tgt] ?? "Waiting…"}
+              </Animated.Text>
             </View>
           </View>
-        ) : null}
-      </ScrollView>
+          <View style={[ss.waitingCard, ss.cardLeft]}>
+            <LangPill value={src} onChange={(value) => { if (!busy) setSrc(value); }} disabled={busy} />
+            <View
+              style={[
+                ss.contentTransition,
+                live.isListening && live.interimText
+                  ? { minHeight: Math.max(25, Math.ceil(live.interimText.length / (src === "ja" ? 13 : 24)) * 25) }
+                  : null,
+              ]}
+            >
+              <Animated.View
+                pointerEvents={busy ? "none" : "auto"}
+                style={{
+                  opacity: controlTransition.interpolate({ inputRange: [0, 0.62, 1], outputRange: [1, 0, 0] }),
+                  transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [0, -5] }) }],
+                }}
+              >
+                <TextInput multiline editable={!busy} onChangeText={setDraftSource} placeholder={inputPrompt(src)} placeholderTextColor={FAINT} scrollEnabled={false} style={ss.draftInput} value={draftSource} />
+              </Animated.View>
+              <Animated.Text
+                style={[
+                  ss.waitingText,
+                  ss.transitionText,
+                  {
+                    opacity: controlTransition.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 0, 1] }),
+                    transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }],
+                  },
+                ]}
+              >
+                {live.interimText || LISTENING_LABELS[src] || "Listening…"}
+              </Animated.Text>
+            </View>
+          </View>
+        </View>
 
       <View style={[ss.listeningControl, !live.isListening && ss.listeningControlIdle]}>
         <Animated.View
@@ -490,7 +506,7 @@ const ss = StyleSheet.create({
   cardTranslation: { color: INDIGO, fontSize: 20, fontWeight: "600", lineHeight: 28 },
   circleButton: { alignItems: "center", backgroundColor: WHITE, borderRadius: 999, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 },
   circleButtonPlaceholder: { height: 40, width: 40 },
-  conversation: { flexGrow: 1, paddingBottom: 12, paddingHorizontal: 20, paddingTop: 18 },
+  conversation: { flexGrow: 1, justifyContent: "flex-end", paddingBottom: 12, paddingHorizontal: 20, paddingTop: 18 },
   divider: { backgroundColor: "#E9ECF1", height: StyleSheet.hairlineWidth, marginVertical: 11 },
   contentTransition: { marginTop: 10, minHeight: 25, position: "relative" },
   draftInput: { color: "#171A20", fontSize: 18, fontWeight: "500", lineHeight: 25, minHeight: 25, padding: 0, textAlignVertical: "top" },
@@ -501,6 +517,7 @@ const ss = StyleSheet.create({
   languageControl: { alignItems: "center", flexDirection: "row", justifyContent: "center", paddingHorizontal: 20, paddingTop: 12 },
   listeningControl: { alignItems: "center", minHeight: 104, paddingHorizontal: 28, paddingTop: 4 },
   listeningControlIdle: { minHeight: 104 },
+  liveStatus: { justifyContent: "center", minHeight: 272, paddingHorizontal: 20 },
   liveDot: { backgroundColor: "#30C574", borderRadius: 99, height: 7, marginRight: 4, width: 7 },
   liveLabel: { color: "#27985B", fontSize: 10, fontWeight: "800", letterSpacing: 0.7 },
   micButton: { alignItems: "center", backgroundColor: INDIGO, borderRadius: 999, height: 72, justifyContent: "center", shadowColor: INDIGO, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8, width: 72 },

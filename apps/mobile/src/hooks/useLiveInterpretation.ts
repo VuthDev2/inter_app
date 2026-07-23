@@ -1,18 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  useAudioRecorder,
-  useAudioRecorderState,
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
-} from "expo-audio";
-import * as FileSystem from "expo-file-system";
 
-import { liveWsUrl } from "../services/api";
 import type { LanguageCode } from "../constants/data";
-
-const CHUNK_DURATION = 1.5; // seconds per audio chunk
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { useSpeechRecognition } from "../features/live-interpreter/hooks/useSpeechRecognition";
+import { translateTextViaApi } from "../services/api";
 
 export type InterpretationEntry = {
   id: string;
@@ -29,204 +19,131 @@ export type LiveInterpretationState = {
   error: string | null;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const MIME_MAP: Record<string, string> = {
-  wav: "audio/wav",
-  m4a: "audio/mp4",
-  mp3: "audio/mp3",
-  caf: "audio/x-caf",
-  aac: "audio/aac",
-};
-
-function mimeFromUri(uri: string): string {
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "m4a";
-  return MIME_MAP[ext] ?? "audio/mp4";
-}
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-
-export function useLiveInterpretation(
-  sourceLang: LanguageCode,
-  targetLang: LanguageCode,
-) {
-  const recorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
-  const recorderState = useAudioRecorderState(recorder, 200);
-
-  const [isListening, setIsListening] = useState(false);
-  const [interimText, setInterimText] = useState("");
+export function useLiveInterpretation(sourceLang: LanguageCode, targetLang: LanguageCode) {
+  const speech = useSpeechRecognition();
+  const [sessionActive, setSessionActive] = useState(false);
   const [liveTranslation, setLiveTranslation] = useState("");
   const [entries, setEntries] = useState<InterpretationEntry[]>([]);
-  const [volume, setVolume] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+  const [completedTurn, setCompletedTurn] = useState(0);
+  const handledFinalRef = useRef("");
+  const requestIdRef = useRef(0);
+  const sessionActiveRef = useRef(false);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const speechLanguage = sourceLang === "ja" ? "ja-JP" : "en-US";
 
-  const isActiveRef = useRef(false);
-  const prevRecordingRef = useRef(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const sourceLangRef = useRef(sourceLang);
-  const targetLangRef = useRef(targetLang);
-
-  useEffect(() => {
-    isActiveRef.current = isListening;
-  }, [isListening]);
-
-  useEffect(() => {
-    sourceLangRef.current = sourceLang;
-    targetLangRef.current = targetLang;
-  }, [sourceLang, targetLang]);
-
-  // ── Volume metering ──
-  useEffect(() => {
-    if (recorderState.metering != null && isActiveRef.current) {
-      setVolume(recorderState.metering);
-    }
-  }, [recorderState.metering]);
-
-  // ── When a chunk finishes → send audio via WS + start next chunk ──
-  useEffect(() => {
-    if (
-      isActiveRef.current &&
-      prevRecordingRef.current &&
-      !recorderState.isRecording &&
-      recorderState.url
-    ) {
-      const uri = recorderState.url;
-      sendAudioChunk(uri).then(() => {
-        if (isActiveRef.current) scheduleNextChunk();
-      });
-    }
-    prevRecordingRef.current = recorderState.isRecording;
-  }, [recorderState.isRecording, recorderState.url]);
-
-  // ── Read audio file & send over WebSocket ──
-  const sendAudioChunk = useCallback(async (uri: string) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    try {
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      ws.send(
-        JSON.stringify({
-          type: "audio",
-          data: base64,
-          mime: mimeFromUri(uri),
-        }),
-      );
-    } catch {
-      // silently drop failed chunks
-    }
-  }, []);
-
-  // ── Start next recording chunk ──
-  const scheduleNextChunk = useCallback(async () => {
-    if (!isActiveRef.current) return;
-    try {
-      await recorder.prepareToRecordAsync();
-      recorder.record({ forDuration: CHUNK_DURATION });
-    } catch {
-      setError("Failed to start recording. Check microphone permissions.");
-      setIsListening(false);
-    }
-  }, [recorder]);
-
-  // ── Cleanup on unmount ──
-  useEffect(() => {
-    return () => {
-      isActiveRef.current = false;
-      wsRef.current?.close();
-      wsRef.current = null;
-    };
-  }, []);
-
-  // ── Controls ──
-
-  const start = useCallback(async () => {
-    setError(null);
-    setEntries([]);
-    setInterimText("");
-    setLiveTranslation("");
-    setVolume(0);
-
-    const perm = await requestRecordingPermissionsAsync();
-    if (!perm.granted) {
-      setError("Microphone permission not granted.");
-      return;
-    }
-
-    const ws = new WebSocket(liveWsUrl());
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          type: "config",
-          sourceLang: sourceLangRef.current,
-          targetLang: targetLangRef.current,
-        }),
-      );
-      isActiveRef.current = true;
-      setIsListening(true);
-      scheduleNextChunk();
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "transcript") {
-          setInterimText(msg.text || "");
-        } else if (msg.type === "translation") {
-          setLiveTranslation(msg.text || "");
-        } else if (msg.type === "utterance") {
-          if (msg.original || msg.translation) {
-            setEntries((prev) => [
-              ...prev,
-              {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                original: msg.original || "",
-                translation: msg.translation || "",
-              },
-            ]);
-          }
-          setInterimText("");
-          setLiveTranslation("");
-        } else if (msg.type === "error") {
-          setError(msg.text);
-        }
-      } catch {
-        // ignore malformed messages
-      }
-    };
-
-    ws.onerror = () => {
-      setError("Connection to interpretation server failed.");
-      setIsListening(false);
-    };
-
-    ws.onclose = () => {
-      if (isActiveRef.current) {
-        setError("Connection lost.");
-        setIsListening(false);
-      }
-    };
-  }, [scheduleNextChunk]);
+  const start = useCallback(
+    async () => {
+      sessionActiveRef.current = true;
+      setSessionActive(true);
+      handledFinalRef.current = "";
+      requestIdRef.current += 1;
+      setLiveTranslation("");
+      setTranslationError(null);
+      await speech.startListening(speechLanguage);
+    },
+    [speech.startListening, speechLanguage],
+  );
 
   const stop = useCallback(() => {
-    isActiveRef.current = false;
-    recorder.stop().catch(() => {});
-    wsRef.current?.close();
-    wsRef.current = null;
-    setIsListening(false);
-    setVolume(0);
-  }, [recorder]);
+    sessionActiveRef.current = false;
+    setSessionActive(false);
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    void speech.stopListening();
+  }, [speech.stopListening]);
+
+  // Treat a short pause as the end of one person's turn. The continuous
+  // session remains active while this recognition segment is finalized.
+  useEffect(() => {
+    if (!sessionActive || !speech.isListening || !speech.partialTranscript.trim()) return;
+
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    silenceTimerRef.current = setTimeout(() => {
+      silenceTimerRef.current = null;
+      if (sessionActiveRef.current) void speech.stopListening();
+    }, 1500);
+
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    };
+  }, [sessionActive, speech.isListening, speech.partialTranscript, speech.stopListening]);
+
+  useEffect(() => {
+    const transcript = speech.finalTranscript.trim();
+    if (!transcript || handledFinalRef.current === transcript) return;
+
+    handledFinalRef.current = transcript;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    setLiveTranslation("");
+    setTranslationError(null);
+
+    void translateTextViaApi(transcript, sourceLang, targetLang)
+      .then((translation) => {
+        if (requestIdRef.current !== requestId) return;
+
+        setLiveTranslation(translation);
+        setEntries((previous) => [
+          ...previous,
+          {
+            id: `utterance-${Date.now()}-${requestId}`,
+            original: transcript,
+            translation,
+          },
+        ]);
+      })
+      .catch((reason: unknown) => {
+        if (requestIdRef.current !== requestId) return;
+        setTranslationError(
+          reason instanceof Error ? reason.message : "Translation failed.",
+        );
+      })
+      .finally(() => {
+        if (requestIdRef.current === requestId && sessionActiveRef.current) {
+          setCompletedTurn((turn) => turn + 1);
+        }
+      });
+  }, [sourceLang, speech.finalTranscript, targetLang]);
+
+  // After translating a completed turn, begin a fresh recognition segment.
+  // In two-way mode the parent swaps source/target first, so the cleanup below
+  // cancels the old timer and restarts with the next speaker's locale.
+  useEffect(() => {
+    if (!sessionActive || completedTurn === 0 || speech.isListening) return;
+
+    const restartTimer = setTimeout(() => {
+      if (!sessionActiveRef.current) return;
+      handledFinalRef.current = "";
+      void speech.startListening(speechLanguage);
+    }, 350);
+
+    return () => clearTimeout(restartTimer);
+  }, [completedTurn, sessionActive, sourceLang, speech.isListening, speech.startListening, speechLanguage]);
+
+  useEffect(() => {
+    if (!speech.error) return;
+    sessionActiveRef.current = false;
+    setSessionActive(false);
+  }, [speech.error]);
+
+  useEffect(() => () => {
+    sessionActiveRef.current = false;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+  }, []);
 
   return {
-    isListening,
-    interimText,
+    isListening: sessionActive,
+    interimText: speech.partialTranscript || speech.finalTranscript,
     liveTranslation,
     entries,
-    volume,
-    error,
+    volume: 0,
+    error: speech.error?.message ?? translationError,
     start,
     stop,
   } satisfies LiveInterpretationState & {
