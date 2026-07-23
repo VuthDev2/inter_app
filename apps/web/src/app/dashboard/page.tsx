@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { Mic, MessageSquare, Play, ExternalLink, Globe, Download, ChevronRight } from "lucide-react";
+import { Mic, MessageSquare, Play, ExternalLink, Globe, Download, ChevronRight, Speech } from "lucide-react";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/context/AuthContext";
@@ -44,7 +44,7 @@ function DashboardContent() {
                             </Link>
                             
                             {/* Two-Way */}
-                            <Link href="/interpreter?mode=twoway" className="flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-b-2xl">
+                            <Link href="/interpreter?mode=twoway" className="flex items-center justify-between p-5 border-b border-[rgb(var(--border))] hover:bg-[rgba(var(--text),0.05)] transition-colors group">
                                 <div className="flex items-center gap-4">
                                     <div className="h-10 w-10 rounded-full bg-[rgb(var(--emerald))]/10 text-[rgb(var(--emerald))] flex items-center justify-center">
                                         <MessageSquare size={18} />
@@ -52,6 +52,20 @@ function DashboardContent() {
                                     <div className="flex flex-col">
                                         <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">Two-Way</span>
                                         <span className="text-[13px] text-[rgba(var(--muted),1)]">Real-time bilingual conversation</span>
+                                    </div>
+                                </div>
+                                <ChevronRight size={18} className="text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors" />
+                            </Link>
+
+                            {/* Pre-Record */}
+                            <Link href="/prerecord" className="flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-b-2xl">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-full bg-[rgb(var(--purple))]/10 text-[rgb(var(--purple))] flex items-center justify-center">
+                                        <Speech size={18} />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">Pre-Record</span>
+                                        <span className="text-[13px] text-[rgba(var(--muted),1)]">Save audio clips for later interpretation</span>
                                     </div>
                                 </div>
                                 <ChevronRight size={18} className="text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors" />

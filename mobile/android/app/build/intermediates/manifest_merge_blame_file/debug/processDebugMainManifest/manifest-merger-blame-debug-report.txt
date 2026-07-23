@@ -1,0 +1,480 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.anonymous.quickvoicemobile"
+4    android:versionCode="1"
+5    android:versionName="0.1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="24"
+9        android:targetSdkVersion="36" />
+10
+11    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+11-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:6:3-75
+11-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:6:20-73
+12    <uses-permission android:name="android.permission.INTERNET" />
+12-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:2:3-64
+12-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:2:20-62
+13    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+13-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:3:3-77
+13-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:3:20-75
+14    <uses-permission
+14-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:4:3-142
+15        android:name="android.permission.READ_EXTERNAL_STORAGE"
+15-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:4:20-75
+16        android:maxSdkVersion="32" />
+16-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:4:76-102
+17    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+17-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:5:3-68
+17-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:5:20-66
+18    <uses-permission android:name="android.permission.VIBRATE" />
+18-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:7:3-63
+18-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:7:20-61
+19    <uses-permission
+19-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:8:3-143
+20        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+20-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:8:20-76
+21        android:maxSdkVersion="32" />
+21-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:8:77-103
+22
+23    <queries>
+23-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:9:3-15:13
+24        <intent>
+24-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:10:5-14:14
+25            <action android:name="android.intent.action.VIEW" />
+25-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:11:7-58
+25-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:11:15-56
+26
+27            <category android:name="android.intent.category.BROWSABLE" />
+27-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:12:7-67
+27-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:12:17-65
+28
+29            <data android:scheme="https" />
+29-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:13:7-37
+29-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:13:13-35
+30        </intent>
+31
+32        <package android:name="host.exp.exponent" /> <!-- Query open documents -->
+32-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:10:9-53
+32-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:10:18-50
+33        <intent>
+33-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:19:9-21:18
+34            <action android:name="android.intent.action.OPEN_DOCUMENT_TREE" />
+34-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:20:13-79
+34-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:20:21-76
+35        </intent>
+36        <intent>
+36-->[host.exp.exponent:expo.modules.speech:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\db2dc5b8350599e546100d6458e701e0\workspace\transformed\expo.modules.speech-57.0.0\AndroidManifest.xml:8:9-12:18
+37
+38            <!-- Required for text-to-speech if targeting API 30 -->
+39            <action android:name="android.intent.action.TTS_SERVICE" />
+39-->[host.exp.exponent:expo.modules.speech:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\db2dc5b8350599e546100d6458e701e0\workspace\transformed\expo.modules.speech-57.0.0\AndroidManifest.xml:11:13-72
+39-->[host.exp.exponent:expo.modules.speech:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\db2dc5b8350599e546100d6458e701e0\workspace\transformed\expo.modules.speech-57.0.0\AndroidManifest.xml:11:21-69
+40        </intent>
+41    </queries>
+42
+43    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+43-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:7:5-86
+43-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:7:22-83
+44    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+44-->[androidx.media3:media3-exoplayer:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\af23a3722fc463be7d5b6ea2340ff1a1\workspace\transformed\media3-exoplayer-1.9.0\AndroidManifest.xml:22:5-79
+44-->[androidx.media3:media3-exoplayer:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\af23a3722fc463be7d5b6ea2340ff1a1\workspace\transformed\media3-exoplayer-1.9.0\AndroidManifest.xml:22:22-76
+45    <uses-permission android:name="android.permission.WAKE_LOCK" />
+45-->[androidx.media3:media3-exoplayer:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\af23a3722fc463be7d5b6ea2340ff1a1\workspace\transformed\media3-exoplayer-1.9.0\AndroidManifest.xml:23:5-68
+45-->[androidx.media3:media3-exoplayer:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\af23a3722fc463be7d5b6ea2340ff1a1\workspace\transformed\media3-exoplayer-1.9.0\AndroidManifest.xml:23:22-65
+46
+47    <permission
+47-->[androidx.core:core:1.17.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\aece3ddb222a58e11910136cd9678027\workspace\transformed\core-1.17.0\AndroidManifest.xml:22:5-24:47
+48        android:name="com.anonymous.quickvoicemobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+48-->[androidx.core:core:1.17.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\aece3ddb222a58e11910136cd9678027\workspace\transformed\core-1.17.0\AndroidManifest.xml:23:9-81
+49        android:protectionLevel="signature" />
+49-->[androidx.core:core:1.17.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\aece3ddb222a58e11910136cd9678027\workspace\transformed\core-1.17.0\AndroidManifest.xml:24:9-44
+50
+51    <uses-permission android:name="com.anonymous.quickvoicemobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+51-->[androidx.core:core:1.17.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\aece3ddb222a58e11910136cd9678027\workspace\transformed\core-1.17.0\AndroidManifest.xml:26:5-97
+51-->[androidx.core:core:1.17.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\aece3ddb222a58e11910136cd9678027\workspace\transformed\core-1.17.0\AndroidManifest.xml:26:22-94
+52
+53    <application
+53-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:3-33:17
+54        android:name="com.anonymous.quickvoicemobile.MainApplication"
+54-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:16-47
+55        android:allowBackup="true"
+55-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:162-188
+56        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+56-->[androidx.core:core:1.17.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\aece3ddb222a58e11910136cd9678027\workspace\transformed\core-1.17.0\AndroidManifest.xml:28:18-86
+57        android:debuggable="true"
+58        android:enableOnBackInvokedCallback="false"
+58-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:248-291
+59        android:extractNativeLibs="false"
+60        android:icon="@mipmap/ic_launcher"
+60-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:81-115
+61        android:label="@string/app_name"
+61-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:48-80
+62        android:roundIcon="@mipmap/ic_launcher_round"
+62-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:116-161
+63        android:supportsRtl="true"
+63-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:221-247
+64        android:theme="@style/AppTheme"
+64-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:16:189-220
+65        android:usesCleartextTraffic="true" >
+65-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\debug\AndroidManifest.xml:6:18-53
+66        <meta-data
+66-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:17:5-83
+67            android:name="expo.modules.updates.ENABLED"
+67-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:17:16-59
+68            android:value="false" />
+68-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:17:60-81
+69        <meta-data
+69-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:18:5-102
+70            android:name="expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT"
+70-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:18:16-79
+71            android:value="true" />
+71-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:18:80-100
+72        <meta-data
+72-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:19:5-105
+73            android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH"
+73-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:19:16-80
+74            android:value="ALWAYS" />
+74-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:19:81-103
+75        <meta-data
+75-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:20:5-99
+76            android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS"
+76-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:20:16-79
+77            android:value="0" />
+77-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:20:80-97
+78
+79        <activity
+79-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:5-32:16
+80            android:name="com.anonymous.quickvoicemobile.MainActivity"
+80-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:15-43
+81            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize|assetsPaths"
+81-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:44-165
+82            android:exported="true"
+82-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:287-310
+83            android:launchMode="singleTask"
+83-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:166-197
+84            android:screenOrientation="portrait"
+84-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:311-347
+85            android:theme="@style/Theme.App.SplashScreen"
+85-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:241-286
+86            android:windowSoftInputMode="adjustResize" >
+86-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:21:198-240
+87            <intent-filter>
+87-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:22:7-25:23
+88                <action android:name="android.intent.action.MAIN" />
+88-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:23:9-60
+88-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:23:17-58
+89
+90                <category android:name="android.intent.category.LAUNCHER" />
+90-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:24:9-68
+90-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:24:19-66
+91            </intent-filter>
+92            <intent-filter>
+92-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:26:7-31:23
+93                <action android:name="android.intent.action.VIEW" />
+93-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:11:7-58
+93-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:11:15-56
+94
+95                <category android:name="android.intent.category.DEFAULT" />
+95-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:28:9-67
+95-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:28:19-65
+96                <category android:name="android.intent.category.BROWSABLE" />
+96-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:12:7-67
+96-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:12:17-65
+97
+98                <data android:scheme="quickvoice" />
+98-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:13:7-37
+98-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:13:13-35
+99            </intent-filter>
+100        </activity>
+101
+102        <meta-data
+102-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:14:9-16:42
+103            android:name="com.google.mlkit.vision.DEPENDENCIES"
+103-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:15:13-64
+104            android:value="barcode_ui" />
+104-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:16:13-39
+105
+106        <activity
+106-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:18:9-22:75
+107            android:name="expo.modules.devlauncher.launcher.DevLauncherActivity"
+107-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:19:13-81
+108            android:exported="true"
+108-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:20:13-36
+109            android:launchMode="singleTask"
+109-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:21:13-44
+110            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
+110-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:22:13-72
+111        <activity
+111-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:23:9-36:20
+112            android:name="expo.modules.devlauncher.compose.AuthActivity"
+112-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:24:13-73
+113            android:exported="true"
+113-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:25:13-36
+114            android:launchMode="singleTask"
+114-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:26:13-44
+115            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" >
+115-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:27:13-72
+116            <intent-filter>
+116-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:28:13-35:29
+117                <action android:name="android.intent.action.VIEW" />
+117-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:11:7-58
+117-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:11:15-56
+118
+119                <category android:name="android.intent.category.DEFAULT" />
+119-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:28:9-67
+119-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:28:19-65
+120                <category android:name="android.intent.category.BROWSABLE" />
+120-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:12:7-67
+120-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:12:17-65
+121
+122                <data android:scheme="expo-dev-launcher" />
+122-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:13:7-37
+122-->C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\android\app\src\main\AndroidManifest.xml:13:13-35
+123            </intent-filter>
+124        </activity>
+125        <activity
+125-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:37:9-40:70
+126            android:name="expo.modules.devlauncher.launcher.errors.DevLauncherErrorActivity"
+126-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:38:13-93
+127            android:screenOrientation="portrait"
+127-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:39:13-49
+128            android:theme="@style/Theme.DevLauncher.ErrorActivity" />
+128-->[:expo-dev-launcher] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-dev-launcher\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:40:13-67
+129
+130        <meta-data
+130-->[:expo-modules-core] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:9:9-11:89
+131            android:name="org.unimodules.core.AppLoader#react-native-headless"
+131-->[:expo-modules-core] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:10:13-79
+132            android:value="expo.modules.adapters.react.apploader.RNHeadlessAppLoader" />
+132-->[:expo-modules-core] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:11:13-86
+133        <meta-data
+133-->[:expo-modules-core] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:12:9-15:45
+134            android:name="com.facebook.soloader.enabled"
+134-->[:expo-modules-core] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:13:13-57
+135            android:value="true" />
+135-->[:expo-modules-core] C:\Users\ASUS G 16 JVR\Desktop\inter_app\inter_app\mobile\node_modules\expo-modules-core\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:14:13-33
+136
+137        <provider
+137-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:25:9-34:20
+138            android:name="expo.modules.filesystem.FileSystemFileProvider"
+138-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:26:13-74
+139            android:authorities="com.anonymous.quickvoicemobile.FileSystemFileProvider"
+139-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:27:13-74
+140            android:exported="false"
+140-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:28:13-37
+141            android:grantUriPermissions="true" >
+141-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:29:13-47
+142            <meta-data
+142-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:31:13-33:70
+143                android:name="android.support.FILE_PROVIDER_PATHS"
+143-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:32:17-67
+144                android:resource="@xml/file_system_provider_paths" />
+144-->[host.exp.exponent:expo.modules.filesystem:57.0.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8dd296f58b7cf9cdad9b291fc7a7288f\workspace\transformed\expo.modules.filesystem-57.0.0\AndroidManifest.xml:33:17-67
+145        </provider>
+146
+147        <activity
+147-->[com.facebook.react:react-android:0.86.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8095af3f7275e3442c04117f48c6211d\workspace\transformed\react-android-0.86.0-debug\AndroidManifest.xml:19:9-21:40
+148            android:name="com.facebook.react.devsupport.DevSettingsActivity"
+148-->[com.facebook.react:react-android:0.86.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8095af3f7275e3442c04117f48c6211d\workspace\transformed\react-android-0.86.0-debug\AndroidManifest.xml:20:13-77
+149            android:exported="false" />
+149-->[com.facebook.react:react-android:0.86.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8095af3f7275e3442c04117f48c6211d\workspace\transformed\react-android-0.86.0-debug\AndroidManifest.xml:21:13-37
+150
+151        <uses-library
+151-->[androidx.window:window:1.5.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\ca403264004107930e762007562cdc16\workspace\transformed\window-1.5.1\AndroidManifest.xml:23:9-25:40
+152            android:name="androidx.window.extensions"
+152-->[androidx.window:window:1.5.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\ca403264004107930e762007562cdc16\workspace\transformed\window-1.5.1\AndroidManifest.xml:24:13-54
+153            android:required="false" />
+153-->[androidx.window:window:1.5.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\ca403264004107930e762007562cdc16\workspace\transformed\window-1.5.1\AndroidManifest.xml:25:13-37
+154        <uses-library
+154-->[androidx.window:window:1.5.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\ca403264004107930e762007562cdc16\workspace\transformed\window-1.5.1\AndroidManifest.xml:26:9-28:40
+155            android:name="androidx.window.sidecar"
+155-->[androidx.window:window:1.5.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\ca403264004107930e762007562cdc16\workspace\transformed\window-1.5.1\AndroidManifest.xml:27:13-51
+156            android:required="false" />
+156-->[androidx.window:window:1.5.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\ca403264004107930e762007562cdc16\workspace\transformed\window-1.5.1\AndroidManifest.xml:28:13-37
+157        <!--
+158        This activity is an invisible delegate activity to start scanner activity
+159        and receive result, so it's unnecessary to support screen orientation and
+160        we can avoid any side effect from activity recreation in any case.
+161        -->
+162        <activity
+162-->[com.google.android.gms:play-services-code-scanner:16.1.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\4f75d6411e8647d6f1cd103717b2d076\workspace\transformed\play-services-code-scanner-16.1.0\AndroidManifest.xml:15:9-20:20
+163            android:name="com.google.mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity"
+163-->[com.google.android.gms:play-services-code-scanner:16.1.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\4f75d6411e8647d6f1cd103717b2d076\workspace\transformed\play-services-code-scanner-16.1.0\AndroidManifest.xml:16:13-107
+164            android:exported="false"
+164-->[com.google.android.gms:play-services-code-scanner:16.1.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\4f75d6411e8647d6f1cd103717b2d076\workspace\transformed\play-services-code-scanner-16.1.0\AndroidManifest.xml:17:13-37
+165            android:screenOrientation="portrait" >
+165-->[com.google.android.gms:play-services-code-scanner:16.1.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\4f75d6411e8647d6f1cd103717b2d076\workspace\transformed\play-services-code-scanner-16.1.0\AndroidManifest.xml:18:13-49
+166        </activity>
+167
+168        <service
+168-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\32780616fab00a1846bed1b96b481458\workspace\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:9:9-15:19
+169            android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService"
+169-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\32780616fab00a1846bed1b96b481458\workspace\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:10:13-91
+170            android:directBootAware="true"
+170-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:17:13-43
+171            android:exported="false" >
+171-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\32780616fab00a1846bed1b96b481458\workspace\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:11:13-37
+172            <meta-data
+172-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\32780616fab00a1846bed1b96b481458\workspace\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:12:13-14:85
+173                android:name="com.google.firebase.components:com.google.mlkit.vision.barcode.internal.BarcodeRegistrar"
+173-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\32780616fab00a1846bed1b96b481458\workspace\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:13:17-120
+174                android:value="com.google.firebase.components.ComponentRegistrar" />
+174-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\32780616fab00a1846bed1b96b481458\workspace\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:14:17-82
+175            <meta-data
+175-->[com.google.mlkit:vision-common:17.3.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\b11946419ebac5da1c6c3578d80154c5\workspace\transformed\vision-common-17.3.0\AndroidManifest.xml:12:13-14:85
+176                android:name="com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar"
+176-->[com.google.mlkit:vision-common:17.3.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\b11946419ebac5da1c6c3578d80154c5\workspace\transformed\vision-common-17.3.0\AndroidManifest.xml:13:17-124
+177                android:value="com.google.firebase.components.ComponentRegistrar" />
+177-->[com.google.mlkit:vision-common:17.3.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\b11946419ebac5da1c6c3578d80154c5\workspace\transformed\vision-common-17.3.0\AndroidManifest.xml:14:17-82
+178            <meta-data
+178-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:20:13-22:85
+179                android:name="com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar"
+179-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:21:17-120
+180                android:value="com.google.firebase.components.ComponentRegistrar" />
+180-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:22:17-82
+181        </service>
+182
+183        <provider
+183-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:9:9-13:38
+184            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
+184-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:10:13-78
+185            android:authorities="com.anonymous.quickvoicemobile.mlkitinitprovider"
+185-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:11:13-69
+186            android:exported="false"
+186-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:12:13-37
+187            android:initOrder="99" />
+187-->[com.google.mlkit:common:18.11.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\137ce5a7cf2e95e342800e9aa5cd13e0\workspace\transformed\common-18.11.0\AndroidManifest.xml:13:13-35
+188
+189        <activity
+189-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8fb7b5878d5ad49f0d28ba40db1c8717\workspace\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:9-173
+190            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+190-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8fb7b5878d5ad49f0d28ba40db1c8717\workspace\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:19-85
+191            android:exported="false"
+191-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8fb7b5878d5ad49f0d28ba40db1c8717\workspace\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:146-170
+192            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+192-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\8fb7b5878d5ad49f0d28ba40db1c8717\workspace\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:86-145
+193
+194        <meta-data
+194-->[com.google.android.gms:play-services-basement:18.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\9a848cd1a3540901388f4c72ce8c2be7\workspace\transformed\play-services-basement-18.4.0\AndroidManifest.xml:6:9-122
+195            android:name="com.google.android.gms.version"
+195-->[com.google.android.gms:play-services-basement:18.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\9a848cd1a3540901388f4c72ce8c2be7\workspace\transformed\play-services-basement-18.4.0\AndroidManifest.xml:6:20-65
+196            android:value="@integer/google_play_services_version" />
+196-->[com.google.android.gms:play-services-basement:18.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\9a848cd1a3540901388f4c72ce8c2be7\workspace\transformed\play-services-basement-18.4.0\AndroidManifest.xml:6:66-119
+197
+198        <provider
+198-->[org.jetbrains.compose.components:components-resources-android:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\e97a907a331f3ca443c294b7b2199f2d\workspace\transformed\library-release\AndroidManifest.xml:8:9-13:20
+199            android:name="org.jetbrains.compose.resources.AndroidContextProvider"
+199-->[org.jetbrains.compose.components:components-resources-android:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\e97a907a331f3ca443c294b7b2199f2d\workspace\transformed\library-release\AndroidManifest.xml:9:13-82
+200            android:authorities="com.anonymous.quickvoicemobile.resources.AndroidContextProvider"
+200-->[org.jetbrains.compose.components:components-resources-android:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\e97a907a331f3ca443c294b7b2199f2d\workspace\transformed\library-release\AndroidManifest.xml:10:13-84
+201            android:enabled="true"
+201-->[org.jetbrains.compose.components:components-resources-android:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\e97a907a331f3ca443c294b7b2199f2d\workspace\transformed\library-release\AndroidManifest.xml:11:13-35
+202            android:exported="false" >
+202-->[org.jetbrains.compose.components:components-resources-android:1.9.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\e97a907a331f3ca443c294b7b2199f2d\workspace\transformed\library-release\AndroidManifest.xml:12:13-37
+203        </provider>
+204
+205        <activity
+205-->[androidx.compose.ui:ui-tooling-android:1.9.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\f137fa4d13ca6c239d43b81cba8fc20c\workspace\transformed\ui-tooling\AndroidManifest.xml:23:9-25:39
+206            android:name="androidx.compose.ui.tooling.PreviewActivity"
+206-->[androidx.compose.ui:ui-tooling-android:1.9.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\f137fa4d13ca6c239d43b81cba8fc20c\workspace\transformed\ui-tooling\AndroidManifest.xml:24:13-71
+207            android:exported="true" />
+207-->[androidx.compose.ui:ui-tooling-android:1.9.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\f137fa4d13ca6c239d43b81cba8fc20c\workspace\transformed\ui-tooling\AndroidManifest.xml:25:13-36
+208
+209        <provider
+209-->[androidx.emoji2:emoji2:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\46ca3f6d8ad6aae3d7a9783e3fe07bfc\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml:24:9-32:20
+210            android:name="androidx.startup.InitializationProvider"
+210-->[androidx.emoji2:emoji2:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\46ca3f6d8ad6aae3d7a9783e3fe07bfc\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml:25:13-67
+211            android:authorities="com.anonymous.quickvoicemobile.androidx-startup"
+211-->[androidx.emoji2:emoji2:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\46ca3f6d8ad6aae3d7a9783e3fe07bfc\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml:26:13-68
+212            android:exported="false" >
+212-->[androidx.emoji2:emoji2:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\46ca3f6d8ad6aae3d7a9783e3fe07bfc\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml:27:13-37
+213            <meta-data
+213-->[androidx.emoji2:emoji2:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\46ca3f6d8ad6aae3d7a9783e3fe07bfc\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml:29:13-31:52
+214                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+214-->[androidx.emoji2:emoji2:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\46ca3f6d8ad6aae3d7a9783e3fe07bfc\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml:30:17-75
+215                android:value="androidx.startup" />
+215-->[androidx.emoji2:emoji2:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\46ca3f6d8ad6aae3d7a9783e3fe07bfc\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml:31:17-49
+216            <meta-data
+216-->[androidx.lifecycle:lifecycle-process:2.10.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\5e9264fb7b5463073ee321081d4ff57f\workspace\transformed\lifecycle-process-2.10.0\AndroidManifest.xml:29:13-31:52
+217                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+217-->[androidx.lifecycle:lifecycle-process:2.10.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\5e9264fb7b5463073ee321081d4ff57f\workspace\transformed\lifecycle-process-2.10.0\AndroidManifest.xml:30:17-78
+218                android:value="androidx.startup" />
+218-->[androidx.lifecycle:lifecycle-process:2.10.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\5e9264fb7b5463073ee321081d4ff57f\workspace\transformed\lifecycle-process-2.10.0\AndroidManifest.xml:31:17-49
+219            <meta-data
+219-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:29:13-31:52
+220                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+220-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:30:17-85
+221                android:value="androidx.startup" />
+221-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:31:17-49
+222        </provider>
+223
+224        <receiver
+224-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:34:9-52:20
+225            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+225-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:35:13-76
+226            android:directBootAware="false"
+226-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:36:13-44
+227            android:enabled="true"
+227-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:37:13-35
+228            android:exported="true"
+228-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:38:13-36
+229            android:permission="android.permission.DUMP" >
+229-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:39:13-57
+230            <intent-filter>
+230-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:40:13-42:29
+231                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+231-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:17-91
+231-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:25-88
+232            </intent-filter>
+233            <intent-filter>
+233-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:43:13-45:29
+234                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+234-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:17-85
+234-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:25-82
+235            </intent-filter>
+236            <intent-filter>
+236-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:46:13-48:29
+237                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+237-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:17-88
+237-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:25-85
+238            </intent-filter>
+239            <intent-filter>
+239-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:49:13-51:29
+240                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+240-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:17-95
+240-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\89fcdbb9574c5cbc0931ac86e736cb75\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:25-92
+241            </intent-filter>
+242        </receiver>
+243
+244        <service
+244-->[com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\d0eec7e956df19fb0bddb8560d8b5363\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:29:9-35:19
+245            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+245-->[com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\d0eec7e956df19fb0bddb8560d8b5363\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:30:13-103
+246            android:exported="false" >
+246-->[com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\d0eec7e956df19fb0bddb8560d8b5363\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:31:13-37
+247            <meta-data
+247-->[com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\d0eec7e956df19fb0bddb8560d8b5363\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:32:13-34:39
+248                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+248-->[com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\d0eec7e956df19fb0bddb8560d8b5363\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:33:17-94
+249                android:value="cct" />
+249-->[com.google.android.datatransport:transport-backend-cct:2.3.3] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\d0eec7e956df19fb0bddb8560d8b5363\workspace\transformed\transport-backend-cct-2.3.3\AndroidManifest.xml:34:17-36
+250        </service>
+251        <service
+251-->[com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\1494be0ac5fed911983b921800719800\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:26:9-30:19
+252            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+252-->[com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\1494be0ac5fed911983b921800719800\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:27:13-117
+253            android:exported="false"
+253-->[com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\1494be0ac5fed911983b921800719800\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:28:13-37
+254            android:permission="android.permission.BIND_JOB_SERVICE" >
+254-->[com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\1494be0ac5fed911983b921800719800\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:29:13-69
+255        </service>
+256
+257        <receiver
+257-->[com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\1494be0ac5fed911983b921800719800\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:32:9-34:40
+258            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+258-->[com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\1494be0ac5fed911983b921800719800\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:33:13-132
+259            android:exported="false" />
+259-->[com.google.android.datatransport:transport-runtime:2.2.6] C:\Users\ASUS G 16 JVR\.gradle\caches\9.3.1\transforms\1494be0ac5fed911983b921800719800\workspace\transformed\transport-runtime-2.2.6\AndroidManifest.xml:34:13-37
+260    </application>
+261
+262</manifest>

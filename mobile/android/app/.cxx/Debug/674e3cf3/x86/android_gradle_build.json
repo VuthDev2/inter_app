@@ -1,0 +1,52 @@
+{
+  "buildFiles": [
+    "C:\\Users\\ASUS G 16 JVR\\Desktop\\inter_app\\inter_app\\mobile\\node_modules\\@react-native-async-storage\\async-storage\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "C:\\Users\\ASUS G 16 JVR\\Desktop\\inter_app\\inter_app\\mobile\\node_modules\\react-native-safe-area-context\\android\\src\\main\\jni\\CMakeLists.txt",
+    "C:\\Users\\ASUS G 16 JVR\\Desktop\\inter_app\\inter_app\\mobile\\node_modules\\react-native\\ReactAndroid\\cmake-utils\\default-app-setup\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Users\\ASUS G 16 JVR\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "C:\\Users\\ASUS G 16 JVR\\Desktop\\inter_app\\inter_app\\mobile\\android\\app\\.cxx\\Debug\\674e3cf3\\x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Users\\ASUS G 16 JVR\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "C:\\Users\\ASUS G 16 JVR\\Desktop\\inter_app\\inter_app\\mobile\\android\\app\\.cxx\\Debug\\674e3cf3\\x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "appmodules::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "appmodules",
+      "output": "C:\\Users\\ASUS G 16 JVR\\Desktop\\inter_app\\inter_app\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\674e3cf3\\obj\\x86\\libappmodules.so",
+      "runtimeFiles": []
+    },
+    "react_codegen_rnasyncstorage::@1596841e19ec5b9eeffe": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "react_codegen_rnasyncstorage"
+    },
+    "react_codegen_safeareacontext::@7984cd80db47aa7b952a": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "react_codegen_safeareacontext",
+      "output": "C:\\Users\\ASUS G 16 JVR\\Desktop\\inter_app\\inter_app\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\674e3cf3\\obj\\x86\\libreact_codegen_safeareacontext.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "C:\\Users\\ASUS G 16 JVR\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe",
+      "cppCompilerExecutable": "C:\\Users\\ASUS G 16 JVR\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "safeareacontext_autolinked_build",
+		"source" : "C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/node_modules/react-native-safe-area-context/android/src/main/jni"
+	}
+}

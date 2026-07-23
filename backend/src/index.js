@@ -24,4 +24,5 @@ setupWebSocket(server);
 
 server.listen(PORT, HOST, () => {
   console.log(`[QuickVoice] Server running at http://${HOST}:${PORT}`);
+  console.log(`[QuickVoice] Access locally at http://localhost:${PORT}`);
 });

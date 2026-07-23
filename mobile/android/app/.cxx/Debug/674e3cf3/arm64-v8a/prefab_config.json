@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "prefabPath": "C:\\Users\\ASUS G 16 JVR\\.gradle\\caches\\modules-2\\files-2.1\\com.google.prefab\\cli\\2.1.0\\aa32fec809c44fa531f01dcfb739b5b3304d3050\\cli-2.1.0-all.jar",
+  "packages": [
+    "C:\\Users\\ASUS G 16 JVR\\.gradle\\caches\\9.3.1\\transforms\\8095af3f7275e3442c04117f48c6211d\\workspace\\transformed\\react-android-0.86.0-debug\\prefab",
+    "C:\\Users\\ASUS G 16 JVR\\.gradle\\caches\\9.3.1\\transforms\\92db18a050ca2048bfbd3d8f5505f599\\workspace\\transformed\\hermes-android-250829098.0.14-debug\\prefab",
+    "C:\\Users\\ASUS G 16 JVR\\.gradle\\caches\\9.3.1\\transforms\\1c6305e84132ac2ca5701627d3a61fd1\\workspace\\transformed\\fbjni-0.7.0\\prefab"
+  ]
+}

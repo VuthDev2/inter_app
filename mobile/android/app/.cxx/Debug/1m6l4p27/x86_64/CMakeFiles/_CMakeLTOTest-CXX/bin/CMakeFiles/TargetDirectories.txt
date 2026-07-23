@@ -1,0 +1,4 @@
+C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/android/app/.cxx/Debug/1m6l4p27/x86_64/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/foo.dir
+C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/android/app/.cxx/Debug/1m6l4p27/x86_64/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/boo.dir
+C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/android/app/.cxx/Debug/1m6l4p27/x86_64/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/edit_cache.dir
+C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/android/app/.cxx/Debug/1m6l4p27/x86_64/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/rebuild_cache.dir

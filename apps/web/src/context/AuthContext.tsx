@@ -60,7 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       signIn: async (email, password) => {
         if (!supabase) return { error: "Supabase is not configured." };
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (data?.session) {
+            setSession(data.session);
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
         return error ? { error: error.message } : {};
       },
       signUp: async (email, password, displayName) => {
@@ -72,19 +76,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ email, password, displayName }),
           });
           if (res.ok) {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (data?.session) {
+                setSession(data.session);
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
             return error ? { error: error.message } : {};
           }
-          const data = await res.json();
-          return { error: data.error || "Failed to create account." };
+          const resData = await res.json();
+          return { error: resData.error || "Failed to create account." };
         } catch {
-          const { error } = await supabase.auth.signUp({
+          const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
               data: { display_name: displayName || email.split("@")[0] },
             },
           });
+          if (data?.session) {
+              setSession(data.session);
+              await new Promise(resolve => setTimeout(resolve, 50));
+          }
           return error ? { error: error.message } : {};
         }
       },

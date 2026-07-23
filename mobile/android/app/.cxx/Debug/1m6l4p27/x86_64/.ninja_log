@@ -1,0 +1,9 @@
+# ninja log v5
+3	25	0	C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/android/app/.cxx/Debug/1m6l4p27/x86_64/CMakeFiles/cmake.verify_globs	d9cf7c3ba76c21c2
+25	2226	8056408550893792	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/react/renderer/components/rnasyncstorage/States.cpp.o	4b88d39f870af599
+125	2239	8056408551095206	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/cabb0071255ebe3ae39c4ef28d3bd244/components/safeareacontext/States.cpp.o	134f0a9edc4bb7aa
+7	2450	8056408553201440	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/react/renderer/components/rnasyncstorage/EventEmitters.cpp.o	e73c65e450aeefdc
+82	2582	8056408554551019	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/cce8a02df85fbb72f983b85c616f4b4f/safeareacontext/EventEmitters.cpp.o	864c85f2404b919a
+31	3014	8056408558780010	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/rnasyncstorage-generated.cpp.o	d7032dec4c39939a
+114	3035	8056408558960642	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/777c99789409be5f0d6898df15a9353f/jni/safeareacontext-generated.cpp.o	41be02a8c6959880
+46	3656	8056408565229377	CMakeFiles/appmodules.dir/OnLoad.cpp.o	17ad16c265120a9d

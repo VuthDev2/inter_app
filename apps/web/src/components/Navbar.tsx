@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, AudioWaveform, History, Settings, CircleUserRound, LogOut } from "lucide-react";
+import { Home, AudioWaveform, Speech, History, Settings, CircleUserRound, LogOut } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: Home },
   { label: "Live Interpreter", href: "/interpreter", icon: AudioWaveform },
+  { label: "Record", href: "/prerecord", icon: Speech },
   { label: "History", href: "/history", icon: History },
   { label: "Settings", href: "/setting", icon: Settings },
 ];
@@ -41,8 +42,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-3">
-          <img src="/logo-d.png" alt="QuickVoice Logo" className="h-10 w-auto block dark:hidden" />
-          <img src="/logo-d.jpg" alt="QuickVoice Logo" className="h-10 w-auto hidden dark:block" />
+          <img src="/logo-l.png" alt="QuickVoice Logo" className="h-10 w-auto block dark:hidden" />
+          <img src="/logo-d.png" alt="QuickVoice Logo" className="h-10 w-auto hidden dark:block" />
           <span className="text-lg font-bold italic tracking-tight text-[rgb(var(--text))]">
             Quick<span className="text-blue-500">Voice</span>
           </span>

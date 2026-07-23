@@ -1,0 +1,13 @@
+# ninja log v5
+7	33	0	C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/android/app/.cxx/Debug/1m6l4p27/arm64-v8a/CMakeFiles/cmake.verify_globs	9eb9c5c321f2463a
+118	4791	8056409280451815	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/777c99789409be5f0d6898df15a9353f/jni/safeareacontext-generated.cpp.o	ad2005b29f174143
+129	2871	8056409262440685	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/cce8a02df85fbb72f983b85c616f4b4f/safeareacontext/States.cpp.o	82c60a7b401b59e6
+30	2764	8056409261396695	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/react/renderer/components/rnasyncstorage/States.cpp.o	7433ec0a709155eb
+1	5644	8056409289252716	CMakeFiles/appmodules.dir/OnLoad.cpp.o	d8aa59c7ce9338c
+15	2980	8056409263532738	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/react/renderer/components/rnasyncstorage/EventEmitters.cpp.o	7fef3c54f7c549b
+52	4814	8056409281013173	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/rnasyncstorage-generated.cpp.o	9795903216f05e6d
+89	3349	8056409267006536	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/cce8a02df85fbb72f983b85c616f4b4f/safeareacontext/EventEmitters.cpp.o	14dc0d0c40526b3f
+3	78	0	C:/Users/ASUS G 16 JVR/Desktop/inter_app/inter_app/mobile/android/app/.cxx/Debug/1m6l4p27/arm64-v8a/CMakeFiles/cmake.verify_globs	9eb9c5c321f2463a
+141	4267	8056412253512674	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/cce8a02df85fbb72f983b85c616f4b4f/safeareacontext/States.cpp.o	82c60a7b401b59e6
+127	4741	8056412258140033	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/cce8a02df85fbb72f983b85c616f4b4f/safeareacontext/EventEmitters.cpp.o	14dc0d0c40526b3f
+154	5305	8056412263504997	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/777c99789409be5f0d6898df15a9353f/jni/safeareacontext-generated.cpp.o	ad2005b29f174143
