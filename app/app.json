@@ -4,7 +4,7 @@
     "slug": "quickvoice-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/logo-l.png",
     "userInterfaceStyle": "light",
     "scheme": "quickvoice",
     "assetBundlePatterns": [
@@ -16,7 +16,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/logo-l.png",
         "backgroundColor": "#0F766E"
       },
       "permissions": [
@@ -27,7 +27,7 @@
     },
     "extra": {},
     "web": {
-      "favicon": "./assets/logo.png",
+      "favicon": "./assets/logo-l.png",
       "bundler": "metro"
     },
     "plugins": [
@@ -37,7 +37,8 @@
           "microphonePermission": "Allow QuickVoice to access the microphone for real-time interpretation."
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-web-browser"
     ]
   }
 }

@@ -27,11 +27,12 @@ const BG = "#FFFFFF";
 const COOLDOWN = 30;
 
 export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void }) {
-  const { authReady, signIn, signUp } = useAuth();
+  const { authReady, signIn, signUp, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
@@ -76,7 +77,16 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
     }
   };
 
-  const canSubmit = !busy && authReady && cooldown === 0;
+  const handleGoogleAuth = async () => {
+    setGoogleBusy(true);
+    try {
+      await signInWithGoogle();
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const canSubmit = !busy && !googleBusy && authReady && cooldown === 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
@@ -166,7 +176,7 @@ export function AuthScreen({ onForgotPassword }: { onForgotPassword?: () => void
           </View>
 
           <View style={{ flexDirection: "row", gap: 12 }}>
-            <SocialButton onPress={() => Alert.alert("Google sign-in", "OAuth requires a web browser redirect.")} />
+            <SocialButton onPress={handleGoogleAuth} loading={googleBusy} />
           </View>
 
           <View style={{ alignItems: "center", paddingTop: 20 }}>

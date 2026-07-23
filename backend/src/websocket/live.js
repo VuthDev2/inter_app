@@ -26,18 +26,6 @@ function languageInstruction(sourceLang, targetLang) {
   ].join(" ");
 }
 
-/**
- * Handles a single /ws/live connection.
- * Protocol:
- *   Client -> Server: { type: "config", sourceLang, targetLang }
- *   Client -> Server: { type: "audio", data: "<base64 pcm16le 16k mono>" }
- *   Client -> Server: { type: "stop" }
- *   Server -> Client: { type: "ready" }
- *   Server -> Client: { type: "transcript", text, final }
- *   Server -> Client: { type: "translation", text, delta, final }
- *   Server -> Client: { type: "utterance", original, translation }
- *   Server -> Client: { type: "error", text }
- */
 export function handleLiveConnection(ws) {
   let sourceLang = "en";
   let targetLang = "ja";

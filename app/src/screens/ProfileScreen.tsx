@@ -30,7 +30,8 @@ export function ProfileScreen() {
           .select("display_name, preferred_language")
           .eq("id", user.id)
           .maybeSingle();
-        setDisplayName(data?.display_name ?? "");
+        const fallbackName = user.user_metadata?.full_name || user.user_metadata?.name || user.user_metadata?.display_name || "";
+        setDisplayName(data?.display_name || fallbackName);
         setPreferred((data?.preferred_language ?? "en") as LanguageCode);
       } catch {
         // ignore load errors

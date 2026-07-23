@@ -75,7 +75,7 @@ export function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
               shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
             }}>
               <Image
-                source={require("../../../assets/logo.png")}
+                source={require("../../../assets/logo-l.png")}
                 style={{ height: 36, width: 36 }}
                 resizeMode="contain"
               />
