@@ -14,6 +14,14 @@ export default function HistoryPage() {
     const [isNewFolderModalOpen, setIsNewFolderModalOpen] = useState(false);
     const [newFolderName, setNewFolderName] = useState("");
 
+    // Placeholder state ready to be replaced with Supabase fetch
+    const [folders, setFolders] = useState([
+        { id: "1", name: "ok", count: 3 },
+        { id: "2", name: "ik", count: 0 },
+        { id: "3", name: "iL", count: 0 },
+        { id: "4", name: "Po", count: 0 },
+    ]);
+
     const handleDeleteClick = (name: string, e?: React.MouseEvent) => {
         if (e) e.preventDefault();
         setFolderToDelete(name);
@@ -54,7 +62,7 @@ export default function HistoryPage() {
                             </div>
                         </Link>
                         
-                        <Link href="#" className="flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-b-2xl">
+                        <Link href="/allrecords?filter=deleted" className="flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-b-2xl">
                             <div className="flex items-center gap-3">
                                 <Trash2 size={18} className="text-red-500" />
                                 <span className="text-[14px] font-medium text-[rgba(var(--text),0.9)]">Recently Deleted</span>
@@ -99,10 +107,22 @@ export default function HistoryPage() {
 
                         {/* Folders List */}
                         <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl flex flex-col mt-2 overflow-hidden">
-                            <FolderItem name="ok" count={3} isEditing={isEditing} onDelete={(e) => handleDeleteClick("ok", e)} />
-                            <FolderItem name="ik" count={0} isEditing={isEditing} onDelete={(e) => handleDeleteClick("ik", e)} />
-                            <FolderItem name="iL" count={0} isEditing={isEditing} onDelete={(e) => handleDeleteClick("iL", e)} />
-                            <FolderItem name="Po" count={0} isEditing={isEditing} onDelete={(e) => handleDeleteClick("Po", e)} isLast />
+                            {folders.length === 0 ? (
+                                <div className="p-8 text-center text-[rgba(var(--muted),1)] text-[14px]">
+                                    No folders created yet.
+                                </div>
+                            ) : (
+                                folders.map((folder, index) => (
+                                    <FolderItem 
+                                        key={folder.id} 
+                                        name={folder.name} 
+                                        count={folder.count} 
+                                        isEditing={isEditing} 
+                                        onDelete={(e) => handleDeleteClick(folder.name, e)} 
+                                        isLast={index === folders.length - 1} 
+                                    />
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>

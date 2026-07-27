@@ -4,8 +4,16 @@ import Navbar from "@/components/Navbar";
 import { Folder, Plus, Mic, ChevronRight } from "lucide-react";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
+import { useState } from "react";
 
 function PreRecordContent() {
+    // Placeholder state ready to be replaced with Supabase fetch
+    const [categories, setCategories] = useState([
+        { id: "1", name: "School", count: 0, link: "/folder" },
+        { id: "2", name: "Work", count: 0, link: "/folder" },
+        { id: "3", name: "Personal", count: 0, link: "/folder" }
+    ]);
+
     return (
         <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
             <Navbar />
@@ -37,9 +45,21 @@ function PreRecordContent() {
 
                         {/* Folders List */}
                         <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl flex flex-col mt-2 overflow-hidden">
-                            <FolderItem name="School" count={0} />
-                            <FolderItem name="Work" count={0} />
-                            <FolderItem name="Personal" count={0} isLast />
+                            {categories.length === 0 ? (
+                                <div className="p-8 text-center text-[rgba(var(--muted),1)] text-[14px]">
+                                    No categories yet. Add one above!
+                                </div>
+                            ) : (
+                                categories.map((cat, index) => (
+                                    <FolderItem 
+                                        key={cat.id} 
+                                        name={cat.name} 
+                                        count={cat.count} 
+                                        href={cat.link}
+                                        isLast={index === categories.length - 1} 
+                                    />
+                                ))
+                            )}
                         </div>
                     </div>
 
@@ -60,10 +80,10 @@ function PreRecordContent() {
     );
 }
 
-function FolderItem({ name, count, isLast = false }: { name: string; count: number; isLast?: boolean }) {
+function FolderItem({ name, count, href = "#", isLast = false }: { name: string; count: number; href?: string; isLast?: boolean }) {
     return (
         <Link 
-            href="#" 
+            href={href} 
             className={`flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group ${
                 !isLast ? 'border-b border-[rgb(var(--border))]' : ''
             }`}

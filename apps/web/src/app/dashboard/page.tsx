@@ -5,10 +5,18 @@ import { Mic, MessageSquare, Play, ExternalLink, Globe, Download, ChevronRight, 
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/context/AuthContext";
+import { useState, useEffect } from "react";
 
 function DashboardContent() {
     const { user } = useAuth();
     const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
+    const [loading, setLoading] = useState(false);
+
+    // Placeholder state ready to be replaced with Supabase fetch
+    const [recentSessions, setRecentSessions] = useState([
+        { id: "1", title: "US → JP Business Meeting", time: "Yesterday • 1h 15m duration", icon: MessageSquare, link: "/insiderecord-twoway" },
+        { id: "2", title: "JP → US Restaurant", time: "Today • 45m duration", icon: MessageSquare, link: "/insiderecord" }
+    ]);
 
     return <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
             <Navbar />
@@ -102,37 +110,36 @@ function DashboardContent() {
                         </div>
 
                         <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl flex flex-col">
-                            {/* Session Item 1 */}
-                            <Link href="#" className="flex items-center justify-between p-5 border-b border-[rgb(var(--border))] hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-t-2xl">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-full bg-[rgb(var(--surface-muted))] flex items-center justify-center text-[rgba(var(--text-secondary),1)]">
-                                        <MessageSquare size={16} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">US → JP Business Meeting</span>
-                                        <span className="text-[13px] text-[rgba(var(--muted),1)]">Yesterday • 1h 15m duration</span>
-                                    </div>
+                            {recentSessions.length === 0 ? (
+                                <div className="p-8 text-center text-[rgba(var(--muted),1)] text-[14px]">
+                                    No recent sessions. Start one above!
                                 </div>
-                                <div className="flex items-center gap-3 text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors">
-                                    <span className="text-[13px] font-medium flex items-center gap-1.5"><Play size={12} className="fill-current" /> Play</span>
-                                </div>
-                            </Link>
+                            ) : (
+                                recentSessions.map((session, index) => {
+                                    const Icon = session.icon;
+                                    const isFirst = index === 0;
+                                    const isLast = index === recentSessions.length - 1;
+                                    const roundedClass = isFirst && isLast ? 'rounded-2xl' : isFirst ? 'rounded-t-2xl' : isLast ? 'rounded-b-2xl' : '';
+                                    const borderClass = !isLast ? 'border-b border-[rgb(var(--border))]' : '';
 
-                            {/* Session Item 2 */}
-                            <Link href="#" className="flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group rounded-b-2xl">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-full bg-[rgb(var(--surface-muted))] flex items-center justify-center text-[rgba(var(--text-secondary),1)]">
-                                        <MessageSquare size={16} />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">JP → US Restaurant</span>
-                                        <span className="text-[13px] text-[rgba(var(--muted),1)]">Today • 45m duration</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3 text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors">
-                                    <span className="text-[13px] font-medium flex items-center gap-1.5"><Play size={12} className="fill-current" /> Play</span>
-                                </div>
-                            </Link>
+                                    return (
+                                        <Link key={session.id} href={session.link} className={`flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group ${roundedClass} ${borderClass}`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-10 w-10 rounded-full bg-[rgb(var(--surface-muted))] flex items-center justify-center text-[rgba(var(--text-secondary),1)]">
+                                                    <Icon size={16} />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">{session.title}</span>
+                                                    <span className="text-[13px] text-[rgba(var(--muted),1)]">{session.time}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors">
+                                                <span className="text-[13px] font-medium flex items-center gap-1.5"><Play size={12} className="fill-current" /> Play</span>
+                                            </div>
+                                        </Link>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
                 </div>
