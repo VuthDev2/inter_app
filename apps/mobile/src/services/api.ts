@@ -1,6 +1,8 @@
 import { File } from "expo-file-system";
 import { NativeModules, Platform } from "react-native";
 
+import { supabase } from "./supabase";
+
 export type TranslateResult = {
   ok: boolean;
   translation: string;
@@ -60,8 +62,17 @@ function baseUrl(): string {
 }
 
 /** WebSocket URL for the live interpretation endpoint. */
-export function liveWsUrl(): string {
-  return baseUrl().replace(/^http/, "ws") + "/ws/live";
+export async function liveWsUrl(): Promise<string> {
+  const url = baseUrl().replace(/^http/, "ws") + "/ws/live";
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const token = data.session?.access_token;
+  return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+}
+
+async function authHeaders(base: Record<string, string> = {}): Promise<Record<string, string>> {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const token = data.session?.access_token;
+  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
 }
 
 
@@ -99,6 +110,7 @@ export async function transcribeAudioResult(
 
     const res = await fetch(`${baseUrl()}/transcribe`, {
       method: "POST",
+      headers: await authHeaders(),
       body: form,
     });
 
@@ -135,7 +147,7 @@ async function translateViaBackend(
   try {
     const res = await fetch(`${baseUrl()}/translate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ text, source, target }),
     });
     if (res.ok) {

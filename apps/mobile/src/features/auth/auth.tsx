@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const authReady = Boolean(supabase);
-  const pendingOTP = useRef<{ otp: string; expiresAt: number; email?: string } | null>(null);
+  const pendingOTP = useRef<{ expiresAt: number; email: string; resetToken?: string } | null>(null);
   const useSupabaseOTP = useRef(false);
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           if (res.ok) {
             const data = await res.json();
-            pendingOTP.current = { otp: data.otp, expiresAt: Date.now() + 10 * 60 * 1000, email };
+            pendingOTP.current = { expiresAt: Date.now() + 10 * 60 * 1000, email: email.trim().toLowerCase() };
             return {};
           }
           if (res.status >= 500) throw new Error("Server error");
@@ -119,11 +119,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pendingOTP.current = null;
           return { error: "Code expired. Request a new one." };
         }
-        if (stored.otp !== token) {
-          return { error: "Incorrect code. Try again." };
+        try {
+          const res = await fetch(`${apiBase()}/api/verify-otp`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email.trim().toLowerCase(), token: token.trim() }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) return { error: data.error || "Incorrect code. Try again." };
+          pendingOTP.current = { ...stored, resetToken: data.resetToken };
+        } catch {
+          return { error: "Failed to verify code with the backend." };
         }
-        useSupabaseOTP.current = true; // hack to use as a flag for verified email
-        pendingOTP.current = stored; // keep it to get email in updatePassword
+        useSupabaseOTP.current = true;
         return {};
       },
       updateEmail: async (email) => {
@@ -148,7 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const res = await fetch(`${apiBase()}/api/reset-password`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email: pendingOTP.current.email, password }),
+              body: JSON.stringify({
+                email: pendingOTP.current.email,
+                password,
+                resetToken: pendingOTP.current.resetToken,
+              }),
             });
             if (res.ok) {
               pendingOTP.current = null;
