@@ -5,10 +5,13 @@ import Navbar from "@/components/Navbar";
 import { ArrowLeft, Search, Clock, ArrowLeftRight, Square, CheckSquare, Pencil, Trash2, X, Mic } from "lucide-react";
 import Link from "next/link";
 
-const MOCK_RECORDS = [1, 2, 3];
-
 export default function AllRecordsPage() {
-    const [records, setRecords] = useState(MOCK_RECORDS);
+    // Placeholder state ready to be replaced with Supabase fetch
+    const [records, setRecords] = useState([
+        { id: "1", date: "July 8, 2026", time: "03:42 pm", lang1: "🇯🇵", lang2: "🇺🇸", duration: "1h 15m", link: "/insiderecord-twoway" },
+        { id: "2", date: "July 7, 2026", time: "11:15 am", lang1: "🇪🇸", lang2: "🇺🇸", duration: "45m", link: "/insiderecord" },
+        { id: "3", date: "July 6, 2026", time: "09:00 am", lang1: "🇫🇷", lang2: "🇺🇸", duration: "30m", link: "/insiderecord" },
+    ]);
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
     
     // Modal State
@@ -102,8 +105,8 @@ export default function AllRecordsPage() {
                         const isSelected = selectedItems.includes(i);
                         return (
                             <Link 
-                                href="/insiderecord"
-                                key={item} 
+                                href={item.link}
+                                key={item.id} 
                                 className={`group relative rounded-full px-8 py-5 flex items-center justify-between border transition-all duration-300 cursor-pointer overflow-hidden block w-full ${
                                     isSelected 
                                         ? 'bg-[rgb(var(--surface-muted))] border-[rgb(var(--primary))]' 
@@ -128,9 +131,9 @@ export default function AllRecordsPage() {
                                         )}
                                     </div>
                                     <div className="flex items-center gap-6">
-                                        <span className="text-[14px] font-semibold text-[rgba(var(--text),0.9)] whitespace-nowrap">July 8, 2026</span>
+                                        <span className="text-[14px] font-semibold text-[rgba(var(--text),0.9)] whitespace-nowrap">{item.date}</span>
                                         <div className="w-px h-4 bg-[rgba(var(--text),0.1)]"></div>
-                                        <span className="text-[14px] font-semibold text-[rgba(var(--text-secondary),1)] whitespace-nowrap">03:42 pm</span>
+                                        <span className="text-[14px] font-semibold text-[rgba(var(--text-secondary),1)] whitespace-nowrap">{item.time}</span>
                                     </div>
                                 </div>
                                 
@@ -138,9 +141,9 @@ export default function AllRecordsPage() {
                                 <div className={`absolute left-1/2 -translate-x-1/2 flex items-center gap-4 transition-opacity duration-200 pointer-events-none ${
                                     isSelected ? 'opacity-0' : 'opacity-100 group-hover:opacity-0'
                                 }`}>
-                                    <span className="text-2xl leading-none">🇯🇵</span>
+                                    <span className="text-2xl leading-none">{item.lang1}</span>
                                     <ArrowLeftRight size={16} className="text-[rgba(var(--muted),1)]" />
-                                    <span className="text-2xl leading-none">🇺🇸</span>
+                                    <span className="text-2xl leading-none">{item.lang2}</span>
                                 </div>
 
                                 {/* Right Side */}

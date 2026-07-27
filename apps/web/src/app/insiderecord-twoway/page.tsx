@@ -44,6 +44,15 @@ const SEGMENTS = [
 ];
 
 export default function InsideRecordPage() {
+    // Placeholder state ready to be replaced with Supabase fetch
+    const [recordMeta, setRecordMeta] = useState({
+        date: "July 8, 2026",
+        time: "03:42 pm",
+        duration: "00:50s",
+        segmentCount: "4 segments"
+    });
+    
+    const [segments, setSegments] = useState(SEGMENTS);
     const [expandedSegments, setExpandedSegments] = useState<number[]>([1]);
     const [isExportDropdownOpen, setIsExportDropdownOpen] = useState(false);
 
@@ -65,15 +74,15 @@ export default function InsideRecordPage() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-4">
                     <div className="flex items-center flex-wrap gap-5 text-[14px] font-medium text-[rgba(var(--text),0.9)]">
-                        <span className="text-[rgb(var(--text))] font-semibold">July 8, 2026</span>
-                        <span className="text-[rgb(var(--text))] font-semibold">03:42 pm</span>
+                        <span className="text-[rgb(var(--text))] font-semibold">{recordMeta.date}</span>
+                        <span className="text-[rgb(var(--text))] font-semibold">{recordMeta.time}</span>
                         <div className="w-px h-5 bg-[rgba(var(--text),0.2)]"></div>
                         <span className="flex items-center gap-2 text-[rgba(var(--text-secondary),1)]">
                             <span className="w-5 h-5 rounded-full border border-[rgba(var(--border),0.3)] flex items-center justify-center text-[10px]">L</span>
-                            00:50s
+                            {recordMeta.duration}
                         </span>
                         <div className="w-px h-5 bg-[rgba(var(--text),0.2)]"></div>
-                        <span className="text-[rgba(var(--text),0.9)]">4 segments</span>
+                        <span className="text-[rgba(var(--text),0.9)]">{recordMeta.segmentCount}</span>
                     </div>
                     
                     <div className="flex items-center gap-4 relative">
@@ -131,11 +140,11 @@ export default function InsideRecordPage() {
 
                     {/* Segments List */}
                     <div className="flex flex-col">
-                        {SEGMENTS.map((segment, index) => {
+                        {segments.map((segment, index) => {
                             const isExpanded = expandedSegments.includes(segment.id);
                             
                             return (
-                                <div key={segment.id} className={`flex flex-col px-8 py-6 ${index !== SEGMENTS.length - 1 ? 'border-b border-[rgb(var(--border))]' : ''}`}>
+                                <div key={segment.id} className={`flex flex-col px-8 py-6 ${index !== segments.length - 1 ? 'border-b border-[rgb(var(--border))]' : ''}`}>
                                     <div 
                                         className={`flex items-center gap-3 mb-4 cursor-pointer w-full transition-colors ${segment.speaker === 'A' ? 'justify-start' : 'justify-end'}`}
                                         onClick={() => toggleSegment(segment.id)}
