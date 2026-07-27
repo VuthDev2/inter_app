@@ -1,9 +1,12 @@
-import Voice, {
-  type SpeechErrorEvent,
-  type SpeechResultsEvent,
-} from "@react-native-voice/voice";
+import {
+  AudioModule,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from "expo-audio";
 import { Platform } from "react-native";
 
+import { transcribeAudioResult } from "../../../../services/api";
 import {
   type SpeechErrorListener,
   type SpeechLanguage,
@@ -14,113 +17,147 @@ import {
   type SpeechSubscription,
 } from "./SpeechTypes";
 
+const TURN_RECORDING_MS = 1450;
+
 const partialListeners = new Set<SpeechResultListener>();
 const finalListeners = new Set<SpeechResultListener>();
 const errorListeners = new Set<SpeechErrorListener>();
-let handlersInstalled = false;
+
+let recorder: InstanceType<typeof AudioModule.AudioRecorder> | null = null;
+let recordingTimer: ReturnType<typeof setTimeout> | null = null;
+let activeTurnId = 0;
+let recorderOperation: Promise<void> = Promise.resolve();
+
+function runRecorderOperation(operation: () => Promise<void>): Promise<void> {
+  const next = recorderOperation.catch(() => undefined).then(operation);
+  recorderOperation = next.catch(() => undefined);
+  return next;
+}
 
 function createSubscription<T>(listeners: Set<T>, listener: T): SpeechSubscription {
   listeners.add(listener);
   return { remove: () => listeners.delete(listener) };
 }
 
-function parseResult(event: SpeechResultsEvent): SpeechResult | null {
-  const transcript = event.value?.[0]?.trim();
-  return transcript ? { transcript } : null;
+function emitFinal(result: SpeechResult): void {
+  finalListeners.forEach((listener) => listener(result));
 }
 
-function parseError(event: SpeechErrorEvent): SpeechRecognitionError {
-  const nativeMessage = event.error?.message ?? "Speech recognition failed.";
-  const normalizedMessage = nativeMessage.toLowerCase();
+function emitError(error: SpeechRecognitionError): void {
+  errorListeners.forEach((listener) => listener(error));
+}
 
-  // Silence, an accidental tap, or audio that contains no recognizable words
-  // is a normal empty turn—not an error the user needs to see.
-  if (
-    normalizedMessage.includes("no speech") ||
-    normalizedMessage.includes("no match") ||
-    normalizedMessage.includes("retry") ||
-    normalizedMessage.includes("connection invalidated") ||
-    normalizedMessage.includes("recognition request was canceled") ||
-    /^(1101|1107|1110|216)\//.test(nativeMessage)
-  ) {
-    return {
-      code: "recoverable_interruption",
-      message: "",
-    };
+function languageHint(language: SpeechLanguage): string {
+  if (language === "en-ja") return "en-ja";
+  if (language === "ja-JP") return "ja";
+  if (language === "en-US") return "en";
+  return "en-ja";
+}
+
+async function stopCurrentRecorder(): Promise<string | null> {
+  if (recordingTimer) {
+    clearTimeout(recordingTimer);
+    recordingTimer = null;
   }
 
-  if (nativeMessage.includes("300/") || normalizedMessage.includes("failed to initialize recognizer")) {
-    return {
-      code: "recognizer_unavailable",
-      message: "Speech recognition is unavailable in this iOS Simulator. Please test on a physical iPhone.",
-    };
+  const activeRecorder = recorder;
+  recorder = null;
+
+  if (!activeRecorder) return null;
+
+  try {
+    if (activeRecorder.isRecording) await activeRecorder.stop();
+    return activeRecorder.uri;
+  } catch {
+    return activeRecorder.uri;
   }
-
-  return {
-    code: event.error?.code ?? "recognition_failed",
-    message: nativeMessage,
-  };
 }
 
-function installEventHandlers(): void {
-  if (handlersInstalled) return;
-  handlersInstalled = true;
-
-  Voice.onSpeechPartialResults = (event) => {
-    const result = parseResult(event);
-    if (result) partialListeners.forEach((listener) => listener(result));
-  };
-
-  Voice.onSpeechResults = (event) => {
-    const result = parseResult(event);
-    if (result) finalListeners.forEach((listener) => listener(result));
-  };
-
-  Voice.onSpeechError = (event) => {
-    const error = parseError(event);
-    errorListeners.forEach((listener) => listener(error));
-  };
-}
-
-class ReactNativeVoiceSpeechService implements SpeechServiceInterface {
+class BackendSpeechService implements SpeechServiceInterface {
   async startListening(language: SpeechLanguage): Promise<void> {
     if (Platform.OS === "web") throw new Error("Speech recognition is unavailable on web.");
-    installEventHandlers();
 
-    const available = await Voice.isAvailable();
-    if (!available) throw new Error("Speech recognition is unavailable on this device.");
+    activeTurnId += 1;
+    const turnId = activeTurnId;
 
-    // react-native-voice keeps its NativeEventEmitter subscriptions across
-    // Fast Refreshes. Recreate them before every session so results are sent to
-    // this module's current listeners instead of stale callbacks.
-    await Voice.destroy();
-    installEventHandlers();
+    await runRecorderOperation(async () => {
+      await stopCurrentRecorder();
+      if (turnId !== activeTurnId) return;
 
-    await Voice.start(language, {
-      EXTRA_PARTIAL_RESULTS: true,
-      REQUEST_PERMISSIONS_AUTO: true,
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        throw new Error("Microphone permission is required for live interpretation.");
+      }
+      if (turnId !== activeTurnId) return;
+
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
+      if (turnId !== activeTurnId) return;
+
+      const nextRecorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+      try {
+        await nextRecorder.prepareToRecordAsync();
+        if (turnId !== activeTurnId) {
+          if (nextRecorder.isRecording) await nextRecorder.stop();
+          return;
+        }
+        recorder = nextRecorder;
+        nextRecorder.record();
+      } catch {
+        if (recorder === nextRecorder) recorder = null;
+        throw new Error("The microphone was busy. Tap the microphone and try again.");
+      }
+
+      recordingTimer = setTimeout(() => {
+        void runRecorderOperation(() => this.finishTurn(turnId, language));
+      }, TURN_RECORDING_MS);
     });
   }
 
   async stopListening(): Promise<void> {
-    await Voice.stop();
+    activeTurnId += 1;
+    await runRecorderOperation(async () => {
+      await stopCurrentRecorder();
+    });
   }
 
   onPartialResult(listener: SpeechResultListener): SpeechSubscription {
-    installEventHandlers();
     return createSubscription(partialListeners, listener);
   }
 
   onFinalResult(listener: SpeechResultListener): SpeechSubscription {
-    installEventHandlers();
     return createSubscription(finalListeners, listener);
   }
 
   onError(listener: SpeechErrorListener): SpeechSubscription {
-    installEventHandlers();
     return createSubscription(errorListeners, listener);
+  }
+
+  private async finishTurn(turnId: number, language: SpeechLanguage): Promise<void> {
+    const audioUri = await stopCurrentRecorder();
+    if (turnId !== activeTurnId || !audioUri) return;
+
+    try {
+      const result = await transcribeAudioResult(audioUri, languageHint(language));
+      if (!result.text.trim()) {
+        emitError({ code: "no_speech", message: "" });
+        return;
+      }
+
+      emitFinal({
+        transcript: result.text.trim(),
+        language: result.language === "unknown" ? undefined : result.language,
+      });
+    } catch (reason) {
+      emitError({
+        code: "transcription_failed",
+        message: reason instanceof Error ? reason.message : "Speech transcription failed.",
+      });
+    }
   }
 }
 
-export const SpeechService: SpeechServiceInterface = new ReactNativeVoiceSpeechService();
+export const SpeechService: SpeechServiceInterface = new BackendSpeechService();
 export default SpeechService;

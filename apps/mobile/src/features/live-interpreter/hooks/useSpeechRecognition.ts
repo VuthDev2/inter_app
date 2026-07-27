@@ -10,6 +10,8 @@ export type SpeechRecognitionState = {
   isListening: boolean;
   partialTranscript: string;
   finalTranscript: string;
+  finalLanguage?: "en" | "ja";
+  finalResultId: number;
   error: SpeechRecognitionError | null;
   startListening: (language: SpeechLanguage) => Promise<void>;
   stopListening: () => Promise<void>;
@@ -19,14 +21,18 @@ export function useSpeechRecognition(): SpeechRecognitionState {
   const [isListening, setIsListening] = useState(false);
   const [partialTranscript, setPartialTranscript] = useState("");
   const [finalTranscript, setFinalTranscript] = useState("");
+  const [finalLanguage, setFinalLanguage] = useState<"en" | "ja" | undefined>();
+  const [finalResultId, setFinalResultId] = useState(0);
   const [error, setError] = useState<SpeechRecognitionError | null>(null);
 
   useEffect(() => {
     const partialSubscription = SpeechService.onPartialResult(({ transcript }) => {
       setPartialTranscript(transcript);
     });
-    const finalSubscription = SpeechService.onFinalResult(({ transcript }) => {
+    const finalSubscription = SpeechService.onFinalResult(({ language, transcript }) => {
       setFinalTranscript(transcript);
+      setFinalLanguage(language);
+      setFinalResultId((current) => current + 1);
       setPartialTranscript("");
       setIsListening(false);
     });
@@ -47,6 +53,7 @@ export function useSpeechRecognition(): SpeechRecognitionState {
     setError(null);
     setPartialTranscript("");
     setFinalTranscript("");
+    setFinalLanguage(undefined);
 
     try {
       await SpeechService.startListening(language);
@@ -72,6 +79,8 @@ export function useSpeechRecognition(): SpeechRecognitionState {
     isListening,
     partialTranscript,
     finalTranscript,
+    finalLanguage,
+    finalResultId,
     error,
     startListening,
     stopListening,

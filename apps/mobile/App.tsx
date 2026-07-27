@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Animated, Image, PanResponder, Pressable, Text, View } from "react-native";
+import { AccessibilityInfo, Alert, Animated, Image, PanResponder, Pressable, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { atoms } from "./src/theme/atoms";
@@ -12,16 +12,18 @@ import { AuthScreen } from "./src/screens/AuthScreen";
 import { CreateAccountScreen } from "./src/screens/CreateAccountScreen";
 import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { OTPScreen } from "./src/screens/OTPScreen";
-import { PreferencesProvider } from "./src/features/preferences/context";
+import { PreferencesProvider, usePreferences } from "./src/features/preferences/context";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HistoryScreen } from "./src/screens/HistoryScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
+import { PrivacySecurityScreen } from "./src/screens/PrivacySecurityScreen";
 import { RecordScreen } from "./src/screens/RecordScreen";
 import { ResetPasswordScreen } from "./src/screens/ResetPasswordScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { UpdatePasswordScreen } from "./src/screens/UpdatePasswordScreen";
+import { UpdateEmailScreen } from "./src/screens/UpdateEmailScreen";
 import { AnchoredMenu } from "./src/components/AnchoredMenu";
 import { colors, spacing } from "./src/theme/theme";
 
@@ -65,10 +67,16 @@ export default function App() {
 
 function AppFrame() {
   const { initialized, user } = useAuth();
+  const { appearance_mode: appearanceMode } = usePreferences();
+  const systemScheme = useColorScheme();
+  const dark = appearanceMode === "dark" || (appearanceMode === "system" && systemScheme === "dark");
+  const shell = dark
+    ? { background: "#0E1013", border: "#383D45", surface: "#25292F", text: "#F5F7FA", muted: "#A4ABB5", indicator: "#163A62" }
+    : { background: colors.background, border: "#E3E6EB", surface: "#FFFFFF", text: "#111318", muted: "#5F6670", indicator: "#EAF3FF" };
   const [activeTab, setActiveTab] = useState<Tab>("live");
   const [recordSessionActive, setRecordSessionActive] = useState(false);
   const [recordBackRequest, setRecordBackRequest] = useState(0);
-  const [showUpdatePassword, setShowUpdatePassword] = useState(false);
+  const [accountScreen, setAccountScreen] = useState<"privacy" | "email" | "password" | null>(null);
   const [tabBarWidth, setTabBarWidth] = useState(0);
   const previousUserId = useRef<string | null>(null);
   const pageScrollY = useRef(new Animated.Value(0)).current;
@@ -80,7 +88,7 @@ function AppFrame() {
 
     if (userId && userId !== previousUserId.current) {
       setActiveTab("live");
-      setShowUpdatePassword(false);
+      setAccountScreen(null);
     }
 
     previousUserId.current = userId;
@@ -148,8 +156,22 @@ function AppFrame() {
     return <UnauthenticatedFlow />;
   }
 
-  if (showUpdatePassword) {
-    return <UpdatePasswordScreen onDone={() => setShowUpdatePassword(false)} />;
+  if (accountScreen === "email") {
+    return <UpdateEmailScreen onDone={() => setAccountScreen("privacy")} />;
+  }
+
+  if (accountScreen === "password") {
+    return <UpdatePasswordScreen onDone={() => setAccountScreen("privacy")} />;
+  }
+
+  if (accountScreen === "privacy") {
+    return (
+      <PrivacySecurityScreen
+        onBack={() => setAccountScreen(null)}
+        onChangeEmail={() => setAccountScreen("email")}
+        onChangePassword={() => setAccountScreen("password")}
+      />
+    );
   }
 
   // pill height + gap above bottom + safe-area
@@ -158,8 +180,8 @@ function AppFrame() {
   const pageHeaderHeight = insets.top + 64;
 
   return (
-    <View style={[atoms.flex1, atoms.bgBackground]}>
-      <StatusBar style="dark" />
+    <View style={[atoms.flex1, { backgroundColor: shell.background }]}>
+      <StatusBar style={dark ? "light" : "dark"} />
 
       {/* ── Header ── */}
       {activeTab !== "live" ? (
@@ -177,7 +199,7 @@ function AppFrame() {
         >
           <SafeAreaView edges={["top"]} style={{ backgroundColor: "transparent" }}>
             <View style={{ alignItems: activeTab === "history" ? "flex-start" : "center", height: 64, justifyContent: "center", paddingHorizontal: spacing.lg }}>
-              <Text style={{ color: "#111318", fontSize: activeTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: activeTab === "history" ? -0.6 : -0.35, marginLeft: activeTab === "history" ? 8 : 0, textAlign: activeTab === "history" ? "left" : "center" }}>
+              <Text style={{ color: shell.text, fontSize: activeTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: activeTab === "history" ? -0.6 : -0.35, marginLeft: activeTab === "history" ? 8 : 0, textAlign: activeTab === "history" ? "left" : "center" }}>
                 {activeTab === "record" ? (recordSessionActive ? "New Recording" : "Record") : activeTab === "history" ? "History" : activeTab === "settings" ? "Settings" : activeTab === "profile" ? "Profile" : "Home"}
               </Text>
               {activeTab === "record" && recordSessionActive ? (
@@ -236,18 +258,18 @@ function AppFrame() {
         {activeTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
         {activeTab === "record"   && <RecordScreen setActiveTab={setActiveTab} onSessionChange={setRecordSessionActive} backRequest={recordBackRequest} />}
         {activeTab === "history"  && <HistoryScreen />}
-        {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onUpdatePassword={() => setShowUpdatePassword(true)} />}
+        {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onPrivacySecurity={() => setAccountScreen("privacy")} />}
         {activeTab === "profile"  && <ProfileScreen />}
       </Animated.ScrollView> : null}
 
       {/* ── Floating pill tab bar ── */}
       <View style={{ left: 14, position: "absolute", right: 14, bottom: tabBarBottom }} pointerEvents="box-none">
-        <View {...tabPanResponder.panHandlers} onLayout={(event) => setTabBarWidth(event.nativeEvent.layout.width)} style={{ alignItems: "center", backgroundColor: "#FFFFFF", borderColor: "#E3E6EB", borderRadius: 28, borderWidth: 1, elevation: 0, flexDirection: "row", height: 72, justifyContent: "space-around", paddingHorizontal: 6, shadowOpacity: 0 }}>
+        <View {...tabPanResponder.panHandlers} onLayout={(event) => setTabBarWidth(event.nativeEvent.layout.width)} style={{ alignItems: "center", backgroundColor: shell.surface, borderColor: shell.border, borderRadius: 28, borderWidth: 1, elevation: 0, flexDirection: "row", height: 72, justifyContent: "space-around", paddingHorizontal: 6, shadowOpacity: 0 }}>
           {tabBarWidth > 0 ? (
             <Animated.View
               pointerEvents="none"
               style={{
-                backgroundColor: "#EAF3FF",
+                backgroundColor: shell.indicator,
                 borderRadius: 20,
                 height: 56,
                 left: 8,
@@ -272,9 +294,9 @@ function AppFrame() {
                 <Ionicons
                   name={tab.icon}
                   size={24}
-                  color={active ? "#007AFF" : "#5F6670"}
+                  color={active ? "#007AFF" : shell.muted}
                 />
-                <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={1} style={[{ color: "#5F6670", fontSize: 10, fontWeight: "500", letterSpacing: -0.1, maxWidth: "100%", textAlign: "center" }, active && { color: "#007AFF", fontWeight: "700" }]}>
+                <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={1} style={[{ color: shell.muted, fontSize: 10, fontWeight: "500", letterSpacing: -0.1, maxWidth: "100%", textAlign: "center" }, active && { color: "#007AFF", fontWeight: "700" }]}>
                   {tab.label}
                 </Text>
               </Pressable>

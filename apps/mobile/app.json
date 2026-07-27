@@ -39,7 +39,7 @@
       ],
       "expo-font",
       [
-        "@react-native-voice/voice",
+        "expo-speech-recognition",
         {
           "microphonePermission": "Allow QuickVoice to access the microphone for live interpretation.",
           "speechRecognitionPermission": "Allow QuickVoice to recognize speech for live interpretation."

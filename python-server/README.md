@@ -5,15 +5,16 @@ by the QuickVoice mobile app. It runs
 `facebook/nllb-200-distilled-600M` locally and supports English and Japanese.
 Translation text is not sent to an external translation API.
 
-It also exposes self-hosted English and Japanese speech through MeloTTS.
+It also exposes self-hosted English and Japanese speech through Kokoro-82M.
 
 ## Run locally
 
 ```sh
 cd python-server
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
+/opt/homebrew/bin/python3.12 -m venv .venv312
+source .venv312/bin/activate
+python -m pip install -r requirements.kokoro.txt
+python -m unidic download
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
@@ -44,11 +45,18 @@ EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 
 For a physical phone, use the Mac's LAN IP instead of `127.0.0.1`.
 
-## MeloTTS
+## Kokoro TTS
 
-MeloTTS is officially developed and tested with Python 3.9. Because its pinned
-dependencies conflict with the host Python 3.13 NLLB environment, Docker is the
-supported way to run translation and TTS together on this Mac:
+Kokoro requires Python 3.10–3.12. To run translation and TTS together locally:
+
+```sh
+/opt/homebrew/bin/python3.12 -m venv .venv312
+.venv312/bin/python -m pip install -r requirements.kokoro.txt
+.venv312/bin/python -m unidic download
+.venv312/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Docker is also supported:
 
 ```sh
 docker build -t quickvoice-ai .
@@ -57,8 +65,8 @@ docker run --rm -p 8000:8000 \
   quickvoice-ai
 ```
 
-The first request for each voice downloads its checkpoint into `tts/english_model`
-or `tts/japanese_model` inside the container.
+The first request downloads Kokoro-82M and the selected English `af_heart` or
+Japanese `jf_alpha` voice into `tts/kokoro_models`.
 
 Generate English WAV audio:
 

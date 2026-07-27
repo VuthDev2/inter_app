@@ -13,6 +13,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   sendOTP: (email: string) => Promise<{ error?: string }>;
   verifyOTP: (_email: string, token: string) => Promise<{ error?: string }>;
+  updateEmail: (email: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
 };
 
@@ -124,6 +125,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         useSupabaseOTP.current = true; // hack to use as a flag for verified email
         pendingOTP.current = stored; // keep it to get email in updatePassword
         return {};
+      },
+      updateEmail: async (email) => {
+        if (!supabase) return { error: "Supabase mobile environment is not configured." };
+        if (!session) return { error: "No active session." };
+
+        const { error } = await supabase.auth.updateUser({ email });
+        return error ? { error: error.message } : {};
       },
       updatePassword: async (password) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };

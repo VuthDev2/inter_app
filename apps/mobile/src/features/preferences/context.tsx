@@ -8,6 +8,8 @@ import { useAuth } from "../auth/auth";
 const PREFS_CACHE_KEY = "quickvoice.userPreferences";
 
 export type UserPreferences = {
+  appearance_mode: "system" | "light" | "dark";
+  text_size: "small" | "default" | "large";
   preferred_source_lang: LanguageCode;
   preferred_target_lang: LanguageCode;
   auto_speak: boolean;
@@ -21,6 +23,8 @@ export type UserPreferences = {
 };
 
 const DEFAULTS: UserPreferences = {
+  appearance_mode: "system",
+  text_size: "default",
   preferred_source_lang: "en",
   preferred_target_lang: "ja",
   auto_speak: true,
@@ -59,6 +63,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
     const loadFromDb = async () => {
       try {
+        let cached: Partial<UserPreferences> = {};
+        const raw = await appStorage.getItem(PREFS_CACHE_KEY);
+        if (raw) {
+          try { cached = JSON.parse(raw) as Partial<UserPreferences>; } catch { /* */ }
+        }
+        setPrefs((current) => ({ ...current, ...cached }));
         const { data } = await supabase!
           .from("user_preferences")
           .select("*")
@@ -67,6 +77,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
         if (data) {
           const next: UserPreferences = {
+            appearance_mode: cached.appearance_mode ?? DEFAULTS.appearance_mode,
+            text_size: cached.text_size ?? DEFAULTS.text_size,
             preferred_source_lang: (data.preferred_source_lang ?? DEFAULTS.preferred_source_lang) as LanguageCode,
             preferred_target_lang: (data.preferred_target_lang ?? DEFAULTS.preferred_target_lang) as LanguageCode,
             auto_speak: data.auto_speak ?? DEFAULTS.auto_speak,
@@ -99,9 +111,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
           if (supabase && user) {
+            const { appearance_mode: _appearanceMode, text_size: _textSize, ...syncedPreferences } = next;
             supabase
               .from("user_preferences")
-              .upsert({ user_id: user.id, ...next, updated_at: new Date().toISOString() })
+              .upsert({ user_id: user.id, ...syncedPreferences, updated_at: new Date().toISOString() })
               .then(({ error }) => {
                 if (error) console.warn("[preferences] Sync failed:", error);
               });

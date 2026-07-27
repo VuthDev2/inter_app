@@ -2,16 +2,18 @@ import asyncio
 import os
 import threading
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-from tts import MeloTTSService, TTSServiceError
+from asr import WhisperASRService
+from tts import KokoroTTSService, TTSServiceError
 
 
 MODEL_NAME = "facebook/nllb-200-distilled-600M"
@@ -46,7 +48,14 @@ class TTSRequest(BaseModel):
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
 
 
-tts_service = MeloTTSService(SERVER_ROOT / "tts")
+class TranscriptionResponse(BaseModel):
+    ok: bool
+    text: str
+    language: str
+
+
+asr_service = WhisperASRService()
+tts_service = KokoroTTSService(SERVER_ROOT / "tts" / "kokoro_models")
 
 
 @asynccontextmanager
@@ -93,6 +102,7 @@ async def health() -> dict[str, object]:
     }
 
 
+@lru_cache(maxsize=256)
 def run_translation(text: str, source: str, target: str) -> str:
     tokenizer = app.state.tokenizer
     model = app.state.model
@@ -105,13 +115,15 @@ def run_translation(text: str, source: str, target: str) -> str:
         inputs = tokenizer(
             text,
             return_tensors="pt",
-            max_length=512,
+            max_length=160,
             truncation=True,
         ).to(device)
         translated_tokens = model.generate(
             **inputs,
             forced_bos_token_id=tokenizer.convert_tokens_to_ids(target),
-            max_new_tokens=256,
+            max_new_tokens=64,
+            num_beams=1,
+            do_sample=False,
         )
         return tokenizer.batch_decode(
             translated_tokens,
@@ -153,6 +165,35 @@ async def translate(payload: TranslationRequest) -> TranslationResponse:
         source=payload.source,
         target=payload.target,
     )
+
+
+@app.post("/transcribe", response_model=TranscriptionResponse)
+async def transcribe(
+    file: UploadFile = File(...),
+    language: str = Form(default="auto"),
+) -> TranscriptionResponse:
+    audio = await file.read()
+    if not audio:
+        raise HTTPException(status_code=422, detail="Audio file cannot be blank.")
+
+    suffix = Path(file.filename or "recording.m4a").suffix or ".m4a"
+
+    try:
+        result = await asyncio.to_thread(asr_service.transcribe, audio, suffix, language)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail="The local speech recognition model could not transcribe this audio.",
+        ) from error
+
+    text = result.text.strip()
+    if not text:
+        return TranscriptionResponse(ok=True, text="", language="unknown")
+
+    detected_language = "ja" if result.language == "ja" else "en"
+    return TranscriptionResponse(ok=True, text=text, language=detected_language)
 
 
 @app.post(

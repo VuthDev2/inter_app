@@ -1,7 +1,8 @@
-export type SpeechLanguage = "en-US" | "ja-JP";
+export type SpeechLanguage = "auto" | "en-ja" | "en-US" | "ja-JP";
 
 export type SpeechResult = {
   transcript: string;
+  language?: "en" | "ja";
 };
 
 export type SpeechRecognitionError = {

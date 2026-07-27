@@ -61,4 +61,22 @@ export const appStorage = {
       }
     }
   },
+
+  async clearQuickVoiceData() {
+    for (const key of [...memoryStore.keys()]) {
+      if (key.startsWith("quickvoice.")) memoryStore.delete(key);
+    }
+
+    if (await canUseNativeStorage()) {
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const quickVoiceKeys = keys.filter((key) => key.startsWith("quickvoice."));
+        if (quickVoiceKeys.length > 0) {
+          await AsyncStorage.multiRemove(quickVoiceKeys);
+        }
+      } catch {
+        storageReady = Promise.resolve(false);
+      }
+    }
+  },
 };

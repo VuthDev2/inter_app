@@ -224,6 +224,8 @@ PODS:
     - ExpoModulesJSI
   - ExpoSpeech (57.0.1):
     - ExpoModulesCore
+  - ExpoSpeechRecognition (56.0.1):
+    - ExpoModulesCore
   - EXUpdatesInterface (57.0.1):
     - ExpoModulesCore
   - FBLazyVector (0.86.0)
@@ -1722,8 +1724,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-voice (3.2.4):
-    - React-Core
   - React-NativeModulesApple (0.86.0):
     - hermes-engine
     - React-callinvoker
@@ -2257,6 +2257,7 @@ DEPENDENCIES:
   - ExpoModulesJSI (from `../../../node_modules/expo-modules-jsi/apple`)
   - ExpoModulesWorklets (from `../../../node_modules/expo-modules-core/ExpoModulesWorklets.podspec`)
   - ExpoSpeech (from `../../../node_modules/expo-speech/ios`)
+  - ExpoSpeechRecognition (from `../../../node_modules/expo-speech-recognition/ios`)
   - EXUpdatesInterface (from `../../../node_modules/expo-updates-interface/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
@@ -2299,7 +2300,6 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - React-mutationobservernativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
-  - "react-native-voice (from `../../../node_modules/@react-native-voice/voice`)"
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-networking (from `../../../node_modules/react-native/ReactCommon/react/networking`)
   - React-oscompat (from `../../../node_modules/react-native/ReactCommon/oscompat`)
@@ -2379,6 +2379,8 @@ EXTERNAL SOURCES:
     :podspec: "../../../node_modules/expo-modules-core/ExpoModulesWorklets.podspec"
   ExpoSpeech:
     :path: "../../../node_modules/expo-speech/ios"
+  ExpoSpeechRecognition:
+    :path: "../../../node_modules/expo-speech-recognition/ios"
   EXUpdatesInterface:
     :path: "../../../node_modules/expo-updates-interface/ios"
   FBLazyVector:
@@ -2462,8 +2464,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
-  react-native-voice:
-    :path: "../../../node_modules/@react-native-voice/voice"
   React-NativeModulesApple:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-networking:
@@ -2563,6 +2563,7 @@ SPEC CHECKSUMS:
   ExpoModulesJSI: 4b5d68bf019c251c2c8b7246aa36306dc381fe7f
   ExpoModulesWorklets: 18419b65da3b14a8df484baccec7dd6dad15387a
   ExpoSpeech: 0e90904e2af5d6f166d4d2ffbdab535686597938
+  ExpoSpeechRecognition: 119acf84448579e53f841d040aad76982f945e2d
   EXUpdatesInterface: 92d2aa5194b6fb93ca8ab749db75665cb28b2e60
   FBLazyVector: b3e7ad108f0d882e30445c5527d774e3fd432f3d
   hermes-engine: a96ad9b7c8fadc9e3530daf4d86df66a6ca5a501
@@ -2604,7 +2605,6 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 2eb3f49d0d8e77b5343455eccd057010b8d38b6b
   React-mutationobservernativemodule: f0a0d5ae9b51caf7becbeabf836d716cfedb6bf2
   react-native-safe-area-context: 6b4966397ada0f7dd481e4486a2ef936834861a1
-  react-native-voice: 908a0eba96c8c3d643e4f98b7232c6557d0a6f9c
   React-NativeModulesApple: a092d89b58f635ebfab88048b0eda9fb516819fd
   React-networking: 968bbbe73590149feb1e72b2af4f6a68e4796ece
   React-oscompat: 0b72a7e926954a0415ccd83e0748b6561fe45367

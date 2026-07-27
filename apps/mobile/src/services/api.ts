@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 import { NativeModules, Platform } from "react-native";
 
 export type TranslateResult = {
@@ -12,6 +13,19 @@ export type BackendHealth = {
   message?: string;
   error?: string;
 };
+
+const translationCache = new Map<string, string>();
+const ttsCache = new Map<string, Uint8Array>();
+const MAX_CACHE_ITEMS = 128;
+
+function remember<K, V>(cache: Map<K, V>, key: K, value: V): V {
+  if (cache.size >= MAX_CACHE_ITEMS) {
+    const firstKey = cache.keys().next().value as K | undefined;
+    if (firstKey !== undefined) cache.delete(firstKey);
+  }
+  cache.set(key, value);
+  return value;
+}
 
 
 function devHostFromMetro(): string | null {
@@ -62,34 +76,25 @@ export async function getBackendHealth(): Promise<BackendHealth> {
 }
 
 
-// ─── Transcription (via backend → Gemini) ────────────────────────────────────
-
-const MIME_MAP: Record<string, string> = {
-  wav: "audio/wav",
-  mp3: "audio/mp3",
-  m4a: "audio/mp4",
-  ogg: "audio/ogg",
-  caf: "audio/x-caf",
-  aac: "audio/aac",
-};
-
-function mimeFromUri(uri: string): string {
-  const ext = uri.split(".").pop()?.toLowerCase() ?? "wav";
-  return MIME_MAP[ext] ?? "audio/wav";
-}
+// ─── Transcription (via backend ASR) ─────────────────────────────────────────
 
 export async function transcribeAudio(
   audioUri: string,
   language: string,
 ): Promise<string> {
+  const result = await transcribeAudioResult(audioUri, language);
+  return result.text;
+}
+
+export async function transcribeAudioResult(
+  audioUri: string,
+  language: string,
+): Promise<{ text: string; language: "en" | "ja" | "unknown" }> {
   try {
     const ext = audioUri.split(".").pop()?.toLowerCase() ?? "wav";
+    const audioFile = new File(audioUri);
     const form = new FormData();
-    form.append("file", {
-      uri: audioUri,
-      name: `recording.${ext}`,
-      type: mimeFromUri(audioUri),
-    } as any);
+    form.append("file", audioFile as unknown as Blob, `recording.${ext}`);
     form.append("language", language);
 
     const res = await fetch(`${baseUrl()}/transcribe`, {
@@ -99,10 +104,24 @@ export async function transcribeAudio(
 
     if (res.ok) {
       const json = await res.json();
-      if (json.ok && json.text) return json.text;
+      if (json.ok) {
+        return {
+          text: typeof json.text === "string" ? json.text : "",
+          language: json.language === "ja" || json.language === "en" ? json.language : "unknown",
+        };
+      }
     }
-  } catch { /* ignore */ }
-  return "";
+
+    let message = "Speech server unavailable.";
+    try {
+      const json = await res.json();
+      message = typeof json.detail === "string" ? json.detail : message;
+    } catch { /* ignore */ }
+    throw new Error(message);
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("Speech server unavailable.");
+  }
 }
 
 
@@ -141,6 +160,9 @@ export async function translateTextViaApi(
   const normalizedText = text.trim();
   if (!normalizedText) return "";
   if (sourceLang === targetLang) return normalizedText;
+  const cacheKey = `${sourceLang}->${targetLang}:${normalizedText}`;
+  const cached = translationCache.get(cacheKey);
+  if (cached) return cached;
 
   const translated = await translateViaBackend(
     normalizedText,
@@ -150,7 +172,7 @@ export async function translateTextViaApi(
   if (!translated) {
     throw new Error("Translation server unavailable. Start the QuickVoice Python server and try again.");
   }
-  return translated;
+  return remember(translationCache, cacheKey, translated);
 }
 
 export async function synthesizeSpeechViaApi(
@@ -162,6 +184,9 @@ export async function synthesizeSpeechViaApi(
   if (!normalizedText) {
     throw new Error("Speech text cannot be blank.");
   }
+  const cacheKey = `${language}:${speed.toFixed(2)}:${normalizedText}`;
+  const cached = ttsCache.get(cacheKey);
+  if (cached) return cached;
 
   const response = await fetch(`${baseUrl()}/tts`, {
     method: "POST",
@@ -180,7 +205,7 @@ export async function synthesizeSpeechViaApi(
     throw new Error(message);
   }
 
-  return new Uint8Array(await response.arrayBuffer());
+  return remember(ttsCache, cacheKey, new Uint8Array(await response.arrayBuffer()));
 }
 
 
