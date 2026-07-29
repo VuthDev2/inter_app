@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "QuickVoice",
+    "slug": "quickvoice-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/app-icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "quickvoice",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.quickvoicemobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#0F766E"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "package": "com.anonymous.quickvoicemobile"
+    },
+    "extra": {},
+    "web": {
+      "favicon": "./assets/logo.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow QuickVoice to access the microphone for real-time interpretation."
+        }
+      ],
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow QuickVoice to access the microphone for live interpretation.",
+          "speechRecognitionPermission": "Allow QuickVoice to recognize speech for live interpretation."
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+.env
+.venv*/
+tts/kokoro_models/
+__pycache__/
+*.py[cod]
