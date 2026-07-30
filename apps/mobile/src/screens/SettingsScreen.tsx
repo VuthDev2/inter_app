@@ -6,15 +6,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { Tab } from "../../App";
 import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
+import { useTranslation } from "../i18n/I18nContext";
 import { colors } from "../theme/theme";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
-type SettingsDetail = "theme" | "text-size" | "language";
+type SettingsDetail = "theme" | "text-size" | "language" | "ui-language";
 
 export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveTab: (tab: Tab) => void; onPrivacySecurity?: () => void }) {
+  const { t } = useTranslation();
   const { signOut, user } = useAuth();
   const {
     appearance_mode: appearanceMode,
+    ui_language: uiLanguage,
     auto_speak: autoSpeak,
     preferred_source_lang: preferredSource,
     session_alerts: sessionAlerts,
@@ -54,48 +57,49 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
           </View>
         </View>
         <View style={styles.profileCopy}>
-          <Text style={styles.profileEyebrow}>QUICKVOICE ACCOUNT</Text>
+          <Text style={styles.profileEyebrow}>{t("settings.accountEyebrow")}</Text>
           <Text numberOfLines={1} style={[styles.profileName, dark && styles.textDark]}>{displayName}</Text>
           <Text numberOfLines={1} style={[styles.profileEmail, dark && styles.secondaryTextDark]}>{email}</Text>
           <View style={styles.manageProfile}>
-            <Text style={styles.manageProfileText}>Manage profile</Text>
+            <Text style={styles.manageProfileText}>{t("settings.manageProfile")}</Text>
             <Ionicons name="arrow-forward" size={13} color="#007AFF" />
           </View>
         </View>
       </Pressable>
 
-      <SettingsGroup dark={dark} label="ACCOUNT">
-        <SettingRow dark={dark} icon="person-outline" title="My Profile" subtitle="Display name and account information" onPress={() => setActiveTab("profile")} />
-        <SettingRow dark={dark} divider icon="shield-checkmark-outline" title="Privacy & Security" subtitle="Email, password, privacy, and stored data" onPress={onPrivacySecurity ?? (() => {})} />
+      <SettingsGroup dark={dark} label={t("settings.account")}>
+        <SettingRow dark={dark} icon="person-outline" title={t("settings.myProfile")} subtitle={t("settings.profileSubtitle")} onPress={() => setActiveTab("profile")} />
+        <SettingRow dark={dark} divider icon="shield-checkmark-outline" title={t("settings.privacy")} subtitle={t("settings.privacySubtitle")} onPress={onPrivacySecurity ?? (() => {})} />
       </SettingsGroup>
 
-      <SettingsGroup dark={dark} label="APPEARANCE">
+      <SettingsGroup dark={dark} label={t("settings.appearance")}>
         <NavigationSettingRow
           dark={dark}
           icon="contrast-outline"
-          title="Theme"
-          subtitle="Choose how QuickVoice looks"
-          value={appearanceMode === "system" ? "System" : appearanceMode === "dark" ? "Dark" : "Light"}
+          title={t("settings.theme")}
+          subtitle={t("settings.themeSubtitle")}
+          value={appearanceMode === "system" ? t("settings.system") : appearanceMode === "dark" ? t("settings.dark") : t("settings.light")}
           onPress={() => setDetail("theme")}
         />
         <NavigationSettingRow
           dark={dark}
           divider
           icon="text-outline"
-          title="Text size"
-          subtitle="Conversation and transcript readability"
-          value={textSize === "default" ? "Default" : textSize === "large" ? "Large" : "Small"}
+          title={t("settings.textSize")}
+          subtitle={t("settings.textSizeSubtitle")}
+          value={textSize === "default" ? t("settings.default") : textSize === "large" ? t("settings.large") : t("settings.small")}
           onPress={() => setDetail("text-size")}
         />
+        <NavigationSettingRow dark={dark} divider icon="globe-outline" title={t("settings.appLanguage")} subtitle={t("settings.appLanguageSubtitle")} value={uiLanguage === "ja" ? t("common.japanese") : t("common.english")} onPress={() => setDetail("ui-language")} />
       </SettingsGroup>
 
-      <SettingsGroup dark={dark} label="TRANSLATION">
+      <SettingsGroup dark={dark} label={t("settings.translation")}>
         <NavigationSettingRow
           dark={dark}
           icon="language-outline"
-          title="My language"
-          subtitle="Default language for new conversations"
-          value={preferredSource === "ja" ? "Japanese" : "English"}
+          title={t("settings.language")}
+          subtitle={t("settings.languageSubtitle")}
+          value={preferredSource === "ja" ? t("common.japanese") : t("common.english")}
           onPress={() => setDetail("language")}
         />
 
@@ -103,8 +107,8 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
           dark={dark}
           divider
           icon="volume-high-outline"
-          title="Speak translations"
-          subtitle="Play translated speech automatically"
+          title={t("settings.speak")}
+          subtitle={t("settings.speakSubtitle")}
           trailing={
             <Switch
               ios_backgroundColor="#D8DCE2"
@@ -117,12 +121,12 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
         />
       </SettingsGroup>
 
-      <SettingsGroup dark={dark} label="NOTIFICATIONS">
+      <SettingsGroup dark={dark} label={t("settings.notifications")}>
         <SettingRow
           dark={dark}
           icon="notifications-outline"
-          title="Notifications"
-          subtitle="Session alerts and important updates"
+          title={t("settings.notificationsTitle")}
+          subtitle={t("settings.notificationsSubtitle")}
           trailing={
             <Switch
               ios_backgroundColor="#D8DCE2"
@@ -135,14 +139,14 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
         />
       </SettingsGroup>
 
-      <SettingsGroup dark={dark} label="SUPPORT">
-        <SettingRow dark={dark} icon="help-circle-outline" title="Help & Support" subtitle="FAQs and contact support" onPress={() => Alert.alert("Help & Support", "QuickVoice support options will be available here.")} />
-        <SettingRow dark={dark} divider icon="information-circle-outline" title="About QuickVoice" subtitle="Version 1.0" onPress={() => Alert.alert("About QuickVoice", "QuickVoice · Version 1.0")} />
+      <SettingsGroup dark={dark} label={t("settings.support")}>
+        <SettingRow dark={dark} icon="help-circle-outline" title={t("settings.help")} subtitle={t("settings.helpSubtitle")} onPress={() => Alert.alert(t("settings.help"), t("settings.helpMessage"))} />
+        <SettingRow dark={dark} divider icon="information-circle-outline" title={t("settings.about")} subtitle={t("settings.version")} onPress={() => Alert.alert(t("settings.about"), t("settings.aboutMessage"))} />
       </SettingsGroup>
 
       <Pressable accessibilityRole="button" onPress={signOut} style={({ pressed }) => [styles.logoutButton, pressed && styles.logoutPressed]}>
         <Ionicons name="log-out-outline" size={20} color="#D33A3A" />
-        <Text style={styles.logoutText}>Log Out</Text>
+        <Text style={styles.logoutText}>{t("settings.logout")}</Text>
       </Pressable>
 
       <Modal
@@ -155,10 +159,12 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
           dark={dark}
           detail={detail}
           appearanceMode={appearanceMode}
+          uiLanguage={uiLanguage}
           preferredSource={preferredSource}
           textSize={textSize}
           onBack={() => setDetail(null)}
           onAppearanceChange={(value) => update({ appearance_mode: value })}
+          onUiLanguageChange={(value) => update({ ui_language: value })}
           onLanguageChange={(value) => update({
             preferred_source_lang: value,
             preferred_target_lang: value === "en" ? "ja" : "en",
@@ -235,8 +241,10 @@ function SettingsDetailScreen({
   onBack,
   onLanguageChange,
   onTextSizeChange,
+  onUiLanguageChange,
   preferredSource,
   textSize,
+  uiLanguage,
 }: {
   appearanceMode: "system" | "light" | "dark";
   dark: boolean;
@@ -245,53 +253,65 @@ function SettingsDetailScreen({
   onBack: () => void;
   onLanguageChange: (value: "en" | "ja") => void;
   onTextSizeChange: (value: "small" | "default" | "large") => void;
+  onUiLanguageChange: (value: "en" | "ja") => void;
   preferredSource: string;
   textSize: "small" | "default" | "large";
+  uiLanguage: "en" | "ja";
 }) {
+  const { t } = useTranslation();
   if (!detail) return null;
 
   const configuration = detail === "theme"
     ? {
-        title: "Theme",
-        body: "Choose how QuickVoice appears. System automatically matches your iPhone.",
+        title: t("settings.theme"),
+        body: t("settings.themeBody"),
         selected: appearanceMode,
         options: [
-          { label: "System", value: "system", subtitle: "Match your iPhone appearance", icon: "phone-portrait-outline" as IconName },
-          { label: "Light", value: "light", subtitle: "Always use the light appearance", icon: "sunny-outline" as IconName },
-          { label: "Dark", value: "dark", subtitle: "Always use the dark appearance", icon: "moon-outline" as IconName },
+          { label: t("settings.system"), value: "system", subtitle: t("settings.systemSubtitle"), icon: "phone-portrait-outline" as IconName },
+          { label: t("settings.light"), value: "light", subtitle: t("settings.lightSubtitle"), icon: "sunny-outline" as IconName },
+          { label: t("settings.dark"), value: "dark", subtitle: t("settings.darkSubtitle"), icon: "moon-outline" as IconName },
         ],
       }
     : detail === "text-size"
       ? {
-          title: "Text Size",
-          body: "Choose a comfortable size for conversations and transcripts.",
+          title: t("settings.textSize"),
+          body: t("settings.textSizeBody"),
           selected: textSize,
           options: [
-            { label: "Small", value: "small", subtitle: "Show more content on screen", icon: "text-outline" as IconName },
-            { label: "Default", value: "default", subtitle: "Recommended for most people", icon: "text-outline" as IconName },
-            { label: "Large", value: "large", subtitle: "Make conversation text easier to read", icon: "text-outline" as IconName },
+            { label: t("settings.small"), value: "small", subtitle: t("settings.smallSubtitle"), icon: "text-outline" as IconName },
+            { label: t("settings.default"), value: "default", subtitle: t("settings.defaultSubtitle"), icon: "text-outline" as IconName },
+            { label: t("settings.large"), value: "large", subtitle: t("settings.largeSubtitle"), icon: "text-outline" as IconName },
           ],
         }
-      : {
-          title: "My Language",
-          body: "This becomes your starting language in new Live Interpreter conversations.",
+      : detail === "ui-language" ? {
+          title: t("settings.appLanguage"),
+          body: t("settings.appLanguageBody"),
+          selected: uiLanguage,
+          options: [
+            { label: t("common.english"), value: "en", subtitle: "English", icon: "globe-outline" as IconName },
+            { label: t("common.japanese"), value: "ja", subtitle: "日本語", icon: "globe-outline" as IconName },
+          ],
+        } : {
+          title: t("settings.language"),
+          body: t("settings.languageBody"),
           selected: preferredSource,
           options: [
-            { label: "English", value: "en", subtitle: "English (United States)", icon: "language-outline" as IconName },
-            { label: "Japanese", value: "ja", subtitle: "日本語", icon: "language-outline" as IconName },
+            { label: t("common.english"), value: "en", subtitle: "English (United States)", icon: "language-outline" as IconName },
+            { label: t("common.japanese"), value: "ja", subtitle: "日本語", icon: "language-outline" as IconName },
           ],
         };
 
   const select = (value: string) => {
     if (detail === "theme") onAppearanceChange(value as "system" | "light" | "dark");
     else if (detail === "text-size") onTextSizeChange(value as "small" | "default" | "large");
+    else if (detail === "ui-language") onUiLanguageChange(value as "en" | "ja");
     else onLanguageChange(value as "en" | "ja");
   };
 
   return (
     <SafeAreaView style={[styles.detailPage, dark && styles.detailPageDark]}>
       <View style={styles.detailHeader}>
-        <Pressable accessibilityLabel="Back to Settings" onPress={onBack} style={({ pressed }) => [styles.backButton, dark && styles.backButtonDark, pressed && styles.profilePressed]}>
+        <Pressable accessibilityLabel={t("privacy.back")} onPress={onBack} style={({ pressed }) => [styles.backButton, dark && styles.backButtonDark, pressed && styles.profilePressed]}>
           <Ionicons name="chevron-back" size={23} color={dark ? "#F5F7FA" : "#171A20"} />
         </Pressable>
         <Text style={[styles.detailTitle, dark && styles.textDark]}>{configuration.title}</Text>

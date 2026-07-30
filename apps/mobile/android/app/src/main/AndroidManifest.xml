@@ -12,6 +12,15 @@
       <category android:name="android.intent.category.BROWSABLE"/>
       <data android:scheme="https"/>
     </intent>
+    <!-- Android 11+ package visibility. Without these the app cannot see any
+         installed RecognitionService, so SpeechRecognizer finds no recognizer
+         and live interpretation fails to start on every device. Added by the
+         expo-speech-recognition config plugin; kept here because this project
+         checks in its own android/ directory. -->
+    <package android:name="com.google.android.googlequicksearchbox"/>
+    <intent>
+      <action android:name="android.speech.RecognitionService"/>
+    </intent>
   </queries>
   <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false">
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>

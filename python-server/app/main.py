@@ -76,6 +76,11 @@ async def lifespan(app: FastAPI):
     )
     app.state.model.to(app.state.device)
     app.state.model.eval()
+    # Pay framework/kernel initialization during server startup rather than on
+    # the first live sentence. Warm both supported directions because MPS/CUDA
+    # may compile different generation paths for each target token.
+    await asyncio.to_thread(run_translation, "Ready.", "eng_Latn", "jpn_Jpan")
+    await asyncio.to_thread(run_translation, "準備完了。", "jpn_Jpan", "eng_Latn")
     yield
 
 
@@ -171,6 +176,7 @@ async def translate(payload: TranslationRequest) -> TranslationResponse:
 async def transcribe(
     file: UploadFile = File(...),
     language: str = Form(default="auto"),
+    expected: str = Form(default=""),
 ) -> TranscriptionResponse:
     audio = await file.read()
     if not audio:
@@ -179,7 +185,9 @@ async def transcribe(
     suffix = Path(file.filename or "recording.m4a").suffix or ".m4a"
 
     try:
-        result = await asyncio.to_thread(asr_service.transcribe, audio, suffix, language)
+        result = await asyncio.to_thread(
+            asr_service.transcribe, audio, suffix, language, expected.strip().lower() or None
+        )
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except Exception as error:

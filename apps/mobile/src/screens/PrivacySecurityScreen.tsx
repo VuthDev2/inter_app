@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
 import { appStorage } from "../services/nativeStorage";
+import { useTranslation } from "../i18n/I18nContext";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -69,6 +70,7 @@ export function PrivacySecurityScreen({
   onChangeEmail: () => void;
   onChangePassword: () => void;
 }) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { appearance_mode: appearanceMode } = usePreferences();
   const systemScheme = useColorScheme();
@@ -76,16 +78,16 @@ export function PrivacySecurityScreen({
 
   const deleteLocalData = () => {
     Alert.alert(
-      "Delete local QuickVoice data?",
-      "This removes conversations, recordings, custom categories, and preferences stored on this phone. Your account is not deleted.",
+      t("privacy.clearConfirm"),
+      t("privacy.clearConfirmBody"),
       [
-        { style: "cancel", text: "Cancel" },
+        { style: "cancel", text: t("common.cancel") },
         {
           style: "destructive",
-          text: "Delete",
+          text: t("privacy.delete"),
           onPress: () => {
             void appStorage.clearQuickVoiceData().then(() => {
-              Alert.alert("Local data deleted", "QuickVoice data stored on this phone has been removed.");
+              Alert.alert(t("privacy.clearDone"), t("privacy.clearDoneBody"));
             });
           },
         },
@@ -96,10 +98,10 @@ export function PrivacySecurityScreen({
   return (
     <SafeAreaView style={[styles.page, dark && styles.pageDark]}>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="Back to Settings" onPress={onBack} style={[styles.backButton, dark && styles.backButtonDark]}>
+        <Pressable accessibilityLabel={t("privacy.back")} onPress={onBack} style={[styles.backButton, dark && styles.backButtonDark]}>
           <Ionicons name="chevron-back" size={23} color={dark ? "#F5F7FA" : "#171A20"} />
         </Pressable>
-        <Text style={[styles.title, dark && styles.textDark]}>Privacy & Security</Text>
+        <Text style={[styles.title, dark && styles.textDark]}>{t("privacy.title")}</Text>
         <View style={styles.backPlaceholder} />
       </View>
 
@@ -109,42 +111,42 @@ export function PrivacySecurityScreen({
             <Ionicons name="shield-checkmark" size={27} color="#007AFF" />
           </View>
           <View style={styles.rowCopy}>
-            <Text style={[styles.summaryTitle, dark && styles.textDark]}>Account protection</Text>
+            <Text style={[styles.summaryTitle, dark && styles.textDark]}>{t("privacy.accountProtection")}</Text>
             <Text numberOfLines={1} style={[styles.summaryEmail, dark && styles.secondaryTextDark]}>{user?.email}</Text>
           </View>
         </View>
 
-        <Group dark={dark} label="ACCOUNT SECURITY">
-          <SecurityRow dark={dark} icon="mail-outline" onPress={onChangeEmail} subtitle="Verify and replace your account email" title="Change Email" />
-          <SecurityRow dark={dark} divider icon="key-outline" onPress={onChangePassword} subtitle="Confirm your current password first" title="Change Password" />
+        <Group dark={dark} label={t("privacy.accountSecurity")}>
+          <SecurityRow dark={dark} icon="mail-outline" onPress={onChangeEmail} subtitle={t("privacy.changeEmailSubtitle")} title={t("privacy.changeEmail")} />
+          <SecurityRow dark={dark} divider icon="key-outline" onPress={onChangePassword} subtitle={t("privacy.changePasswordSubtitle")} title={t("privacy.changePassword")} />
         </Group>
 
-        <Group dark={dark} label="DATA & BACKUP">
+        <Group dark={dark} label={t("privacy.dataBackup")}>
           <SecurityRow
             dark={dark}
             icon="cloud-upload-outline"
-            onPress={() => Alert.alert("Coming soon", "Cloud backup will be connected when the QuickVoice database is ready. Your data remains stored locally for now.")}
-            subtitle="Store conversations and recordings securely"
-            title="Cloud Backup & Sync"
-            trailing={<View style={styles.comingSoon}><Text style={styles.comingSoonText}>COMING SOON</Text></View>}
+            onPress={() => Alert.alert(t("privacy.comingSoon"), t("privacy.cloudBackupMessage"))}
+            subtitle={t("privacy.cloudBackupSubtitle")}
+            title={t("privacy.cloudBackup")}
+            trailing={<View style={styles.comingSoon}><Text style={styles.comingSoonText}>{t("privacy.comingSoon").toUpperCase()}</Text></View>}
           />
-          <SecurityRow dark={dark} divider destructive icon="trash-outline" onPress={deleteLocalData} subtitle="Remove QuickVoice content from this phone" title="Delete Local Data" />
+          <SecurityRow dark={dark} divider destructive icon="trash-outline" onPress={deleteLocalData} subtitle={t("privacy.deleteLocalSubtitle")} title={t("privacy.deleteLocal")} />
         </Group>
 
-        <Group dark={dark} label="ACCOUNT DATA">
+        <Group dark={dark} label={t("privacy.accountData")}>
           <SecurityRow
             dark={dark}
             destructive
             icon="person-remove-outline"
-            onPress={() => Alert.alert("Not connected yet", "Deleting the account and cloud data will be available when the database deletion service is ready.")}
-            subtitle="Permanently remove your account and cloud data"
-            title="Delete Account & Data"
-            trailing={<Text style={[styles.unavailable, dark && styles.secondaryTextDark]}>Unavailable</Text>}
+            onPress={() => Alert.alert(t("privacy.notConnected"), t("privacy.deleteAccountMessage"))}
+            subtitle={t("privacy.deleteAccountSubtitle")}
+            title={t("privacy.deleteAccount")}
+            trailing={<Text style={[styles.unavailable, dark && styles.secondaryTextDark]}>{t("privacy.unavailable")}</Text>}
           />
         </Group>
 
         <Text style={[styles.footerNote, dark && styles.secondaryTextDark]}>
-          QuickVoice currently keeps conversation data on this device. Cloud controls are shown now so they can be connected without redesigning this page later.
+          {t("privacy.footer")}
         </Text>
       </ScrollView>
     </SafeAreaView>

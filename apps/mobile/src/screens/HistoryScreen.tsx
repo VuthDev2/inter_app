@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, AppState, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 
-import { languages, type SavedRecordingSession } from "../constants/data";
+import { type SavedRecordingSession } from "../constants/data";
 import { usePreferences } from "../features/preferences/context";
+import { useTranslation } from "../i18n/I18nContext";
 import TTSService from "../features/live-interpreter/services/tts/TTSService";
 import {
   loadLiveSessions,
@@ -14,103 +15,8 @@ import { supabase } from "../services/supabase";
 import { colors } from "../theme/theme";
 
 type AnyLiveSession = LiveSession;
-type HistoryKind = "conversations" | "recordings" | "extension";
+export type HistoryKind = "conversations" | "recordings" | "extension";
 type DateGroup<T> = { label: "Today" | "Yesterday" | "Last Week" | "Older"; items: T[] };
-
-const EXTENSION_SAMPLES: SavedRecordingSession[] = [
-  {
-    id: "extension-sample-1",
-    recordingType: "meeting",
-    title: "Team conversation",
-    description: "Sample extension session",
-    transcript: "Discussing the next project milestone and responsibilities.",
-    sourceAudio: false,
-    status: "saved",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "extension-sample-2",
-    recordingType: "conference",
-    title: "Project discussion",
-    description: "Sample extension session",
-    transcript: "A short preview of the translated project discussion.",
-    sourceAudio: false,
-    status: "saved",
-    createdAt: new Date(Date.now() - 86_400_000).toISOString(),
-  },
-];
-
-const CONVERSATION_SAMPLES: AnyLiveSession[] = [
-  {
-    id: "conversation-sample-1",
-    sourceLang: "en",
-    targetLang: "ja",
-    mode: "two-way",
-    createdAt: new Date().toISOString(),
-    endedAt: new Date().toISOString(),
-    utterances: [
-      {
-        id: "conversation-sample-message-1",
-        original: "Hello, how are you?",
-        translation: "こんにちは、お元気ですか？",
-        sourceLang: "en",
-        targetLang: "ja",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "conversation-sample-message-2",
-        original: "元気です。ありがとうございます。",
-        translation: "I’m well, thank you.",
-        sourceLang: "ja",
-        targetLang: "en",
-        createdAt: new Date().toISOString(),
-      },
-    ],
-  },
-  {
-    id: "conversation-sample-2",
-    sourceLang: "ja",
-    targetLang: "en",
-    mode: "one-way",
-    createdAt: new Date(Date.now() - 86_400_000).toISOString(),
-    endedAt: new Date(Date.now() - 86_400_000).toISOString(),
-    utterances: [
-      {
-        id: "conversation-sample-message-3",
-        original: "今日はいい天気ですね。",
-        translation: "The weather is nice today.",
-        sourceLang: "ja",
-        targetLang: "en",
-        createdAt: new Date(Date.now() - 86_400_000).toISOString(),
-      },
-    ],
-  },
-];
-
-const RECORDING_SAMPLES: SavedRecordingSession[] = [
-  {
-    id: "recording-sample-1",
-    recordingType: "lecture",
-    title: "School Recording",
-    description: "Sample school recording",
-    transcript: "Mathematics helps us solve problems in everyday life.",
-    sourceAudio: true,
-    status: "saved",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "recording-sample-2",
-    recordingType: "meeting",
-    title: "Work Recording",
-    description: "Sample work recording",
-    transcript: "The team agreed on the next project milestone.",
-    sourceAudio: true,
-    status: "saved",
-    createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
-  },
-];
-
-const languageLabel = (code: string) => languages.find((item) => item.code === code)?.label ?? code.toUpperCase();
 
 function groupByDate<T extends { createdAt: string }>(items: T[]): DateGroup<T>[] {
   const today = new Date();
@@ -132,11 +38,12 @@ function groupByDate<T extends { createdAt: string }>(items: T[]): DateGroup<T>[
     .filter((group) => group.items.length > 0);
 }
 
-export function HistoryScreen() {
+export function HistoryScreen({ initialKind = "conversations" }: { initialKind?: HistoryKind }) {
+  const { t } = useTranslation();
   const { appearance_mode: appearanceMode, tts_speed: ttsSpeed } = usePreferences();
   const systemScheme = useColorScheme();
   const dark = appearanceMode === "dark" || (appearanceMode === "system" && systemScheme === "dark");
-  const [kind, setKind] = useState<HistoryKind>("conversations");
+  const [kind, setKind] = useState<HistoryKind>(initialKind);
   const [recordings, setRecordings] = useState<SavedRecordingSession[]>([]);
   const [liveSessions, setLiveSessions] = useState<AnyLiveSession[]>([]);
   const [selected, setSelected] = useState<AnyLiveSession | null>(null);
@@ -253,20 +160,20 @@ export function HistoryScreen() {
     return (
       <Animated.View style={[styles.detail, dark && styles.detailDark, { opacity: detailAnim, transform: [{ translateX: detailAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>
         <View style={styles.detailHeader}>
-          <Pressable accessibilityLabel="Back to history" onPress={closeConversation} style={[styles.backButton, dark && styles.backButtonDark]}><Ionicons name="chevron-back" size={20} color={dark ? "#F5F7FA" : "#171A20"} /></Pressable>
+          <Pressable accessibilityLabel={t("history.back")} onPress={closeConversation} style={[styles.backButton, dark && styles.backButtonDark]}><Ionicons name="chevron-back" size={20} color={dark ? "#F5F7FA" : "#171A20"} /></Pressable>
           <View style={styles.detailHeading}>
-            <Text style={[styles.detailTitle, dark && styles.detailTitleDark]}>{languageLabel(selected.sourceLang)} ↔ {languageLabel(selected.targetLang)}</Text>
-            <Text style={[styles.detailMeta, dark && styles.detailMetaDark]}>{new Date(selected.createdAt).toLocaleString()} · {selected.utterances.length} messages</Text>
+            <Text style={[styles.detailTitle, dark && styles.detailTitleDark]}>{t(selected.sourceLang === "ja" ? "common.japanese" : "common.english")} ↔ {t(selected.targetLang === "ja" ? "common.japanese" : "common.english")}</Text>
+            <Text style={[styles.detailMeta, dark && styles.detailMetaDark]}>{new Date(selected.createdAt).toLocaleString()} · {t("history.messageCount", { count: selected.utterances.length })}</Text>
           </View>
         </View>
         <View style={[styles.segmented, dark && styles.segmentedDark]}>
-          <View style={[styles.segment, styles.segmentActive, dark && styles.segmentActiveDark]}><Text style={[styles.segmentText, dark && styles.segmentTextDark, styles.segmentTextActive, dark && styles.segmentTextActiveDark]}>Conversation</Text></View>
-          <View style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark]}>Voice Record</Text></View>
-          <View style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark]}>Extension</Text></View>
+          <View style={[styles.segment, styles.segmentActive, dark && styles.segmentActiveDark]}><Text style={[styles.segmentText, dark && styles.segmentTextDark, styles.segmentTextActive, dark && styles.segmentTextActiveDark]}>{t("history.conversation")}</Text></View>
+          <View style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark]}>{t("history.voiceRecord")}</Text></View>
+          <View style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark]}>{t("history.extension")}</Text></View>
         </View>
 
         {selected.utterances.length === 0 ? (
-          <View style={[styles.emptyState, dark && styles.emptyStateDark]}><Ionicons name="chatbubbles-outline" size={28} color={dark ? "#8F98A5" : "#A3AAB5"} /><Text style={[styles.emptyTitle, dark && styles.emptyTitleDark]}>No transcript available</Text><Text style={[styles.emptyCopy, dark && styles.emptyCopyDark]}>This synced session does not include conversation text on this device.</Text></View>
+          <View style={[styles.emptyState, dark && styles.emptyStateDark]}><Ionicons name="chatbubbles-outline" size={28} color={dark ? "#8F98A5" : "#A3AAB5"} /><Text style={[styles.emptyTitle, dark && styles.emptyTitleDark]}>{t("history.noTranscript")}</Text><Text style={[styles.emptyCopy, dark && styles.emptyCopyDark]}>{t("history.noTranscriptMessage")}</Text></View>
         ) : selected.utterances.map((utterance, index) => {
           const isExpanded = expanded.has(utterance.id);
           const isLong = utterance.original.length + utterance.translation.length > 240;
@@ -275,14 +182,14 @@ export function HistoryScreen() {
           return (
             <View key={utterance.id} style={[styles.messageRow, fromJapanese && styles.messageRowReverse]}>
               <View style={[styles.messageCard, dark && styles.messageCardDark, isLatest && styles.latestCard, isLatest && dark && styles.latestCardDark]}>
-                {isLatest ? <Text style={[styles.latestPill, dark && styles.latestPillDark]}>LATEST</Text> : null}
+                {isLatest ? <Text style={[styles.latestPill, dark && styles.latestPillDark]}>{t("history.latest").toUpperCase()}</Text> : null}
                 <Text numberOfLines={isExpanded ? undefined : 4} style={[styles.originalText, dark && styles.originalTextDark, utterance.sourceLang === "ja" && styles.japaneseText]}>{utterance.original}</Text>
                 <View style={[styles.divider, dark && styles.dividerDark]} />
                 <Text numberOfLines={isExpanded ? undefined : 4} style={[styles.translationText, dark && styles.translationTextDark, utterance.targetLang !== "ja" && styles.englishText, utterance.targetLang !== "ja" && dark && styles.englishTextDark]}>{utterance.translation}</Text>
-                {isLong ? <Pressable onPress={() => setExpanded((current) => { const next = new Set(current); next.has(utterance.id) ? next.delete(utterance.id) : next.add(utterance.id); return next; })}><Text style={styles.moreText}>{isExpanded ? "Show less" : "Show more"}</Text></Pressable> : null}
+                {isLong ? <Pressable onPress={() => setExpanded((current) => { const next = new Set(current); next.has(utterance.id) ? next.delete(utterance.id) : next.add(utterance.id); return next; })}><Text style={styles.moreText}>{t(isExpanded ? "history.showLess" : "history.showMore")}</Text></Pressable> : null}
               </View>
               <Pressable
-                accessibilityLabel={`Play ${languageLabel(utterance.targetLang)} translation`}
+                accessibilityLabel={t("history.playTranslation", { language: t(utterance.targetLang === "ja" ? "common.japanese" : "common.english") })}
                 onPress={() => {
                   const language = utterance.targetLang === "ja" ? "ja" : "en";
                   void TTSService.speak(utterance.translation, language, ttsSpeed);
@@ -299,8 +206,8 @@ export function HistoryScreen() {
   }
 
   const groups = kind === "conversations"
-    ? groupByDate(liveSessions.length > 0 ? liveSessions : CONVERSATION_SAMPLES)
-    : groupByDate(kind === "recordings" ? (recordings.length > 0 ? recordings : RECORDING_SAMPLES) : EXTENSION_SAMPLES);
+    ? groupByDate(liveSessions)
+    : groupByDate(kind === "recordings" ? recordings : []);
 
   return (
     <View style={[styles.page, dark && styles.pageDark]}>
@@ -318,16 +225,16 @@ export function HistoryScreen() {
             ]}
           />
         ) : null}
-        <Pressable onPress={() => setKind("conversations")} style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark, kind === "conversations" && styles.segmentTextActive, kind === "conversations" && dark && styles.segmentTextActiveDark]}>Conversations</Text></Pressable>
-        <Pressable onPress={() => setKind("recordings")} style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark, kind === "recordings" && styles.segmentTextActive, kind === "recordings" && dark && styles.segmentTextActiveDark]}>Voice Records</Text></Pressable>
-        <Pressable onPress={() => setKind("extension")} style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark, kind === "extension" && styles.segmentTextActive, kind === "extension" && dark && styles.segmentTextActiveDark]}>Extension</Text></Pressable>
+        <Pressable onPress={() => setKind("conversations")} style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark, kind === "conversations" && styles.segmentTextActive, kind === "conversations" && dark && styles.segmentTextActiveDark]}>{t("history.conversations")}</Text></Pressable>
+        <Pressable onPress={() => setKind("recordings")} style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark, kind === "recordings" && styles.segmentTextActive, kind === "recordings" && dark && styles.segmentTextActiveDark]}>{t("history.voiceRecords")}</Text></Pressable>
+        <Pressable onPress={() => setKind("extension")} style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark, kind === "extension" && styles.segmentTextActive, kind === "extension" && dark && styles.segmentTextActiveDark]}>{t("history.extension")}</Text></Pressable>
       </View>
 
-      {loading ? <Text style={styles.loading}>Loading history…</Text> : groups.length === 0 ? (
-        <View style={[styles.emptyState, dark && styles.emptyStateDark]}><Ionicons name="time-outline" size={30} color={dark ? "#8F98A5" : "#A3AAB5"} /><Text style={[styles.emptyTitle, dark && styles.emptyTitleDark]}>No history yet</Text><Text style={[styles.emptyCopy, dark && styles.emptyCopyDark]}>Completed conversations and recordings will appear here.</Text></View>
+      {loading ? <Text style={styles.loading}>{t("history.loading")}</Text> : groups.length === 0 ? (
+        <View style={[styles.emptyState, dark && styles.emptyStateDark]}><Ionicons name="time-outline" size={30} color={dark ? "#8F98A5" : "#A3AAB5"} /><Text style={[styles.emptyTitle, dark && styles.emptyTitleDark]}>{t("history.empty")}</Text><Text style={[styles.emptyCopy, dark && styles.emptyCopyDark]}>{t("history.emptyMessage")}</Text></View>
       ) : groups.map((group) => (
         <View key={group.label} style={styles.group}>
-          <Text style={[styles.groupTitle, dark && styles.groupTitleDark]}>{group.label}</Text>
+          <Text style={[styles.groupTitle, dark && styles.groupTitleDark]}>{t(group.label === "Today" ? "history.today" : group.label === "Yesterday" ? "history.yesterday" : group.label === "Last Week" ? "history.lastWeek" : "history.older")}</Text>
           <View style={[styles.groupList, dark && styles.groupListDark]}>
             {kind === "conversations" ? (group.items as AnyLiveSession[]).map((session, index) => (
               <ConversationRow dark={dark} key={session.id} session={session} divider={index < group.items.length - 1} onPress={() => openConversation(session)} />
@@ -342,15 +249,18 @@ export function HistoryScreen() {
 }
 
 function ConversationRow({ dark, session, divider, onPress }: { dark: boolean; session: AnyLiveSession; divider: boolean; onPress: () => void }) {
+  const { t } = useTranslation();
   const latest = session.utterances[session.utterances.length - 1];
-  const title = latest?.original.trim() || `${languageLabel(session.sourceLang)} conversation`;
-  const preview = latest?.translation.trim() || "Conversation transcript unavailable on this device.";
+  const sourceLanguage = t(session.sourceLang === "ja" ? "common.japanese" : "common.english");
+  const targetLanguage = t(session.targetLang === "ja" ? "common.japanese" : "common.english");
+  const title = latest?.original.trim() || t("history.languageConversation", { language: sourceLanguage });
+  const preview = latest?.translation.trim() || t("history.transcriptUnavailable");
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.historyRow, divider && styles.rowDivider, divider && dark && styles.rowDividerDark, pressed && styles.rowPressed, pressed && dark && styles.rowPressedDark]}>
       <View style={[styles.pairIcon, dark && styles.pairIconDark]}><Ionicons name="chatbubbles-outline" size={19} color="#007AFF" /></View>
       <View style={styles.rowCopy}>
         <View style={styles.rowTop}><Text numberOfLines={1} style={[styles.rowTitle, dark && styles.rowTitleDark]}>{title}</Text><Text style={[styles.rowTime, dark && styles.rowTimeDark]}>{new Date(session.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</Text></View>
-        <Text style={[styles.languagePair, dark && styles.languagePairDark]}>{languageLabel(session.sourceLang)} ↔ {languageLabel(session.targetLang)}</Text>
+        <Text style={[styles.languagePair, dark && styles.languagePairDark]}>{sourceLanguage} ↔ {targetLanguage}</Text>
         <Text numberOfLines={1} style={[styles.preview, dark && styles.previewDark]}>{preview}</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={dark ? "#7F8794" : "#A2A9B3"} />

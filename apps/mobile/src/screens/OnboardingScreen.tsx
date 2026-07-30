@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, PanResponder, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, PanResponder } from "react-native";
+import { useVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 
 import {
   AnimatedOnboardingIndicator,
@@ -7,6 +8,17 @@ import {
 } from "../components/onboarding/OnboardingPageLayout";
 
 type OnboardingPage = 1 | 2 | 3;
+
+const pageVideos = [
+  require("../../../../assets/Video-Welcomepage/First-one1.mp4"),
+  require("../../../../assets/Video-Welcomepage/Translate2.mp4"),
+  require("../../../../assets/Video-Welcomepage/liveTranslate3.mp4"),
+];
+
+function loopSilently(player: VideoPlayer) {
+  player.loop = true;
+  player.muted = true;
+}
 
 const pages = [
   {
@@ -16,15 +28,15 @@ const pages = [
     titleLead: "Welcome to",
   },
   {
-    description: "Quick one-way voice translations for fast communication.",
-    featureHeading: "Live Translate",
+    description: "Two-way chat with real-time voice translation, perfect for dialogues.",
+    featureHeading: "Conversation",
     title: "Live Interpretation",
     titleLead: undefined,
   },
   {
-    description: "Two-way chat with real-time voice translation, perfect for dialogues.",
-    featureHeading: "Conversation",
-    title: "Live Interpretation",
+    description: "Record meetings, lectures, and voice notes, then organize them by category.",
+    featureHeading: "Voice Recording",
+    title: "Record & Organize",
     titleLead: undefined,
   },
 ] as const;
@@ -36,6 +48,30 @@ export function OnboardingScreen({ onFinished }: { onFinished: () => void }) {
   const contentProgress = useRef(new Animated.Value(1)).current;
   const transitionRunning = useRef(false);
   const pageContent = pages[page - 1];
+
+  // One decorative loop per page: silent, no controls, and clipped to the
+  // media frame's rounded corners by the frame's own overflow rule. All three
+  // are created up front (hooks cannot be called conditionally) so a swipe
+  // shows the next clip immediately instead of loading it mid-transition.
+  const firstPlayer = useVideoPlayer(pageVideos[0], loopSilently);
+  const secondPlayer = useVideoPlayer(pageVideos[1], loopSilently);
+  const thirdPlayer = useVideoPlayer(pageVideos[2], loopSilently);
+  const pagePlayers = [firstPlayer, secondPlayer, thirdPlayer];
+
+  // Only the visible page plays; the other two would otherwise sit there
+  // decoding frames nobody can see. Leaving a page also rewinds it, so every
+  // page opens on the clip's first frame rather than resuming halfway through
+  // — and the rewind happens while that page is hidden, so it never shows.
+  useEffect(() => {
+    [firstPlayer, secondPlayer, thirdPlayer].forEach((player, index) => {
+      if (index === page - 1) {
+        player.play();
+      } else {
+        player.pause();
+        player.currentTime = 0;
+      }
+    });
+  }, [firstPlayer, page, secondPlayer, thirdPlayer]);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
@@ -54,7 +90,7 @@ export function OnboardingScreen({ onFinished }: { onFinished: () => void }) {
     setTransitionDisabled(true);
 
     Animated.timing(contentProgress, {
-      duration: reduceMotion ? 120 : 140,
+      duration: reduceMotion ? 120 : 300,
       easing: Easing.inOut(Easing.quad),
       toValue: 0,
       useNativeDriver: true,
@@ -67,7 +103,7 @@ export function OnboardingScreen({ onFinished }: { onFinished: () => void }) {
 
       setPage(nextPage);
       Animated.timing(contentProgress, {
-        duration: reduceMotion ? 180 : 200,
+        duration: reduceMotion ? 180 : 440,
         easing: Easing.out(Easing.quad),
         toValue: 1,
         useNativeDriver: true,
@@ -130,8 +166,11 @@ export function OnboardingScreen({ onFinished }: { onFinished: () => void }) {
         />
       )}
       media={(
-        <View
-          accessibilityLabel={`Future onboarding page ${page} media`}
+        <VideoView
+          accessibilityLabel={`Onboarding page ${page} video`}
+          contentFit="cover"
+          nativeControls={false}
+          player={pagePlayers[page - 1]}
           style={{ flex: 1 }}
         />
       )}

@@ -6,6 +6,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -130,7 +131,6 @@ export function AuthTextField({
           pointerEvents="none"
           style={[
             styles.floatingLabel,
-            { width: Math.min(200, Math.max(58, placeholder.length * 9 + 24)) },
             { transform: [{ translateY: labelTranslateY }, { scale: labelScale }] },
           ]}
         >
@@ -212,7 +212,15 @@ function SocialButton({
       onPress={onPress}
       style={({ pressed }) => [styles.socialButton, pressed && styles.socialPressed]}
     >
-      <Ionicons name={icon} size={26} color={iconColor} />
+      {icon === "logo-google" ? (
+        <Image
+          resizeMode="contain"
+          source={require("../../../assets/google.png")}
+          style={styles.socialLogo}
+        />
+      ) : (
+        <Ionicons name={icon} size={26} color={iconColor} />
+      )}
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.82}
@@ -281,6 +289,7 @@ const styles = StyleSheet.create({
   },
   socialPressed: { backgroundColor: "#F5F5F5" },
   socialRow: { flexDirection: "row", gap: 14 },
+  socialLogo: { height: 24, width: 24 },
   socialText: {
     color: "#151515",
     flexShrink: 1,
@@ -308,12 +317,13 @@ const styles = StyleSheet.create({
   passwordTitleSmall: { fontSize: 42, letterSpacing: 0.42, lineHeight: 52 },
   inputContainer: { flex: 1, position: "relative", paddingTop: 10 },
   floatingLabel: {
+    alignSelf: "flex-start",
     backgroundColor: "#FFFFFF",
     color: authColors.muted,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
     lineHeight: 20,
-    paddingHorizontal: 5,
+    paddingHorizontal: 3,
     position: "absolute",
     left: -5,
     top: 17,

@@ -17,7 +17,11 @@ router.post("/transcribe", requireAuth, upload.single("file"), async (req, res) 
     }
 
     const language = req.body.language || "en";
-    const text = await transcribeAudio(file.buffer, file.originalname, language);
+    const { text, language: detectedLanguage } = await transcribeAudio(
+      file.buffer,
+      file.originalname,
+      language,
+    );
 
     if (!text) {
       const keyMissing = !process.env.GEMINI_API_KEY;
@@ -28,7 +32,7 @@ router.post("/transcribe", requireAuth, upload.single("file"), async (req, res) 
       });
     }
 
-    res.json({ ok: true, text });
+    res.json({ ok: true, text, language: detectedLanguage || undefined });
   } catch {
     res.status(500).json({ ok: false, text: "", error: "Transcription failed." });
   }

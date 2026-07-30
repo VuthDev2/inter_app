@@ -8,6 +8,7 @@ import { useAuth } from "../auth/auth";
 const PREFS_CACHE_KEY = "quickvoice.userPreferences";
 
 export type UserPreferences = {
+  ui_language: "en" | "ja";
   appearance_mode: "system" | "light" | "dark";
   text_size: "small" | "default" | "large";
   preferred_source_lang: LanguageCode;
@@ -23,6 +24,7 @@ export type UserPreferences = {
 };
 
 const DEFAULTS: UserPreferences = {
+  ui_language: "en",
   appearance_mode: "system",
   text_size: "default",
   preferred_source_lang: "en",
@@ -77,6 +79,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
         if (data) {
           const next: UserPreferences = {
+            ui_language: cached.ui_language ?? DEFAULTS.ui_language,
             appearance_mode: cached.appearance_mode ?? DEFAULTS.appearance_mode,
             text_size: cached.text_size ?? DEFAULTS.text_size,
             preferred_source_lang: (data.preferred_source_lang ?? DEFAULTS.preferred_source_lang) as LanguageCode,
@@ -111,7 +114,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
           if (supabase && user) {
-            const { appearance_mode: _appearanceMode, text_size: _textSize, ...syncedPreferences } = next;
+            const { appearance_mode: _appearanceMode, text_size: _textSize, ui_language: _uiLanguage, ...syncedPreferences } = next;
             supabase
               .from("user_preferences")
               .upsert({ user_id: user.id, ...syncedPreferences, updated_at: new Date().toISOString() })

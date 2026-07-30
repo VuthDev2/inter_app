@@ -1,12 +1,10 @@
 import {
-  AudioModule,
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-} from "expo-audio";
+  ExpoSpeechRecognitionModule,
+  RecognizerIntentEnableLanguageSwitch,
+  RecognizerIntentExtraLanguageModel,
+} from "expo-speech-recognition";
 import { Platform } from "react-native";
 
-import { transcribeAudioResult } from "../../../../services/api";
 import {
   type SpeechErrorListener,
   type SpeechLanguage,
@@ -17,21 +15,37 @@ import {
   type SpeechSubscription,
 } from "./SpeechTypes";
 
-const TURN_RECORDING_MS = 1450;
+// Endpointing — how long the recognizer waits on silence before deciding the
+// speaker is finished. This is the single biggest source of "why is it so slow
+// to notice I stopped talking", and it bites Japanese hardest: the JS-side
+// turn timer only runs once a partial transcript exists, and the ja-JP model
+// emits partials later and less often than en-US, so Japanese turns routinely
+// fell through to the recognizer's own (much longer) timeout.
+//
+// Lower means snappier turn-taking but a higher chance of cutting someone off
+// mid-sentence — Japanese speakers in particular pause between clauses. These
+// are the tuning knobs if it ever feels clipped.
+const MIN_UTTERANCE_MS = 700;
+const SILENCE_COMPLETE_MS = 1_500;
+const SILENCE_POSSIBLY_COMPLETE_MS = 1_000;
 
 const partialListeners = new Set<SpeechResultListener>();
 const finalListeners = new Set<SpeechResultListener>();
 const errorListeners = new Set<SpeechErrorListener>();
 
-let recorder: InstanceType<typeof AudioModule.AudioRecorder> | null = null;
-let recordingTimer: ReturnType<typeof setTimeout> | null = null;
-let activeTurnId = 0;
-let recorderOperation: Promise<void> = Promise.resolve();
+let activeLanguage: SpeechLanguage = "en-US";
+let recognizing = false;
+let latestTranscript = "";
+let finalDelivered = false;
+// Populated by Android's mid-session language detection (when supported by the
+// device/OS), which knows the actual spoken language even when it differs from
+// the locale recognition was started with. Falls back to script sniffing below.
+let detectedLanguage: { code: "en" | "ja"; confidence: number } | null = null;
 
-function runRecorderOperation(operation: () => Promise<void>): Promise<void> {
-  const next = recorderOperation.catch(() => undefined).then(operation);
-  recorderOperation = next.catch(() => undefined);
-  return next;
+function localeToCode(locale: string): "en" | "ja" | null {
+  if (locale.toLowerCase().startsWith("ja")) return "ja";
+  if (locale.toLowerCase().startsWith("en")) return "en";
+  return null;
 }
 
 function createSubscription<T>(listeners: Set<T>, listener: T): SpeechSubscription {
@@ -39,88 +53,169 @@ function createSubscription<T>(listeners: Set<T>, listener: T): SpeechSubscripti
   return { remove: () => listeners.delete(listener) };
 }
 
-function emitFinal(result: SpeechResult): void {
-  finalListeners.forEach((listener) => listener(result));
+function languageLocale(language: SpeechLanguage): string {
+  if (language === "ja-JP") return "ja-JP";
+  // Native recognizers require a real locale. The caller changes this locale
+  // when the selected conversation language changes.
+  return "en-US";
+}
+
+/**
+ * Language of a transcript, judged by script. Returns null when the text
+ * carries no signal either way (digits, punctuation, symbols) so the caller
+ * can keep the locale recognition was started with instead of defaulting to
+ * English and translating the turn in the wrong direction.
+ */
+function scriptLanguage(transcript: string): "en" | "ja" | null {
+  if (
+    /[\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uff66-\uff9f]/u.test(transcript)
+  ) {
+    return "ja";
+  }
+  return /[A-Za-z]/u.test(transcript) ? "en" : null;
+}
+
+/**
+ * Prefer the recognizer's own mid-session language detection — it knows the
+ * true spoken language even when that differs from the locale recognition was
+ * started with — over sniffing the transcript's script, which cannot see a
+ * transcript that the wrong locale's model already rendered in its own script.
+ */
+function resolveLanguage(transcript: string): Pick<SpeechResult, "language"> {
+  if (detectedLanguage && detectedLanguage.confidence >= 0.5) {
+    return { language: detectedLanguage.code };
+  }
+  const script = scriptLanguage(transcript);
+  return script ? { language: script } : {};
 }
 
 function emitError(error: SpeechRecognitionError): void {
   errorListeners.forEach((listener) => listener(error));
 }
 
-function languageHint(language: SpeechLanguage): string {
-  if (language === "en-ja") return "en-ja";
-  if (language === "ja-JP") return "ja";
-  if (language === "en-US") return "en";
-  return "en-ja";
-}
+ExpoSpeechRecognitionModule.addListener("start", () => {
+  recognizing = true;
+  detectedLanguage = null;
+  latestTranscript = "";
+  finalDelivered = false;
+});
 
-async function stopCurrentRecorder(): Promise<string | null> {
-  if (recordingTimer) {
-    clearTimeout(recordingTimer);
-    recordingTimer = null;
+ExpoSpeechRecognitionModule.addListener("end", () => {
+  recognizing = false;
+  // Some platform recognizers end after emitting only an interim result.
+  // Promote the text already shown in the language card so translation is not
+  // left waiting forever for an isFinal event that will never arrive.
+  if (latestTranscript && !finalDelivered) {
+    finalDelivered = true;
+    const transcript = latestTranscript;
+    finalListeners.forEach((listener) =>
+      listener({ transcript, ...resolveLanguage(transcript) }),
+    );
   }
+});
 
-  const activeRecorder = recorder;
-  recorder = null;
+ExpoSpeechRecognitionModule.addListener("languagedetection", (event) => {
+  const code = localeToCode(event.detectedLanguage);
+  if (!code) return;
+  // A later, less confident reading shouldn't overwrite an earlier confident one.
+  if (detectedLanguage && detectedLanguage.confidence > event.confidence) return;
+  detectedLanguage = { code, confidence: event.confidence };
+});
 
-  if (!activeRecorder) return null;
+ExpoSpeechRecognitionModule.addListener("result", (event) => {
+  const transcript = event.results[0]?.transcript?.trim() ?? "";
+  if (!transcript) return;
+  latestTranscript = transcript;
 
-  try {
-    if (activeRecorder.isRecording) await activeRecorder.stop();
-    return activeRecorder.uri;
-  } catch {
-    return activeRecorder.uri;
+  const result: SpeechResult = {
+    transcript,
+    ...resolveLanguage(transcript),
+  };
+
+  if (event.isFinal) {
+    recognizing = false;
+    finalDelivered = true;
+    finalListeners.forEach((listener) => listener(result));
+  } else {
+    partialListeners.forEach((listener) => listener(result));
   }
-}
+});
 
-class BackendSpeechService implements SpeechServiceInterface {
-  async startListening(language: SpeechLanguage): Promise<void> {
-    if (Platform.OS === "web") throw new Error("Speech recognition is unavailable on web.");
+ExpoSpeechRecognitionModule.addListener("error", (event) => {
+  recognizing = false;
+  if (event.error === "aborted") return;
 
-    activeTurnId += 1;
-    const turnId = activeTurnId;
+  const quietError =
+    event.error === "no-speech" || event.error === "speech-timeout";
+  emitError({
+    code: quietError ? "no_speech" : event.error,
+    message: quietError ? "" : event.message || "Speech recognition failed.",
+  });
+});
 
-    await runRecorderOperation(async () => {
-      await stopCurrentRecorder();
-      if (turnId !== activeTurnId) return;
+class NativeSpeechService implements SpeechServiceInterface {
+  async startListening(language: SpeechLanguage, _expectedLanguage?: "en" | "ja"): Promise<void> {
+    if (Platform.OS === "web") {
+      throw new Error("Speech recognition is unavailable on web.");
+    }
 
-      const permission = await requestRecordingPermissionsAsync();
-      if (!permission.granted) {
-        throw new Error("Microphone permission is required for live interpretation.");
-      }
-      if (turnId !== activeTurnId) return;
+    activeLanguage = language;
+    if (recognizing) {
+      // Clear the previous turn before aborting so its end event cannot submit
+      // a stale transcript as a second translation.
+      latestTranscript = "";
+      finalDelivered = true;
+      ExpoSpeechRecognitionModule.abort();
+    }
 
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      });
-      if (turnId !== activeTurnId) return;
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      throw new Error("Microphone permission is required for live interpretation.");
+    }
 
-      const nextRecorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
-      try {
-        await nextRecorder.prepareToRecordAsync();
-        if (turnId !== activeTurnId) {
-          if (nextRecorder.isRecording) await nextRecorder.stop();
-          return;
-        }
-        recorder = nextRecorder;
-        nextRecorder.record();
-      } catch {
-        if (recorder === nextRecorder) recorder = null;
-        throw new Error("The microphone was busy. Tap the microphone and try again.");
-      }
+    // The native module resolves each androidIntentOptions key via reflection
+    // against this device's actual android.speech.RecognizerIntent class, so
+    // a key that doesn't exist on this OS version throws instead of no-op'ing.
+    // Language detection/switch was only added in Android 14 (API 34).
+    const supportsLanguageSwitch =
+      Platform.OS === "android" && Platform.Version >= 34;
 
-      recordingTimer = setTimeout(() => {
-        void runRecorderOperation(() => this.finishTurn(turnId, language));
-      }, TURN_RECORDING_MS);
+    ExpoSpeechRecognitionModule.start({
+      lang: languageLocale(activeLanguage),
+      interimResults: true,
+      maxAlternatives: 1,
+      continuous: false,
+      requiresOnDeviceRecognition: false,
+      addsPunctuation: true,
+      androidIntentOptions: {
+        // free_form (the default) is tuned for dictating longer sentences and
+        // often fails to recognize a single short word like "hello". web_search
+        // is tuned for short command/query-style utterances.
+        EXTRA_LANGUAGE_MODEL: RecognizerIntentExtraLanguageModel.LANGUAGE_MODEL_WEB_SEARCH,
+        EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: MIN_UTTERANCE_MS,
+        EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: SILENCE_COMPLETE_MS,
+        EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: SILENCE_POSSIBLY_COMPLETE_MS,
+        // The conversation can switch between English and Japanese speakers
+        // mid-session, but recognition is locked to a single locale (`lang`
+        // above). Where supported, this lets the recognizer notice the actual
+        // spoken language and switch instead of forcing everything through
+        // the wrong locale's model.
+        ...(supportsLanguageSwitch
+          ? {
+              EXTRA_ENABLE_LANGUAGE_DETECTION: true,
+              EXTRA_ENABLE_LANGUAGE_SWITCH: RecognizerIntentEnableLanguageSwitch.LANGUAGE_SWITCH_BALANCED,
+              EXTRA_LANGUAGE_SWITCH_ALLOWED_LANGUAGES: ["en-US", "ja-JP"],
+            }
+          : null),
+      },
+      // "dictation" is tuned for long-form continuous speech and can miss a
+      // single short word like "hello". "search" is tuned for short utterances.
+      iosTaskHint: "search",
     });
   }
 
   async stopListening(): Promise<void> {
-    activeTurnId += 1;
-    await runRecorderOperation(async () => {
-      await stopCurrentRecorder();
-    });
+    if (recognizing) ExpoSpeechRecognitionModule.stop();
   }
 
   onPartialResult(listener: SpeechResultListener): SpeechSubscription {
@@ -134,30 +229,7 @@ class BackendSpeechService implements SpeechServiceInterface {
   onError(listener: SpeechErrorListener): SpeechSubscription {
     return createSubscription(errorListeners, listener);
   }
-
-  private async finishTurn(turnId: number, language: SpeechLanguage): Promise<void> {
-    const audioUri = await stopCurrentRecorder();
-    if (turnId !== activeTurnId || !audioUri) return;
-
-    try {
-      const result = await transcribeAudioResult(audioUri, languageHint(language));
-      if (!result.text.trim()) {
-        emitError({ code: "no_speech", message: "" });
-        return;
-      }
-
-      emitFinal({
-        transcript: result.text.trim(),
-        language: result.language === "unknown" ? undefined : result.language,
-      });
-    } catch (reason) {
-      emitError({
-        code: "transcription_failed",
-        message: reason instanceof Error ? reason.message : "Speech transcription failed.",
-      });
-    }
-  }
 }
 
-export const SpeechService: SpeechServiceInterface = new BackendSpeechService();
+export const SpeechService: SpeechServiceInterface = new NativeSpeechService();
 export default SpeechService;

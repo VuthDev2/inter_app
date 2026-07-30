@@ -19,11 +19,14 @@ export async function requireAuth(req, res, next) {
   }
 
   try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) {
+    // getClaims verifies the JWT signature locally against a cached JWKS
+    // (this project uses asymmetric signing keys), avoiding a network round
+    // trip to the Auth server on every request that getUser() would require.
+    const { data, error } = await supabase.auth.getClaims(token);
+    if (error || !data?.claims) {
       return res.status(401).json({ ok: false, error: "Invalid or expired token." });
     }
-    req.user = data.user;
+    req.user = data.claims;
     next();
   } catch {
     return res.status(500).json({ ok: false, error: "Authentication service unavailable." });

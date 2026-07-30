@@ -6,7 +6,7 @@ export async function translate(text, source, target) {
   url.searchParams.set("langpair", `${source}|${target}`);
 
   try {
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const resp = await fetch(url, { signal: AbortSignal.timeout(3000) });
     if (!resp.ok) return "";
 
     const data = await resp.json();

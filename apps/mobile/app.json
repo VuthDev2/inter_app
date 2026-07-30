@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/app-icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "quickvoice",
     "assetBundlePatterns": [
       "**/*"
@@ -17,7 +17,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icon.png",
-        "backgroundColor": "#0F766E"
+        "backgroundColor": "#FFFFFF"
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
@@ -44,7 +44,8 @@
           "microphonePermission": "Allow QuickVoice to access the microphone for live interpretation.",
           "speechRecognitionPermission": "Allow QuickVoice to recognize speech for live interpretation."
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

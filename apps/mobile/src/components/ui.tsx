@@ -72,7 +72,7 @@ export function PrimaryButton({
   onPressIn?: () => void;
   onPressOut?: () => void;
   textStyle?: StyleProp<TextStyle>;
-  tone?: "brand" | "dark";
+  tone?: "brand" | "dark" | "onboardingBrand";
   onPress: () => void;
 }) {
   return (
@@ -85,6 +85,7 @@ export function PrimaryButton({
       style={({ pressed }) => [
         styles.primaryButton,
         tone === "dark" && styles.darkPrimaryButton,
+        tone === "onboardingBrand" && styles.onboardingBrandButton,
         authSize && {
           alignSelf: "center",
           borderRadius: 16,
@@ -97,7 +98,11 @@ export function PrimaryButton({
         danger && styles.dangerButton,
         disabled && dimWhenDisabled && !authSize && styles.disabledButton,
         pressed && !disabled &&
-          (tone === "dark" ? styles.darkPrimaryButtonPressed : styles.primaryButtonPressed),
+          (tone === "dark"
+            ? styles.darkPrimaryButtonPressed
+            : tone === "onboardingBrand"
+              ? styles.onboardingBrandButtonPressed
+              : styles.primaryButtonPressed),
       ]}
     >
       {icon ? <Ionicons name={icon} size={18} color="#FFFFFF" /> : null}
@@ -107,7 +112,7 @@ export function PrimaryButton({
         numberOfLines={1}
         style={[
           styles.primaryButtonText,
-          tone === "dark" && styles.darkPrimaryButtonText,
+          (tone === "dark" || tone === "onboardingBrand") && styles.darkPrimaryButtonText,
           textStyle,
         ]}
       >
@@ -371,6 +376,14 @@ const styles = StyleSheet.create({
   },
   darkPrimaryButtonPressed: {
     backgroundColor: "#1E2127",
+  },
+  onboardingBrandButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    minHeight: 74,
+  },
+  onboardingBrandButtonPressed: {
+    backgroundColor: colors.primaryPressed,
   },
   darkPrimaryButtonText: {
     fontSize: 20,

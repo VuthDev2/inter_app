@@ -13,14 +13,14 @@ router.post("/translate", requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, text: "", source, target });
     }
 
-    const mymemoryResult = await mymemoryTranslate(text, source, target);
-    if (mymemoryResult) {
-      return res.json({ ok: true, text: mymemoryResult, source, target });
-    }
-
     const geminiResult = await geminiTranslate(text, source, target);
     if (geminiResult) {
       return res.json({ ok: true, text: geminiResult, source, target });
+    }
+
+    const mymemoryResult = await mymemoryTranslate(text, source, target);
+    if (mymemoryResult) {
+      return res.json({ ok: true, text: mymemoryResult, source, target });
     }
 
     res.json({ ok: false, text: `[${source}->${target}] ${text}`, source, target });

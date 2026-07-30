@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   buttonText: { fontFamily: "Poppins_600SemiBold" },
-  forgot: { alignSelf: "flex-end", paddingVertical: 2 },
+  forgot: { alignSelf: "flex-end", marginRight: 10, paddingVertical: 2 },
   forgotText: { color: "#454545", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
   form: { gap: 20, marginTop: 36 },
   japaneseTitle: {

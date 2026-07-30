@@ -174,6 +174,7 @@ export function OnboardingPageLayout({
             disabled={transitionDisabled}
             label={buttonLabel}
             onPress={onContinue}
+            tone={page === 3 ? "onboardingBrand" : "dark"}
           />
         </View>
         <View style={styles.indicatorSlot}>
@@ -193,10 +194,12 @@ function AnimatedOnboardingButton({
   disabled,
   label,
   onPress,
+  tone,
 }: {
   disabled: boolean;
   label: string;
   onPress: () => void;
+  tone: "dark" | "onboardingBrand";
 }) {
   const motion = useRef(new Animated.Value(1)).current;
   const running = useRef(false);
@@ -260,7 +263,7 @@ function AnimatedOnboardingButton({
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        tone="dark"
+        tone={tone}
       >
         {label}
       </PrimaryButton>
@@ -303,7 +306,7 @@ export function AnimatedOnboardingIndicator({
 
   const pillColor = progress.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: [activeColor, activeColor, "#4F99EB"],
+    outputRange: [activeColor, activeColor, activeColor],
   });
   const pillPosition = progress.interpolate({
     inputRange: [0, 1, 2],

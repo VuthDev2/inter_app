@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { apiBaseUrl } from "../../services/api";
 import { supabase } from "../../services/supabase";
 
 type AuthContextValue = {
@@ -18,12 +19,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function apiBase(): string {
-  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (configured) return configured.replace(/\/$/, "");
-  return "http://localhost:8000";
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
@@ -66,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp: async (email, password, displayName) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
         try {
-          const res = await fetch(`${apiBase()}/api/signup`, {
+          const res = await fetch(`${await apiBaseUrl()}/api/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password, displayName }),
@@ -78,15 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const data = await res.json();
           return { error: data.error || "Failed to create account." };
         } catch {
-          // Backend unreachable — fall back to Supabase signUp directly
-          const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: { display_name: displayName || email.split("@")[0] },
-            },
-          });
-          return error ? { error: error.message } : {};
+          return {
+            error:
+              "QuickVoice backend is unavailable. Connect this phone and your Mac to the same Wi-Fi, then try again.",
+          };
         }
       },
       signOut: async () => {
@@ -96,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
         useSupabaseOTP.current = false;
         try {
-          const res = await fetch(`${apiBase()}/api/send-otp`, {
+          const res = await fetch(`${await apiBaseUrl()}/api/send-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
@@ -120,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: "Code expired. Request a new one." };
         }
         try {
-          const res = await fetch(`${apiBase()}/api/verify-otp`, {
+          const res = await fetch(`${await apiBaseUrl()}/api/verify-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: email.trim().toLowerCase(), token: token.trim() }),
@@ -153,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Otherwise, if they just verified OTP via backend
         if (pendingOTP.current && pendingOTP.current.email && useSupabaseOTP.current) {
           try {
-            const res = await fetch(`${apiBase()}/api/reset-password`, {
+            const res = await fetch(`${await apiBaseUrl()}/api/reset-password`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

@@ -11,7 +11,6 @@ export function ConversationOnboardingScreen({
 }) {
   return (
     <OnboardingPageLayout
-      activeIndicatorColor="#4F99EB"
       description="Two-way chat with real-time voice translation, perfect for dialogues."
       featureHeading="Conversation"
       media={<View accessibilityLabel="Future conversation video" style={{ flex: 1 }} />}
