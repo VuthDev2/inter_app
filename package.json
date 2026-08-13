@@ -14,5 +14,8 @@
     "web": "npm --prefix apps/web run dev",
     "backend": "npm --prefix backend run dev",
     "typecheck": "npm --prefix apps/mobile run typecheck"
+  },
+  "dependencies": {
+    "@react-navigation/stack": "^7.10.17"
   }
 }

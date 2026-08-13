@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, AudioWaveform, Speech, History, Settings, CircleUserRound, LogOut } from "lucide-react";
+import { Home, AudioWaveform, Speech, History, Settings, CircleUserRound, LogOut, Puzzle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Live Interpreter", href: "/interpreter", icon: AudioWaveform },
   { label: "Record", href: "/prerecord", icon: Speech },
   { label: "History", href: "/history", icon: History },
+  { label: "Extension", href: "/extension", icon: Puzzle },
   { label: "Settings", href: "/setting", icon: Settings },
 ];
 

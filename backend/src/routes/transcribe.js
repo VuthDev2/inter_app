@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { transcribeAudio } from "../services/gemini.js";
+import { PYTHON_SERVER_URL } from "../config.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const upload = multer({
@@ -16,21 +16,32 @@ router.post("/transcribe", requireAuth, upload.single("file"), async (req, res) 
       return res.status(400).json({ ok: false, text: "", error: "No audio file provided" });
     }
 
-    const language = req.body.language || "en";
-    const text = await transcribeAudio(file.buffer, file.originalname, language);
+    const language = req.body.language || "auto";
 
-    if (!text) {
-      const keyMissing = !process.env.GEMINI_API_KEY;
-      return res.json({
+    const formData = new FormData();
+    const blob = new Blob([file.buffer], { type: file.mimetype || "audio/m4a" });
+    formData.append("file", blob, file.originalname || "recording.m4a");
+    formData.append("language", language);
+
+    const response = await fetch(`${PYTHON_SERVER_URL}/transcribe`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({
         ok: false,
         text: "",
-        error: keyMissing ? "Gemini API key not configured on the server." : "Transcription failed.",
+        error: errData.detail || "Transcription failed on local model server.",
       });
     }
 
-    res.json({ ok: true, text });
-  } catch {
-    res.status(500).json({ ok: false, text: "", error: "Transcription failed." });
+    const data = await response.json();
+    res.json({ ok: true, text: data.text || "" });
+  } catch (err) {
+    console.error("[Transcribe Route] Error calling local model server:", err);
+    res.status(500).json({ ok: false, text: "", error: "Transcription service unavailable." });
   }
 });
 
