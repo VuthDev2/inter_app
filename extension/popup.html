@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QuickVoice</title>
+    <link rel="stylesheet" href="assets/styles/styles.css">
+  </head>
+  <body class="popup-body">
+    <main class="auth-popup">
+      <section class="hero-panel" aria-label="QuickVoice introduction">
+        <header class="hero-brand">
+          <img class="brand-logo" src="assets/images/logo-d.png" alt="QuickVoice">
+        </header>
+
+        <div class="hero-copy">
+          <h1>Break The<br>Language<br>Barrier Instantly</h1>
+          <p>Experience real-time AI voice interpretation between English and Japanese conversations.</p>
+          <div class="mini-eq" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <small>Enterprise-grade privacy & security encryption</small>
+        </div>
+
+        <div class="wave wave-one"></div>
+        <div class="wave wave-two"></div>
+      </section>
+
+      <section class="login-card" id="authCard">
+        <div class="utility-row">
+          <button id="openWeb" class="utility-btn" type="button">Web</button>
+          <button id="openApp" class="utility-btn" type="button">App</button>
+          <button id="openPanel" class="utility-btn" type="button">Tools</button>
+        </div>
+
+        <h2 id="authTitle">Welcome Back!</h2>
+        <p id="backendStatus" class="connection-status">Checking backend...</p>
+
+        <div id="sessionCard" class="session-pill">
+          <span id="sessionText">Not signed in</span>
+          <button id="signOutBtn" class="signout-link hidden" type="button">Sign Out</button>
+        </div>
+
+        <div id="nameWrap" class="field hidden">
+          <label for="displayName">Your name</label>
+          <input id="displayName" autocomplete="name" placeholder="your name">
+        </div>
+
+        <div class="field">
+          <label for="email">Your email</label>
+          <input id="email" autocomplete="email" placeholder="example@gmail.com" type="email">
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" autocomplete="current-password" placeholder="enter password" type="password">
+        </div>
+
+        <div class="forgot-row">
+          <button id="forgotPassword" class="text-link" type="button">Forgot Password?</button>
+        </div>
+
+        <button id="authSubmit" class="continue-btn" type="button">Continue</button>
+        <div id="authStatus" class="status"></div>
+
+        <div class="divider"><span></span><strong>OR</strong><span></span></div>
+
+        <button id="googleLogin" class="google-btn" type="button">
+          <svg class="google-logo" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#EA4335" d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.27 0 3.198 2.698 1.24 6.65l4.026 3.115z"/>
+            <path fill="#34A853" d="M16.04 18.013c-1.09.703-2.474 1.078-4.04 1.078a7.077 7.077 0 0 1-6.723-4.806L1.24 17.35C3.198 21.302 7.269 24 12 24c3.24 0 5.966-1.08 7.96-2.916l-3.92-3.071z"/>
+            <path fill="#4A90E2" d="M19.96 21.084C21.6 19.398 22.5 16.96 22.5 14.1c0-.986-.11-1.928-.29-2.82H12v5.334h5.92c-.27 1.407-1.125 2.593-2.316 3.42l4.356 3.05z"/>
+            <path fill="#FBBC05" d="M5.277 14.268A7.12 7.12 0 0 1 4.909 12c0-.782.125-1.533.357-2.235L1.24 6.65A11.934 11.934 0 0 0 0 12c0 1.92.445 3.73 1.237 5.335l4.04-3.067z"/>
+          </svg>
+          Login with Google
+        </button>
+
+        <div class="mode-switch">
+          <button class="mode-btn active" id="signinTab" type="button">Sign In</button>
+          <span>or</span>
+          <button class="mode-btn" id="signupTab" type="button">Sign Up</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="src/config.js"></script>
+    <script src="src/popup.js"></script>
+  </body>
+</html>

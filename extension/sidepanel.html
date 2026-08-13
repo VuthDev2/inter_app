@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QuickVoice Tools</title>
+    <link rel="stylesheet" href="assets/styles/styles.css">
+  </head>
+  <body class="tools-body">
+    <main class="shell side-shell tools-shell">
+      <header class="tools-topbar">
+        <img class="tools-logo" src="assets/images/logo-d.png" alt="QuickVoice">
+        <div id="accountStatus" class="status">Checking account...</div>
+      </header>
+
+      <section class="tools-hero">
+        <h1>QuickVoice Tools</h1>
+        <p>Use the same workspace as the web app, sized for the Chrome side panel.</p>
+        <div class="tools-actions">
+          <button id="openWeb">Dashboard</button>
+          <button id="openApp" class="secondary">App</button>
+        </div>
+      </section>
+
+      <section class="tool-grid">
+        <button id="openInterpreter" class="tool-card" type="button">
+          <span>Live Interpreter</span>
+          <small>Open the full web tool</small>
+        </button>
+        <button id="openRecorder" class="tool-card" type="button">
+          <span>Record Audio</span>
+          <small>Use browser mic permission</small>
+        </button>
+        <button id="openHistory" class="tool-card" type="button">
+          <span>History</span>
+          <small>Saved records</small>
+        </button>
+        <button id="openSettings" class="tool-card" type="button">
+          <span>Settings</span>
+          <small>Account options</small>
+        </button>
+      </section>
+
+      <section class="card grid tool-section">
+        <h2>Translate Text</h2>
+        <button id="readSelection" class="secondary" type="button">Use Selected Text</button>
+        <textarea id="sourceText" placeholder="Select text on a page or type here"></textarea>
+        <div class="grid two">
+          <div>
+            <label for="sourceLang">From</label>
+            <select id="sourceLang">
+              <option value="en">English</option>
+              <option value="km">Khmer</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="zh">Chinese</option>
+              <option value="fr">French</option>
+              <option value="es">Spanish</option>
+            </select>
+          </div>
+          <div>
+            <label for="targetLang">To</label>
+            <select id="targetLang">
+              <option value="km">Khmer</option>
+              <option value="en">English</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="zh">Chinese</option>
+              <option value="fr">French</option>
+              <option value="es">Spanish</option>
+            </select>
+          </div>
+        </div>
+        <button id="translateBtn">Translate</button>
+        <div id="translateStatus" class="status"></div>
+        <div id="translationResult" class="result"></div>
+      </section>
+
+      <section class="card grid tool-section">
+        <h2>Audio Capture</h2>
+        <p class="tool-note">If Chrome shows "Permission dismissed," the mic prompt was closed or blocked. Use the web recorder below for the same flow as QuickVoice web.</p>
+        <div>
+          <label for="speechLang">Speech language</label>
+          <select id="speechLang">
+            <option value="en">English</option>
+            <option value="km">Khmer</option>
+            <option value="ja">Japanese</option>
+            <option value="ko">Korean</option>
+            <option value="zh">Chinese</option>
+          </select>
+        </div>
+        <button id="recordBtn" type="button">Open Web Recorder</button>
+        <button id="stopBtn" class="danger hidden" disabled type="button">Stop</button>
+        <div id="recordStatus" class="status">Recorder opens in the QuickVoice web page.</div>
+        <div id="transcriptionResult" class="result"></div>
+      </section>
+    </main>
+
+    <script src="src/config.js"></script>
+    <script src="src/sidepanel.js"></script>
+  </body>
+</html>
