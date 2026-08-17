@@ -11,12 +11,54 @@ function DashboardContent() {
     const { user } = useAuth();
     const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
     const [loading, setLoading] = useState(false);
+    const [browserType, setBrowserType] = useState<"chrome" | "edge" | "other" | null>(null);
+
+    useEffect(() => {
+        const userAgent = window.navigator.userAgent;
+        if (userAgent.includes("Edg/")) {
+            setBrowserType("edge");
+        } else if (userAgent.includes("Chrome/") && !userAgent.includes("Edg/")) {
+            setBrowserType("chrome");
+        } else {
+            setBrowserType("other");
+        }
+    }, []);
 
     // Placeholder state ready to be replaced with Supabase fetch
     const [recentSessions, setRecentSessions] = useState([
         { id: "1", title: "US → JP Business Meeting", time: "Yesterday • 1h 15m duration", icon: MessageSquare, link: "/insiderecord-twoway" },
         { id: "2", title: "JP → US Restaurant", time: "Today • 45m duration", icon: MessageSquare, link: "/insiderecord" }
     ]);
+
+    const getExtensionContent = () => {
+        if (!browserType) return null;
+        
+        if (browserType === "chrome") {
+            const url = process.env.NEXT_PUBLIC_CHROME_EXTENSION_URL || "#";
+            return (
+                <a href={url} target="_blank" rel="noopener noreferrer" className="shrink-0 px-4 py-2 rounded-full bg-[rgba(var(--text),0.05)] hover:bg-[rgba(var(--text),0.1)] text-[13px] font-medium text-[rgba(var(--text),0.9)] flex items-center gap-2 border border-[rgb(var(--border))] transition-colors relative z-10 w-full sm:w-auto justify-center">
+                    <Download size={14} />
+                    Get Extension
+                </a>
+            );
+        }
+
+        if (browserType === "edge") {
+            const url = process.env.NEXT_PUBLIC_EDGE_EXTENSION_URL || "#";
+            return (
+                <a href={url} target="_blank" rel="noopener noreferrer" className="shrink-0 px-4 py-2 rounded-full bg-[rgba(var(--text),0.05)] hover:bg-[rgba(var(--text),0.1)] text-[13px] font-medium text-[rgba(var(--text),0.9)] flex items-center gap-2 border border-[rgb(var(--border))] transition-colors relative z-10 w-full sm:w-auto justify-center">
+                    <Download size={14} />
+                    Get Extension
+                </a>
+            );
+        }
+
+        return (
+            <span className="shrink-0 px-4 py-2 rounded-full bg-[rgba(var(--text),0.05)] text-[13px] font-medium text-[rgba(var(--text),0.6)] flex items-center gap-2 border border-[rgb(var(--border))] relative z-10 w-full sm:w-auto justify-center">
+                QuickVoice currently supports Chrome and Edge
+            </span>
+        );
+    };
 
     return <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
             <Navbar />
@@ -88,14 +130,11 @@ function DashboardContent() {
                                 <Globe size={18} />
                             </div>
                             <div className="flex flex-col">
-<span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">Take QuickVoice Anywhere</span>
-                                        <span className="text-[13px] text-[rgba(var(--muted),1)]">Interpret audio directly from your browser tabs.</span>
+                                <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">Take QuickVoice Anywhere</span>
+                                <span className="text-[13px] text-[rgba(var(--muted),1)]">Interpret audio directly from your browser tabs.</span>
                             </div>
                         </div>
-                        <button className="shrink-0 px-4 py-2 rounded-full bg-[rgba(var(--text),0.05)] hover:bg-[rgba(var(--text),0.1)] text-[13px] font-medium text-[rgba(var(--text),0.9)] flex items-center gap-2 border border-[rgb(var(--border))] transition-colors relative z-10 w-full sm:w-auto justify-center">
-                            <Download size={14} />
-                            Get Extension
-                        </button>
+                        {getExtensionContent()}
                     </div>
 
                     {/* Recent Sessions */}
