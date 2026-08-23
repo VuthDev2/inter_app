@@ -25,7 +25,6 @@ type OnboardingPageLayoutProps = {
   onContinue: () => void;
   media?: ReactNode;
   buttonLabel?: string;
-  buttonTone?: "dark" | "accent";
   featureHeading?: string;
   showLogo?: boolean;
   activeIndicatorColor?: string;
@@ -43,7 +42,6 @@ export function OnboardingPageLayout({
   onContinue,
   media,
   buttonLabel = "Get started",
-  buttonTone = "dark",
   featureHeading,
   showLogo = true,
   activeIndicatorColor = "#111214",
@@ -176,7 +174,7 @@ export function OnboardingPageLayout({
             disabled={transitionDisabled}
             label={buttonLabel}
             onPress={onContinue}
-            tone={buttonTone}
+            tone={page === 3 ? "onboardingBrand" : "dark"}
           />
         </View>
         <View style={styles.indicatorSlot}>
@@ -196,12 +194,12 @@ function AnimatedOnboardingButton({
   disabled,
   label,
   onPress,
-  tone = "dark",
+  tone,
 }: {
   disabled: boolean;
   label: string;
   onPress: () => void;
-  tone?: "dark" | "accent";
+  tone: "dark" | "onboardingBrand";
 }) {
   const motion = useRef(new Animated.Value(1)).current;
   const running = useRef(false);
@@ -308,7 +306,7 @@ export function AnimatedOnboardingIndicator({
 
   const pillColor = progress.interpolate({
     inputRange: [0, 1, 2],
-    outputRange: [activeColor, activeColor, "#4F99EB"],
+    outputRange: [activeColor, activeColor, activeColor],
   });
   const pillPosition = progress.interpolate({
     inputRange: [0, 1, 2],

@@ -1,15 +1,13 @@
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-
-import { useAuth, type SocialProvider } from "../../features/auth/auth";
 import { Poppins_800ExtraBold, useFonts } from "@expo-google-fonts/poppins";
 import type { ComponentProps, ReactNode } from "react";
 import {
   Alert,
   Animated,
   Easing,
+  Image,
   KeyboardAvoidingView,
-  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -34,7 +32,6 @@ export function AuthScreenLayout({
   children,
   description,
   footer,
-  onSwipeBack,
   title,
   titleStyle,
   titleVariant = "default",
@@ -43,7 +40,6 @@ export function AuthScreenLayout({
   children: ReactNode;
   description?: string;
   footer?: ReactNode;
-  onSwipeBack?: () => void;
   title: ReactNode;
   titleStyle?: StyleProp<TextStyle>;
   titleVariant?: "default" | "password";
@@ -56,20 +52,8 @@ export function AuthScreenLayout({
     ? Math.max(34, Math.min(92, height * 0.085))
     : Math.max(64, Math.min(140, height * 0.14));
 
-  const swipeBackResponder = React.useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (event, gesture) =>
-          !!onSwipeBack && event.nativeEvent.pageX < 24 && gesture.dx > 10 && Math.abs(gesture.dy) < 40,
-        onPanResponderRelease: (_event, gesture) => {
-          if (gesture.dx > 80) onSwipeBack?.();
-        },
-      }),
-    [onSwipeBack],
-  );
-
   return (
-    <SafeAreaView style={styles.safeArea} {...swipeBackResponder.panHandlers}>
+    <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: "padding", android: undefined })}
         style={styles.flex}
@@ -147,7 +131,6 @@ export function AuthTextField({
           pointerEvents="none"
           style={[
             styles.floatingLabel,
-            { width: Math.min(200, Math.max(58, placeholder.length * 9 + 24)) },
             { transform: [{ translateY: labelTranslateY }, { scale: labelScale }] },
           ]}
         >
@@ -184,53 +167,19 @@ export function AuthTextField({
 }
 
 export function SocialAuthButtons() {
-  const { authReady, signInWithProvider } = useAuth();
-  const [pending, setPending] = React.useState<SocialProvider | null>(null);
-
-  const start = async (provider: SocialProvider) => {
-    if (pending) return;
-    if (!authReady) {
-      Alert.alert(
-        "Sign-in unavailable",
-        "QuickVoice could not load its Supabase configuration.",
-      );
-      return;
-    }
-
-    setPending(provider);
-    const { error } = await signInWithProvider(provider);
-    setPending(null);
-
-    // A cancelled browser returns no error and no session — nothing to report.
-    if (!error) return;
-
-    const label = provider === "google" ? "Google" : "Facebook";
-    // Supabase says this when the provider has not been switched on in the
-    // dashboard, which is far more actionable than the raw message.
-    const notEnabled = /provider.*not enabled|unsupported provider/i.test(error);
-    Alert.alert(
-      `${label} sign-in failed`,
-      notEnabled
-        ? `${label} is not enabled for this Supabase project yet. Enable it under Authentication → Providers.`
-        : error,
-    );
-  };
-
   return (
     <View style={styles.socialRow}>
       <SocialButton
-        disabled={pending !== null}
         icon="logo-google"
         iconColor="#4285F4"
-        label={pending === "google" ? "Opening…" : "Google"}
-        onPress={() => start("google")}
+        label="Google"
+        onPress={() => Alert.alert("Google sign-in", "Google OAuth will open here.")}
       />
       <SocialButton
-        disabled={pending !== null}
         icon="logo-facebook"
         iconColor="#1877F2"
-        label={pending === "facebook" ? "Opening…" : "Facebook"}
-        onPress={() => start("facebook")}
+        label="Facebook"
+        onPress={() => Alert.alert("Facebook sign-in", "Facebook OAuth will open here.")}
       />
     </View>
   );
@@ -247,13 +196,11 @@ export function AuthDivider() {
 }
 
 function SocialButton({
-  disabled = false,
   icon,
   iconColor,
   label,
   onPress,
 }: {
-  disabled?: boolean;
   icon: "logo-google" | "logo-facebook";
   iconColor: string;
   label: string;
@@ -262,16 +209,18 @@ function SocialButton({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.socialButton,
-        pressed && styles.socialPressed,
-        disabled && styles.socialDisabled,
-      ]}
+      style={({ pressed }) => [styles.socialButton, pressed && styles.socialPressed]}
     >
-      <Ionicons name={icon} size={26} color={iconColor} />
+      {icon === "logo-google" ? (
+        <Image
+          resizeMode="contain"
+          source={require("../../../assets/google.png")}
+          style={styles.socialLogo}
+        />
+      ) : (
+        <Ionicons name={icon} size={26} color={iconColor} />
+      )}
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.82}
@@ -339,10 +288,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   socialPressed: { backgroundColor: "#F5F5F5" },
-  socialDisabled: {
-    opacity: 0.55,
-  },
   socialRow: { flexDirection: "row", gap: 14 },
+  socialLogo: { height: 24, width: 24 },
   socialText: {
     color: "#151515",
     flexShrink: 1,
@@ -370,12 +317,13 @@ const styles = StyleSheet.create({
   passwordTitleSmall: { fontSize: 42, letterSpacing: 0.42, lineHeight: 52 },
   inputContainer: { flex: 1, position: "relative", paddingTop: 10 },
   floatingLabel: {
+    alignSelf: "flex-start",
     backgroundColor: "#FFFFFF",
     color: authColors.muted,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
     lineHeight: 20,
-    paddingHorizontal: 5,
+    paddingHorizontal: 3,
     position: "absolute",
     left: -5,
     top: 17,

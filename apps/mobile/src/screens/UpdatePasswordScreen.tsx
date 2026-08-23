@@ -14,8 +14,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useSwipeBack } from "../hooks/useSwipeBack";
-
 import { PrimaryButton } from "../components/ui";
 import { useAuth } from "../features/auth/auth";
 
@@ -80,10 +78,8 @@ export function UpdatePasswordScreen({ onDone }: { onDone: () => void }) {
     ]);
   };
 
-  const swipeBack = useSwipeBack(onDone);
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BG }} {...swipeBack}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: "padding", android: undefined })}
         style={{ flex: 1 }}

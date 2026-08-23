@@ -132,7 +132,7 @@ export function CreateAccountScreen({ onSignIn }: { onSignIn: () => void }) {
   };
 
   return (
-    <AuthScreenLayout onSwipeBack={onSignIn}
+    <AuthScreenLayout
       description={DESCRIPTION}
       footer={(
         <Pressable accessibilityRole="button" onPress={onSignIn}>

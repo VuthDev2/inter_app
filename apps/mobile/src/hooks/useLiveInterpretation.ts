@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { LanguageCode } from "../constants/data";
 import { useSpeechRecognition } from "../features/live-interpreter/hooks/useSpeechRecognition";
-import { translateTextViaApi } from "../services/api";
+import { getBackendHealth, translateTextViaApi } from "../services/api";
 
-const MIN_TRANSCRIPT_PREVIEW_MS = 850;
 const TRANSCRIPT_CLEAR_AFTER_OUTPUT_MS = 900;
 
 export type InterpretationEntry = {
@@ -25,25 +24,6 @@ export type LiveInterpretationState = {
   error: string | null;
 };
 
-function detectConversationLanguage(
-  transcript: string,
-  fallback: LanguageCode,
-): "en" | "ja" {
-  // Hiragana, katakana, CJK ideographs, and Japanese punctuation reliably
-  // identify a Japanese recognition result. Latin-script results are English.
-  const containsJapanese =
-    /[\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uff66-\uff9f]/u.test(
-      transcript,
-    );
-  if (containsJapanese) return "ja";
-  if (/[A-Za-z]/u.test(transcript)) return "en";
-  return fallback === "ja" ? "ja" : "en";
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function useLiveInterpretation(
   sourceLang: LanguageCode,
   targetLang: LanguageCode,
@@ -62,19 +42,22 @@ export function useLiveInterpretation(
   const handledFinalRef = useRef("");
   const requestIdRef = useRef(0);
   const sessionActiveRef = useRef(false);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const processingStartedAtRef = useRef(0);
   const segmentSourceRef = useRef<LanguageCode>(sourceLang);
   const segmentTargetRef = useRef<LanguageCode>(targetLang);
   const listeningLanguageRef = useRef<LanguageCode>(sourceLang);
   const suspendedRef = useRef(false);
 
+  // Pin recognition to the selected source language. This keeps Japanese on
+  // the ja-JP recognizer and avoids a slower auto-detection/transcription pass.
   const listenWithLanguage = useCallback(
     async (language: LanguageCode) => {
       listeningLanguageRef.current = language;
-      await speech.startListening("en-ja");
+      await speech.startListening(
+        language === "ja" ? "ja-JP" : "en-US",
+        language === "ja" ? "ja" : "en",
+      );
     },
     [speech.startListening],
   );
@@ -97,6 +80,9 @@ export function useLiveInterpretation(
         processingClearTimerRef.current = null;
       }
       setTranslationError(null);
+      // Open the connection (and resolve which address answers) before the
+      // first sentence needs it, so that cost is not paid mid-conversation.
+      void getBackendHealth();
       await listenWithLanguage(sourceLang);
     },
     [listenWithLanguage, sourceLang, targetLang],
@@ -106,10 +92,6 @@ export function useLiveInterpretation(
     sessionActiveRef.current = false;
     suspendedRef.current = false;
     setSessionActive(false);
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
     if (resumeTimerRef.current) {
       clearTimeout(resumeTimerRef.current);
       resumeTimerRef.current = null;
@@ -121,10 +103,6 @@ export function useLiveInterpretation(
     if (!sessionActiveRef.current) return;
 
     suspendedRef.current = true;
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
 
     void speech.stopListening();
@@ -150,24 +128,9 @@ export function useLiveInterpretation(
     setRecognitionTurn((turn) => turn + 1);
   }, []);
 
-  // Treat a short pause as the end of one person's turn. The continuous
-  // session remains active while this recognition segment is finalized.
-  useEffect(() => {
-    if (!sessionActive || !speech.isListening || !speech.partialTranscript.trim()) return;
-
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    silenceTimerRef.current = setTimeout(() => {
-      silenceTimerRef.current = null;
-      if (sessionActiveRef.current) void speech.stopListening();
-    }, 1000);
-
-    return () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-    };
-  }, [sessionActive, speech.isListening, speech.partialTranscript, speech.stopListening]);
+  // Sentence boundaries are detected inside the speech service now, from the
+  // audio itself rather than from how long a partial transcript has sat
+  // unchanged. Running a second timer here only raced the first.
 
   useEffect(() => {
     const transcript = speech.finalTranscript.trim();
@@ -177,28 +140,23 @@ export function useLiveInterpretation(
     handledFinalRef.current = transcript;
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    const configuredSource = listeningLanguageRef.current;
-    const detectedSource =
-      speech.finalLanguage ?? detectConversationLanguage(transcript, configuredSource);
-    const turnSource: LanguageCode = detectedSource;
-    const turnTarget: LanguageCode =
-      detectedSource === segmentSourceRef.current
-        ? segmentTargetRef.current
-        : segmentSourceRef.current;
+
+    const turnSource = segmentSourceRef.current;
+    const turnTarget = segmentTargetRef.current;
+    const nextListeningLanguage = turnSource;
 
     setProcessingText(transcript);
     setProcessingLanguage(turnSource);
-    setListeningLanguage(turnSource);
-    listeningLanguageRef.current = turnSource;
-    processingStartedAtRef.current = Date.now();
+    setListeningLanguage(nextListeningLanguage);
+    listeningLanguageRef.current = nextListeningLanguage;
     if (processingClearTimerRef.current) {
       clearTimeout(processingClearTimerRef.current);
       processingClearTimerRef.current = null;
     }
 
-    // Open the next recognition window immediately. The UI language positions
-    // remain fixed; each final transcript determines its own translation
-    // direction instead of alternating languages after every sentence.
+    // Open the next recognition window immediately — it does not wait for the
+    // translation of this turn. The UI language positions stay fixed; only the
+    // recognition locale moves.
     if (sessionActiveRef.current && continuous) {
       if (pauseForAutoSpeak) {
         // Keep recognition closed while translation and automatic playback run.
@@ -218,11 +176,6 @@ export function useLiveInterpretation(
     void (async () => {
       try {
         const translation = await translateTextViaApi(transcript, turnSource, turnTarget);
-        const elapsed = Date.now() - processingStartedAtRef.current;
-        if (elapsed < MIN_TRANSCRIPT_PREVIEW_MS) {
-          await delay(MIN_TRANSCRIPT_PREVIEW_MS - elapsed);
-        }
-
         setLiveTranslation(translation);
         setEntries((previous) => [
           ...previous,
@@ -276,6 +229,9 @@ export function useLiveInterpretation(
       sessionActiveRef.current
     ) {
       if (continuous) {
+        // An empty window just means nobody spoke. Recognition is no longer
+        // locked to a locale, so there is nothing to switch — simply open the
+        // next window and keep waiting.
         setRecognitionTurn((turn) => turn + 1);
       } else {
         sessionActiveRef.current = false;
@@ -291,14 +247,18 @@ export function useLiveInterpretation(
   useEffect(() => () => {
     sessionActiveRef.current = false;
     suspendedRef.current = false;
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     if (processingClearTimerRef.current) clearTimeout(processingClearTimerRef.current);
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
   }, []);
 
+  // Keep partial words in the explicitly selected source-language card.
+  const displayLanguage: LanguageCode = processingText
+    ? processingLanguage
+    : listeningLanguage;
+
   return {
     isListening: sessionActive,
-    listeningLanguage: processingText ? processingLanguage : listeningLanguage,
+    listeningLanguage: displayLanguage,
     interimText: speech.partialTranscript || processingText || speech.finalTranscript,
     liveTranslation,
     entries,

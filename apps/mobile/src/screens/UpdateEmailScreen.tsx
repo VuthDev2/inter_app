@@ -14,8 +14,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useSwipeBack } from "../hooks/useSwipeBack";
-
 import { PrimaryButton } from "../components/ui";
 import { useAuth } from "../features/auth/auth";
 
@@ -117,10 +115,8 @@ export function UpdateEmailScreen({ onDone }: { onDone: () => void }) {
     );
   };
 
-  const swipeBack = useSwipeBack(onDone);
-
   return (
-    <SafeAreaView style={{ backgroundColor: "#FFFFFF", flex: 1 }} {...swipeBack}>
+    <SafeAreaView style={{ backgroundColor: "#FFFFFF", flex: 1 }}>
       <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 30, paddingHorizontal: 24, paddingTop: 24 }}

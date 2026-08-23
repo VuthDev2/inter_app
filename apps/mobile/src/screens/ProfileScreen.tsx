@@ -5,8 +5,10 @@ import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
 import { supabase } from "../services/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "../i18n/I18nContext";
 
 export function ProfileScreen() {
+  const { t } = useTranslation();
   const { session, user } = useAuth();
   const { appearance_mode: appearanceMode } = usePreferences();
   const systemScheme = useColorScheme();
@@ -53,7 +55,7 @@ export function ProfileScreen() {
       .from("profiles")
       .upsert({ id: user.id, display_name: displayName });
     setBusy(false);
-    Alert.alert("QuickVoice", error ? error.message : "Profile saved");
+    Alert.alert("QuickVoice", error ? t("errors.profileSaveFailed") : t("profile.saved"));
   };
 
   return (
@@ -65,13 +67,13 @@ export function ProfileScreen() {
         <View style={styles.identity}>
           <View style={[styles.accountBadge, dark && styles.blueBadgeDark]}>
             <Ionicons name="person" size={11} color="#3173D9" />
-            <Text style={styles.accountBadgeText}>Personal account</Text>
+            <Text style={styles.accountBadgeText}>{t("profile.personalAccount")}</Text>
           </View>
           <Text numberOfLines={1} style={[styles.name, dark && styles.textDark]}>
-            {displayName.trim() || "Your profile"}
+            {displayName.trim() || t("profile.yourProfile")}
           </Text>
           <Text numberOfLines={1} style={[styles.email, dark && styles.secondaryTextDark]}>
-            {user?.email ?? "Signed in"}
+            {user?.email ?? t("profile.signedIn")}
           </Text>
         </View>
         <View style={[styles.verified, dark && styles.verifiedDark]}>
@@ -82,12 +84,12 @@ export function ProfileScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
           <View>
-            <Text style={[styles.sectionTitle, dark && styles.textDark]}>You can edit</Text>
-            <Text style={[styles.sectionCaption, dark && styles.secondaryTextDark]}>Choose how your name appears in QuickVoice.</Text>
+            <Text style={[styles.sectionTitle, dark && styles.textDark]}>{t("profile.youCanEdit")}</Text>
+            <Text style={[styles.sectionCaption, dark && styles.secondaryTextDark]}>{t("profile.editCaption")}</Text>
           </View>
           <View style={[styles.editableBadge, dark && styles.blueBadgeDark]}>
             <Ionicons name="pencil" size={12} color="#3173D9" />
-            <Text style={styles.editableBadgeText}>Editable</Text>
+            <Text style={styles.editableBadgeText}>{t("profile.editable")}</Text>
           </View>
         </View>
 
@@ -97,12 +99,12 @@ export function ProfileScreen() {
               <Ionicons name="person-outline" size={20} color="#3173D9" />
             </View>
             <View style={styles.formContent}>
-              <Text style={[styles.fieldLabel, dark && styles.textDark]}>Display name</Text>
+              <Text style={[styles.fieldLabel, dark && styles.textDark]}>{t("profile.displayName")}</Text>
               <TextInput
-                accessibilityLabel="Display name"
+                accessibilityLabel={t("profile.displayName")}
                 autoCapitalize="words"
                 onChangeText={setDisplayName}
-                placeholder="Add your name"
+                placeholder={t("profile.addName")}
                 placeholderTextColor={dark ? "#7F8895" : "#9AA2AE"}
                 returnKeyType="done"
                 style={[styles.nameInput, dark && styles.textDark]}
@@ -124,7 +126,7 @@ export function ProfileScreen() {
             pressed && !busy && styles.saveButtonPressed,
           ]}
         >
-          <Text style={styles.saveButtonText}>{busy ? "Saving…" : "Save changes"}</Text>
+          <Text style={styles.saveButtonText}>{busy ? t("profile.saving") : t("profile.save")}</Text>
           <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
         </Pressable>
       </View>
@@ -132,12 +134,12 @@ export function ProfileScreen() {
       <View style={styles.section}>
         <View style={styles.sectionHeading}>
           <View>
-            <Text style={[styles.sectionTitle, dark && styles.textDark]}>Account information</Text>
-            <Text style={[styles.sectionCaption, dark && styles.secondaryTextDark]}>Connected to your sign-in account.</Text>
+            <Text style={[styles.sectionTitle, dark && styles.textDark]}>{t("profile.accountInfo")}</Text>
+            <Text style={[styles.sectionCaption, dark && styles.secondaryTextDark]}>{t("profile.accountInfoCaption")}</Text>
           </View>
           <View style={[styles.lockedBadge, dark && styles.lockedBadgeDark]}>
             <Ionicons name="lock-closed" size={11} color={dark ? "#A6AEBA" : "#6B7280"} />
-            <Text style={[styles.lockedBadgeText, dark && styles.secondaryTextDark]}>Read only</Text>
+            <Text style={[styles.lockedBadgeText, dark && styles.secondaryTextDark]}>{t("profile.readOnly")}</Text>
           </View>
         </View>
 
@@ -147,9 +149,9 @@ export function ProfileScreen() {
               <Ionicons name="mail-outline" size={20} color={dark ? "#AAB2BE" : "#687386"} />
             </View>
             <View style={styles.formContent}>
-              <Text style={[styles.fieldLabel, dark && styles.textDark]}>Email address</Text>
+              <Text style={[styles.fieldLabel, dark && styles.textDark]}>{t("profile.email")}</Text>
               <Text numberOfLines={1} style={[styles.readOnlyValue, dark && styles.secondaryTextDark]}>
-                {user?.email ?? "Signed in"}
+                {user?.email ?? t("profile.signedIn")}
               </Text>
             </View>
             <Ionicons name="lock-closed-outline" size={17} color={dark ? "#8E97A4" : "#9AA2AE"} />
@@ -162,15 +164,15 @@ export function ProfileScreen() {
               <Ionicons name="checkmark-circle-outline" size={20} color={dark ? "#AAB2BE" : "#687386"} />
             </View>
             <View style={styles.formContent}>
-              <Text style={[styles.fieldLabel, dark && styles.textDark]}>Account status</Text>
-              <Text style={[styles.readOnlyValue, dark && styles.secondaryTextDark]}>Active and synced</Text>
+              <Text style={[styles.fieldLabel, dark && styles.textDark]}>{t("profile.accountStatus")}</Text>
+              <Text style={[styles.readOnlyValue, dark && styles.secondaryTextDark]}>{t("profile.active")}</Text>
             </View>
             <View style={styles.statusDot} />
           </View>
         </View>
 
         <Text style={[styles.readOnlyNote, dark && styles.secondaryTextDark]}>
-          Your email is managed by your sign-in account and can’t be changed here.
+          {t("profile.readOnlyNote")}
         </Text>
       </View>
     </View>

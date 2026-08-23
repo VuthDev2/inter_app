@@ -1,8 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { apiBaseUrl } from "../../services/api";
 import { supabase } from "../../services/supabase";
 
 type AuthContextValue = {
@@ -17,55 +16,9 @@ type AuthContextValue = {
   verifyOTP: (_email: string, token: string) => Promise<{ error?: string }>;
   updateEmail: (email: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
-  signInWithProvider: (provider: SocialProvider) => Promise<{ error?: string }>;
 };
 
-export type SocialProvider = "google" | "facebook";
-
-/**
- * Social sign-in on a device cannot use a plain web redirect: there is no page
- * to come back to. Supabase is asked for the provider URL without redirecting,
- * the system browser handles the login, and the app is reopened through its
- * own scheme ("quickvoice://") with the tokens in the URL, which are then
- * installed as the session.
- */
-async function openProviderSession(provider: SocialProvider): Promise<{ error?: string }> {
-  if (!supabase) return { error: "Supabase mobile environment is not configured." };
-
-  const redirectTo = Linking.createURL("auth-callback");
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
-    options: { redirectTo, skipBrowserRedirect: true },
-  });
-  if (error) return { error: error.message };
-  if (!data?.url) return { error: `Could not start ${provider} sign-in.` };
-
-  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-  if (result.type !== "success") {
-    // The user dismissed the browser; that is a cancellation, not a failure.
-    return result.type === "cancel" || result.type === "dismiss" ? {} : { error: "Sign-in was interrupted." };
-  }
-
-  // Supabase returns the tokens in the URL fragment.
-  const fragment = result.url.split("#")[1] ?? "";
-  const params = new URLSearchParams(fragment);
-  const access_token = params.get("access_token");
-  const refresh_token = params.get("refresh_token");
-  if (!access_token || !refresh_token) {
-    return { error: params.get("error_description") ?? "Sign-in did not return a session." };
-  }
-
-  const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
-  return sessionError ? { error: sessionError.message } : {};
-}
-
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function apiBase(): string {
-  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (configured) return configured.replace(/\/$/, "");
-  return "http://localhost:8000";
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [initialized, setInitialized] = useState(false);
@@ -100,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       user: session?.user ?? null,
       authReady,
-      signInWithProvider: (provider) => openProviderSession(provider),
       signIn: async (email, password) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -109,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp: async (email, password, displayName) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
         try {
-          const res = await fetch(`${apiBase()}/api/signup`, {
+          const res = await fetch(`${await apiBaseUrl()}/api/signup`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password, displayName }),
@@ -121,15 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const data = await res.json();
           return { error: data.error || "Failed to create account." };
         } catch {
-          // Backend unreachable — fall back to Supabase signUp directly
-          const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: { display_name: displayName || email.split("@")[0] },
-            },
-          });
-          return error ? { error: error.message } : {};
+          return {
+            error:
+              "QuickVoice backend is unavailable. Connect this phone and your Mac to the same Wi-Fi, then try again.",
+          };
         }
       },
       signOut: async () => {
@@ -139,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
         useSupabaseOTP.current = false;
         try {
-          const res = await fetch(`${apiBase()}/api/send-otp`, {
+          const res = await fetch(`${await apiBaseUrl()}/api/send-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
@@ -163,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: "Code expired. Request a new one." };
         }
         try {
-          const res = await fetch(`${apiBase()}/api/verify-otp`, {
+          const res = await fetch(`${await apiBaseUrl()}/api/verify-otp`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: email.trim().toLowerCase(), token: token.trim() }),
@@ -196,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Otherwise, if they just verified OTP via backend
         if (pendingOTP.current && pendingOTP.current.email && useSupabaseOTP.current) {
           try {
-            const res = await fetch(`${apiBase()}/api/reset-password`, {
+            const res = await fetch(`${await apiBaseUrl()}/api/reset-password`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({

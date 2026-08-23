@@ -45,25 +45,153 @@ function devHostFromMetro(): string | null {
   }
 }
 
+function configuredUrl(variable: "EXPO_PUBLIC_AI_BASE_URL" | "EXPO_PUBLIC_API_BASE_URL"): URL | null {
+  const configured =
+    variable === "EXPO_PUBLIC_AI_BASE_URL"
+      ? process.env.EXPO_PUBLIC_AI_BASE_URL
+      : process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (!configured) return null;
+
+  try {
+    return new URL(configured);
+  } catch {
+    return null;
+  }
+}
+
+const HEALTH_TIMEOUT_MS = 4_000;
+const resolvedBases = new Map<number, string>();
+const probesInFlight = new Map<number, Promise<string>>();
+
 /**
- * Get the backend base URL from environment or the current Expo dev host.
+ * Every address this device might reach the server on, best guess first.
+ *
+ * There is no single right answer: a Wi-Fi phone needs the dev machine's LAN
+ * IP, a USB Android device needs "localhost" (via `adb reverse`), an emulator
+ * needs 10.0.2.2, and a device on another network needs the tunnel. Metro's
+ * own host covers most of those, but not when Metro itself is tunnelled — the
+ * bundle then arrives from a host that serves no API.
  */
-function baseUrl(): string {
-  const configured = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (configured) return configured.replace(/\/$/, "");
+function candidateBaseUrls(
+  variable: "EXPO_PUBLIC_AI_BASE_URL" | "EXPO_PUBLIC_API_BASE_URL",
+  port: number,
+): string[] {
+  const candidates: string[] = [];
 
   const devHost = devHostFromMetro();
   if (devHost && devHost !== "localhost" && devHost !== "127.0.0.1") {
-    return `http://${devHost}:8000`;
+    candidates.push(`http://${devHost}:${port}`);
   }
 
-  if (Platform.OS === "android") return "http://10.0.2.2:8000";
-  return "http://localhost:8000";
+  // Used verbatim — scheme, host and port all come from the env value, so an
+  // HTTPS tunnel is not rewritten into a plain-HTTP URL on a port it never
+  // listens on.
+  const configured = configuredUrl(variable);
+  if (configured) candidates.push(configured.toString().replace(/\/+$/, ""));
+
+  candidates.push(`http://localhost:${port}`);
+  if (Platform.OS === "android") candidates.push(`http://10.0.2.2:${port}`);
+
+  return [...new Set(candidates)];
+}
+
+async function probeHealth(base: string): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${base}/health`, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return base;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** First candidate to answer /health wins. Written out rather than using
+ *  Promise.any so it does not depend on that being present in the JS engine. */
+function firstReachable(candidates: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let outstanding = candidates.length;
+    let settled = false;
+
+    if (outstanding === 0) {
+      reject(new Error("no candidate addresses"));
+      return;
+    }
+
+    candidates.forEach((base) => {
+      probeHealth(base).then(
+        (winner) => {
+          if (settled) return;
+          settled = true;
+          resolve(winner);
+        },
+        () => {
+          outstanding -= 1;
+          if (outstanding === 0 && !settled) {
+            reject(new Error(`none of these answered: ${candidates.join(", ")}`));
+          }
+        },
+      );
+    });
+  });
+}
+
+/**
+ * Resolve — and remember — the address that actually answers.
+ *
+ * Guessing a single host is why the app worked in one setup and failed in
+ * another: a wrong guess had no fallback. Probing every candidate at once
+ * costs one round trip on first use and then nothing.
+ */
+function serverBaseUrl(
+  variable: "EXPO_PUBLIC_AI_BASE_URL" | "EXPO_PUBLIC_API_BASE_URL",
+  port: number,
+): Promise<string> {
+  const cached = resolvedBases.get(port);
+  if (cached) return Promise.resolve(cached);
+
+  const running = probesInFlight.get(port);
+  if (running) return running;
+
+  const candidates = candidateBaseUrls(variable, port);
+  const probe = firstReachable(candidates)
+    .then((winner) => {
+      resolvedBases.set(port, winner);
+      probesInFlight.delete(port);
+      return winner;
+    })
+    .catch((reason: unknown) => {
+      probesInFlight.delete(port);
+      const detail = reason instanceof Error ? reason.message : String(reason);
+      throw new Error(`no QuickVoice server reachable on port ${port} — ${detail}`);
+    });
+
+  probesInFlight.set(port, probe);
+  return probe;
+}
+
+/**
+ * Drop the remembered addresses so the next call probes again. Worth calling
+ * when the device changes network, since the old winner is then unreachable.
+ */
+export function forgetResolvedServers(): void {
+  resolvedBases.clear();
+}
+
+/** Base URL for the AI server (transcribe/translate/tts), port 8001. */
+function baseUrl(): Promise<string> {
+  return serverBaseUrl("EXPO_PUBLIC_AI_BASE_URL", 8001);
+}
+
+/** Base URL for the Node backend (auth, signup, etc.), port 8000. */
+export function apiBaseUrl(): Promise<string> {
+  return serverBaseUrl("EXPO_PUBLIC_API_BASE_URL", 8000);
 }
 
 /** WebSocket URL for the live interpretation endpoint. */
 export async function liveWsUrl(): Promise<string> {
-  const url = baseUrl().replace(/^http/, "ws") + "/ws/live";
+  const url = (await baseUrl()).replace(/^http/, "ws") + "/ws/live";
   const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
   const token = data.session?.access_token;
   return token ? `${url}?token=${encodeURIComponent(token)}` : url;
@@ -80,7 +208,7 @@ async function authHeaders(base: Record<string, string> = {}): Promise<Record<st
 
 export async function getBackendHealth(): Promise<BackendHealth> {
   try {
-    const res = await fetch(`${baseUrl()}/health`);
+    const res = await fetch(`${await baseUrl()}/health`);
     if (res.ok) return { ok: true, message: "All systems normal" };
   } catch { /* ignore */ }
   return { ok: false, error: "unreachable" };
@@ -100,6 +228,11 @@ export async function transcribeAudio(
 export async function transcribeAudioResult(
   audioUri: string,
   language: string,
+  /**
+   * Which language the caller expects next. Used by the server *only* to break
+   * a genuine acoustic tie (Japanese "はい" against English "Hi", which score
+   * almost identically); a confident detection always overrides it.
+   */
   expectedLanguage?: "en" | "ja",
 ): Promise<{ text: string; language: "en" | "ja" | "unknown" }> {
   try {
@@ -110,7 +243,7 @@ export async function transcribeAudioResult(
     form.append("language", language);
     if (expectedLanguage) form.append("expected", expectedLanguage);
 
-    const res = await fetch(`${baseUrl()}/transcribe`, {
+    const res = await fetch(`${await baseUrl()}/transcribe`, {
       method: "POST",
       headers: await authHeaders(),
       body: form,
@@ -141,23 +274,47 @@ export async function transcribeAudioResult(
 
 // ─── Translation (backend preferred, MyMemory fallback) ──────────────────────
 
+/**
+ * Result of a backend translation attempt. On failure it carries why it failed
+ * so callers can surface something more actionable than "server unavailable" —
+ * an unreachable host and a rejected request need very different fixes.
+ */
+type BackendTranslation =
+  | { ok: true; text: string }
+  | { ok: false; reason: string };
+
 async function translateViaBackend(
   text: string,
   source: string,
   target: string,
-): Promise<string | null> {
+): Promise<BackendTranslation> {
+  // Resolving the base URL is itself a network step that can fail, so it lives
+  // inside the try and reports through the same `reason` channel.
+  let url = "the translation server";
   try {
-    const res = await fetch(`${baseUrl()}/translate`, {
+    url = `${await baseUrl()}/translate`;
+    const res = await fetch(url, {
       method: "POST",
       headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ text, source, target }),
     });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.ok && json.text) return json.text;
+
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const json = await res.json();
+        if (typeof json?.detail === "string") detail = ` — ${json.detail}`;
+      } catch { /* body was not JSON */ }
+      return { ok: false, reason: `${url} returned HTTP ${res.status}${detail}` };
     }
-  } catch { /* ignore */ }
-  return null;
+
+    const json = await res.json();
+    if (json.ok && json.text) return { ok: true, text: json.text };
+    return { ok: false, reason: `${url} returned no translation` };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ok: false, reason: `could not reach ${url} (${message})` };
+  }
 }
 
 /**
@@ -178,15 +335,11 @@ export async function translateTextViaApi(
   const cached = translationCache.get(cacheKey);
   if (cached) return cached;
 
-  const translated = await translateViaBackend(
-    normalizedText,
-    sourceLang,
-    targetLang,
-  );
-  if (!translated) {
-    throw new Error("Translation server unavailable. Start the QuickVoice Python server and try again.");
+  const result = await translateViaBackend(normalizedText, sourceLang, targetLang);
+  if (!result.ok) {
+    throw new Error(`Translation unavailable: ${result.reason}`);
   }
-  return remember(translationCache, cacheKey, translated);
+  return remember(translationCache, cacheKey, result.text);
 }
 
 export async function synthesizeSpeechViaApi(
@@ -202,7 +355,7 @@ export async function synthesizeSpeechViaApi(
   const cached = ttsCache.get(cacheKey);
   if (cached) return cached;
 
-  const response = await fetch(`${baseUrl()}/tts`, {
+  const response = await fetch(`${await baseUrl()}/tts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: normalizedText, language, speed }),
@@ -236,7 +389,7 @@ export async function translateText(
 
   // Try backend first
   const backend = await translateViaBackend(text, sourceLang, targetLang);
-  if (backend) return backend;
+  if (backend.ok) return backend.text;
 
   // ── MyMemory fallback (free, no key needed) ──
   try {

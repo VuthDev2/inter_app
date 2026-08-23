@@ -3,9 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,6 +23,7 @@ import { appStorage } from "../services/nativeStorage";
 import { colors, spacing } from "../theme/theme";
 import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
 import { usePreferences } from "../features/preferences/context";
+import { useTranslation } from "../i18n/I18nContext";
 
 const RECORD_CATEGORIES = [
   {
@@ -82,6 +81,7 @@ export function RecordScreen({
   onSessionChange?: (active: boolean) => void;
   backRequest?: number;
 }) {
+  const { t } = useTranslation();
   const { appearance_mode: appearanceMode } = usePreferences();
   const systemScheme = useColorScheme();
   const dark = appearanceMode === "dark" || (appearanceMode === "system" && systemScheme === "dark");
@@ -118,7 +118,7 @@ export function RecordScreen({
     if (!title) return;
     const existingNames = [...RECORD_CATEGORIES, ...customCategories].map((category) => category.title.toLowerCase());
     if (existingNames.includes(title.toLowerCase())) {
-      Alert.alert("Category already exists", `A category named “${title}” already exists.`);
+      Alert.alert(t("record.categoryExists"), t("record.categoryExistsMessage", { name: title }));
       return;
     }
     const next = [
@@ -158,9 +158,9 @@ export function RecordScreen({
     <View style={[rs.page, dark && rs.pageDark]}>
 
       <View style={rs.sectionHeader}>
-        <Text style={[rs.sectionTitle, dark && rs.sectionTitleDark]}>Categories</Text>
+        <Text style={[rs.sectionTitle, dark && rs.sectionTitleDark]}>{t("record.categories")}</Text>
         <Pressable
-          accessibilityLabel="Add category"
+          accessibilityLabel={t("record.addCategory")}
           accessibilityRole="button"
           hitSlop={12}
           onPress={() => setCategoryDialogOpen(true)}
@@ -172,7 +172,10 @@ export function RecordScreen({
       <View style={rs.categoryList}>
         {[...RECORD_CATEGORIES, ...customCategories].map((category) => {
           const base = recordingTemplates.find((item) => item.id === category.templateId)!;
-          const selected: RecordingTemplate = { ...base, title: category.title };
+          const builtInIndex = RECORD_CATEGORIES.indexOf(category as typeof RECORD_CATEGORIES[number]);
+          const title = builtInIndex === 0 ? t("record.categorySchool") : builtInIndex === 1 ? t("record.categoryWork") : builtInIndex === 2 ? t("record.categoryPersonal") : category.title;
+          const description = builtInIndex === 0 ? t("record.categorySchoolDescription") : builtInIndex === 1 ? t("record.categoryWorkDescription") : builtInIndex === 2 ? t("record.categoryPersonalDescription") : category.description ?? t("record.customDescription", { name: title });
+          const selected: RecordingTemplate = { ...base, title };
           return (
             <Pressable key={category.title} onPress={() => {
               setActiveTemplate(selected);
@@ -180,9 +183,9 @@ export function RecordScreen({
             }} style={({ pressed }) => [rs.categoryCard, dark && rs.categoryCardDark, pressed && rs.pressed]}>
               <View style={[rs.categoryIcon, { backgroundColor: `${category.color}18` }]}><Ionicons name={category.icon} size={23} color={category.color} /></View>
               <View style={atoms.flex1}>
-                <Text style={[rs.categoryTitle, dark && rs.categoryTitleDark]}>{category.title}</Text>
+                <Text style={[rs.categoryTitle, dark && rs.categoryTitleDark]}>{title}</Text>
                 <Text style={[rs.categoryMeta, dark && rs.categoryMetaDark]}>
-                  {category.description ?? `Record notes saved under ${category.title}`}
+                  {description}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={dark ? "#7F8794" : "#A4AAB3"} />
@@ -192,17 +195,17 @@ export function RecordScreen({
       </View>
 
       <Modal animationType="fade" onRequestClose={() => setCategoryDialogOpen(false)} transparent visible={categoryDialogOpen}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={rs.categoryDialogScreen}>
+        <View style={rs.categoryDialogScreen}>
           <Pressable onPress={() => setCategoryDialogOpen(false)} style={StyleSheet.absoluteFill} />
           <View style={[rs.categoryDialog, dark && rs.categoryDialogDark]}>
-            <Text style={[rs.categoryDialogTitle, dark && rs.categoryDialogTitleDark]}>New Category</Text>
+            <Text style={[rs.categoryDialogTitle, dark && rs.categoryDialogTitleDark]}>{t("record.newCategory")}</Text>
             <View style={rs.categoryEditorRow}>
               <AnchoredMenu
                 dark={dark}
                 items={CATEGORY_ICON_OPTIONS.map((option) => ({
                   icon: option.icon,
                   key: option.icon,
-                  label: option.label,
+                  label: t(`record.symbols.${option.icon === "folder-outline" ? "folder" : option.icon === "school-outline" ? "school" : option.icon === "briefcase-outline" ? "work" : option.icon === "person-outline" ? "personal" : option.icon === "book-outline" ? "study" : option.icon === "bulb-outline" ? "ideas" : option.icon === "fitness-outline" ? "health" : "music"}`),
                   onPress: () => setCategoryIcon(option.icon),
                   selected: categoryIcon === option.icon,
                 }))}
@@ -211,7 +214,7 @@ export function RecordScreen({
               >
                 {(open) => (
                   <Pressable
-                    accessibilityLabel="Choose category symbol"
+                    accessibilityLabel={t("record.chooseSymbol")}
                     accessibilityRole="button"
                     onPress={open}
                     style={[rs.categoryIconPicker, dark && rs.categoryIconPickerDark]}
@@ -226,7 +229,7 @@ export function RecordScreen({
                 maxLength={30}
                 onChangeText={setCategoryName}
                 onSubmitEditing={addCategory}
-                placeholder="Category name"
+                placeholder={t("record.categoryName")}
                 placeholderTextColor={dark ? "#8F98A5" : "#9AA1AB"}
                 returnKeyType="done"
                 style={[rs.categoryNameInput, dark && rs.categoryNameInputDark]}
@@ -234,20 +237,20 @@ export function RecordScreen({
               />
             </View>
             <View style={rs.categoryDialogActions}>
-              <Pressable onPress={() => { setCategoryName(""); setCategoryIcon("folder-outline"); setCategoryDialogOpen(false); }} style={rs.categoryDialogButton}><Text style={[rs.categoryCancelText, dark && rs.categoryCancelTextDark]}>Cancel</Text></Pressable>
-              <Pressable disabled={!categoryName.trim()} onPress={addCategory} style={[rs.categoryDialogButton, !categoryName.trim() && rs.categoryAddDisabled]}><Text style={rs.categoryAddText}>Add</Text></Pressable>
+              <Pressable onPress={() => { setCategoryName(""); setCategoryIcon("folder-outline"); setCategoryDialogOpen(false); }} style={rs.categoryDialogButton}><Text style={[rs.categoryCancelText, dark && rs.categoryCancelTextDark]}>{t("common.cancel")}</Text></Pressable>
+              <Pressable disabled={!categoryName.trim()} onPress={addCategory} style={[rs.categoryDialogButton, !categoryName.trim() && rs.categoryAddDisabled]}><Text style={rs.categoryAddText}>{t("common.add")}</Text></Pressable>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       <View style={[rs.sectionHeader, { marginTop: 18 }]}>
-        <Text style={[rs.sectionTitle, dark && rs.sectionTitleDark]}>Recently Recorded</Text>
-        <Pressable onPress={() => setActiveTab?.("history")}><Text style={rs.seeAll}>History</Text></Pressable>
+        <Text style={[rs.sectionTitle, dark && rs.sectionTitleDark]}>{t("record.recent")}</Text>
+        <Pressable onPress={() => setActiveTab?.("history")}><Text style={rs.seeAll}>{t("record.history")}</Text></Pressable>
       </View>
       <View style={[rs.recentCard, dark && rs.recentCardDark]}>
         {recent.length === 0 ? (
-          <View style={rs.emptyRecent}><Ionicons name="mic-outline" size={25} color={dark ? "#8F98A5" : "#AAB0BA"} /><Text style={[rs.emptyRecentText, dark && rs.emptyRecentTextDark]}>Your latest recordings will appear here.</Text></View>
+          <View style={rs.emptyRecent}><Ionicons name="mic-outline" size={25} color={dark ? "#8F98A5" : "#AAB0BA"} /><Text style={[rs.emptyRecentText, dark && rs.emptyRecentTextDark]}>{t("record.latestEmpty")}</Text></View>
         ) : recent.map((item, index) => (
           <Pressable key={item.id} onPress={() => setActiveTab?.("history")} style={({ pressed }) => [rs.recentRow, index < recent.length - 1 && rs.recentBorder, index < recent.length - 1 && dark && rs.recentBorderDark, pressed && rs.pressed]}>
               <View style={[rs.recentIcon, dark && rs.recentIconDark]}><Ionicons name="pulse-outline" size={17} color="#007AFF" /></View>
@@ -270,6 +273,7 @@ function TemplateCard({
   viewMode: ViewMode;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const [pressed, setPressed] = useState(false);
 
   if (viewMode === "list") {
@@ -319,7 +323,7 @@ function TemplateCard({
 
       {/* "Use template →" */}
       <View style={[atoms.flexRow, atoms.itemsCenter, { gap: 4, marginTop: "auto", paddingTop: 8 }]}>
-        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>Use template</Text>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>{t("record.useTemplate")}</Text>
         <Ionicons name="arrow-forward" size={14} color={colors.primary} />
       </View>
     </Pressable>
@@ -334,6 +338,7 @@ function RecordingSessionScreen({
   template: RecordingTemplate;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const { height: screenHeight } = useWindowDimensions();
   const { appearance_mode: appearanceMode, preferred_source_lang, preferred_target_lang, update: updatePrefs } = usePreferences();
   const systemScheme = useColorScheme();
@@ -343,8 +348,8 @@ function RecordingSessionScreen({
   const interp = useLiveInterpretation(sourceLang, targetLang);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sourceLabel = languages.find((item) => item.code === sourceLang)?.label ?? sourceLang;
-  const targetLabel = languages.find((item) => item.code === targetLang)?.label ?? targetLang;
+  const sourceLabel = t(sourceLang === "ja" ? "common.japanese" : "common.english");
+  const targetLabel = t(targetLang === "ja" ? "common.japanese" : "common.english");
   const dropdownIconColor = dark ? "#A6AEBA" : "#66707D";
   const speechCardHeight = screenHeight >= 880 ? 224 : screenHeight >= 760 ? 208 : 188;
   const translationCardHeight = screenHeight >= 880 ? 204 : screenHeight >= 760 ? 190 : 172;
@@ -392,14 +397,14 @@ function RecordingSessionScreen({
       recordingType: template.id,
       title: `${template.title} Recording`,
       description: template.description,
-      transcript: transcriptText || "No transcript captured.",
+      transcript: transcriptText || t("record.noTranscript"),
       sourceAudio: template.sourceAudio,
       status: "saved" as const,
       createdAt: new Date().toISOString(),
     };
     await saveRecordingSession(session);
-    Alert.alert("Saved", `${template.title} session saved to Library.`, [
-      { text: "OK", onPress: onBack },
+    Alert.alert(t("common.saved"), t("record.savedMessage", { name: template.title }), [
+      { text: t("common.ok"), onPress: onBack },
     ]);
   };
 
@@ -430,14 +435,14 @@ function RecordingSessionScreen({
         <View style={[rs.speechCard, dark && rs.speechCardDark, { minHeight: speechCardHeight }]}>
           <Text style={[rs.cardLabel, dark && rs.cardLabelDark]}>{sourceLabel}</Text>
           <Text style={[rs.speechText, dark && rs.speechTextDark, !interp.interimText && interp.entries.length === 0 && rs.placeholderText, !interp.interimText && interp.entries.length === 0 && dark && rs.placeholderTextDark]}>
-            {interp.interimText || interp.entries[interp.entries.length - 1]?.original || (interp.isListening ? "Listening…" : "Your original speech will appear here.")}
+            {interp.interimText || interp.entries[interp.entries.length - 1]?.original || (interp.isListening ? t("record.listening") : t("record.originalPlaceholder"))}
           </Text>
         </View>
 
         <View style={rs.languageBar}>
           <AnchoredMenu
             containerStyle={rs.languageMenuAnchor}
-            items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({ key: language.code, label: language.label, selected: language.code === sourceLang, onPress: () => selectLanguage("source", language.code) }))}
+            items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({ key: language.code, label: t(language.code === "ja" ? "common.japanese" : "common.english"), selected: language.code === sourceLang, onPress: () => selectLanguage("source", language.code) }))}
             width={180}
           >
             {(open) => <Pressable disabled={interp.isListening} onPress={open} style={[rs.languagePill, dark && rs.languagePillDark]}><Text numberOfLines={1} style={[rs.languageText, dark && rs.languageTextDark]}>{sourceLabel}</Text><Ionicons name="chevron-down" size={13} color={dropdownIconColor} /></Pressable>}
@@ -451,27 +456,27 @@ function RecordingSessionScreen({
               })}
             </View>
           ) : (
-            <Pressable onPress={toggleMic} style={({ pressed }) => [rs.micButton, interp.entries.length > 0 && rs.micButtonSmall, pressed && rs.pressed]} accessibilityLabel="Start listening"><Ionicons name="mic" size={interp.entries.length > 0 ? 22 : 29} color="#FFFFFF" /></Pressable>
+            <Pressable onPress={toggleMic} style={({ pressed }) => [rs.micButton, interp.entries.length > 0 && rs.micButtonSmall, pressed && rs.pressed]} accessibilityLabel={t("record.startListening")}><Ionicons name="mic" size={interp.entries.length > 0 ? 22 : 29} color="#FFFFFF" /></Pressable>
           )}
           <AnchoredMenu
             containerStyle={rs.languageMenuAnchor}
-            items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({ key: language.code, label: language.label, selected: language.code === targetLang, onPress: () => selectLanguage("target", language.code) }))}
+            items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({ key: language.code, label: t(language.code === "ja" ? "common.japanese" : "common.english"), selected: language.code === targetLang, onPress: () => selectLanguage("target", language.code) }))}
             width={180}
           >
             {(open) => <Pressable disabled={interp.isListening} onPress={open} style={[rs.languagePill, dark && rs.languagePillDark]}><Text numberOfLines={1} style={[rs.languageText, dark && rs.languageTextDark]}>{targetLabel}</Text><Ionicons name="chevron-down" size={13} color={dropdownIconColor} /></Pressable>}
           </AnchoredMenu>
         </View>
-        {interp.isListening ? <Pressable onPress={handleStop} style={rs.stopListening}><View style={rs.stopSquare} /><Text style={[rs.stopText, dark && rs.stopTextDark]}>Listening… tap to stop</Text></Pressable> : null}
+        {interp.isListening ? <Pressable onPress={handleStop} style={rs.stopListening}><View style={rs.stopSquare} /><Text style={[rs.stopText, dark && rs.stopTextDark]}>{t("record.listeningStop")}</Text></Pressable> : null}
 
         <View style={[rs.translationCard, dark && rs.translationCardDark, { minHeight: translationCardHeight }]}>
           <Text style={[rs.cardLabel, dark && rs.cardLabelDark]}>{targetLabel}</Text>
           <Text style={[rs.translationText, dark && rs.translationTextDark, !interp.liveTranslation && interp.entries.length === 0 && rs.placeholderText, !interp.liveTranslation && interp.entries.length === 0 && dark && rs.placeholderTextDark]}>
-            {interp.liveTranslation || interp.entries[interp.entries.length - 1]?.translation || "Translation will appear here."}
+            {interp.liveTranslation || interp.entries[interp.entries.length - 1]?.translation || t("record.translationPlaceholder")}
           </Text>
         </View>
 
         {interp.entries.length > 0 ? (
-          <Pressable onPress={handleSave} style={({ pressed }) => [rs.saveButton, pressed && rs.pressed]}><Ionicons name="checkmark-circle" size={20} color="#FFFFFF" /><Text style={rs.saveText}>Save to {template.title}</Text></Pressable>
+          <Pressable onPress={handleSave} style={({ pressed }) => [rs.saveButton, pressed && rs.pressed]}><Ionicons name="checkmark-circle" size={20} color="#FFFFFF" /><Text style={rs.saveText}>{t("record.saveTo", { name: template.title })}</Text></Pressable>
         ) : null}
 
       </ScrollView>

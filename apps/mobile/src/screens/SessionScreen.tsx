@@ -5,7 +5,6 @@ import {
   Alert,
   Animated,
   Easing,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,13 +18,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { usePreferences } from "../features/preferences/context";
+import { useTranslation } from "../i18n/I18nContext";
 import TTSService from "../features/live-interpreter/services/tts/TTSService";
 import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
 import { AnchoredMenu } from "../components/AnchoredMenu";
 import { atoms } from "../theme/atoms";
 import { languages, type LanguageCode } from "../constants/data";
+import { translateTextViaApi } from "../services/api";
 import { saveLiveSessionLocally } from "../services/storage";
-import { translateText } from "../services/api";
 
 // ─── iOS-inspired palette ─────────────────────────────────────────────────────
 const BG = "#F5F7FA";
@@ -59,8 +59,10 @@ const WAITING_LABELS: Partial<Record<LanguageCode, string>> = {
   kh: "កំពុងរង់ចាំ…",
 };
 const inputPrompt = (code: LanguageCode) => INPUT_PROMPTS[code] ?? `${getLabel(code)} text…`;
-const AUTO_SPEAK_START_DELAY_MS = 500;
-const MIC_RESUME_AFTER_SPEECH_MS = 300;
+// Pure pauses, not work — they only ever made a turn feel longer. Kept just
+// long enough that the transcript card is on screen before audio starts.
+const AUTO_SPEAK_START_DELAY_MS = 0;
+const MIC_RESUME_AFTER_SPEECH_MS = 80;
 const AUTO_SPEAK_SAFETY_TIMEOUT_MS = 25_000;
 
 // ─── Waveform ─────────────────────────────────────────────────────────────────
@@ -131,12 +133,13 @@ function LangPill({ value, onChange, disabled, dark, showDot = false }: {
   dark: boolean;
   showDot?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <AnchoredMenu
       dark={dark}
       items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({
         key: language.code,
-        label: `${getFlag(language.code)}  ${language.label}`,
+        label: `${getFlag(language.code)}  ${t(language.code === "ja" ? "common.japanese" : "common.english")}`,
         selected: language.code === value,
         onPress: () => onChange(language.code as LanguageCode),
       }))}
@@ -145,7 +148,7 @@ function LangPill({ value, onChange, disabled, dark, showDot = false }: {
       {(open) => (
         <Pressable disabled={disabled} onPress={open} style={[pl.pill, dark && pl.pillDark, disabled && pl.pillOff]}>
           {showDot ? <View style={pl.dot} /> : <Text style={pl.flag}>{getFlag(value)}</Text>}
-          <Text style={[pl.lbl, dark && pl.lblDark]}>{getLabel(value)}</Text>
+          <Text style={[pl.lbl, dark && pl.lblDark]}>{t(value === "ja" ? "common.japanese" : "common.english")}</Text>
           <Ionicons name="chevron-down" size={11} color={dark ? "#AAB2BE" : "#6E7785"} />
         </Pressable>
       )}
@@ -188,22 +191,30 @@ export function SessionScreen({
   embedded?: boolean;
   active?: boolean;
 }) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const { appearance_mode: appearanceMode, session_mode: mode, auto_speak: autoSpeak, text_size: textSize, tts_speed, update: updatePrefs } = usePreferences();
   const systemScheme = useColorScheme();
   const dark = appearanceMode === "dark" || (appearanceMode === "system" && systemScheme === "dark");
   const sessionMode = embedded ? "two-way" : mode;
-  const textScale = textSize === "large" ? 1.16 : textSize === "small" ? 0.9 : 1;
+  // Android's default Roboto metrics look slightly smaller and lighter than
+  // San Francisco at the same React Native size. Calibrate only the explicit
+  // Large preference so it has the same visual emphasis on both platforms.
+  const textScale = textSize === "large"
+    ? Platform.OS === "android" ? 1.24 : 1.16
+    : textSize === "small" ? 0.9 : 1;
+  const largeTextWeight = textSize === "large" && Platform.OS === "android" ? "700" as const : undefined;
 
   const [src, setSrc] = useState<LanguageCode>(initialSource);
   const [tgt, setTgt] = useState<LanguageCode>(initialTarget);
   const [draftSource, setDraftSource] = useState("");
   const [draftTarget, setDraftTarget] = useState("");
-  const [status, setStatus] = useState<string>("TAP \u25CF TO SPEAK");
+  const [status, setStatus] = useState<string>(t("live.start"));
   const [utterances, setUtterances] = useState<Utterance[]>([]);
   const [continuousMode, setContinuousMode] = useState(true);
   const [interpreterSpeaking, setInterpreterSpeaking] = useState(false);
+  const [sendingDraft, setSendingDraft] = useState(false);
   const live = useLiveInterpretation(src, tgt, continuousMode, autoSpeak);
 
   const srcRef = useRef(src); useEffect(() => { srcRef.current = src; }, [src]);
@@ -225,43 +236,6 @@ export function SessionScreen({
 
   const sessionId = useRef(`live-${Date.now()}`);
   const sessionStart = useRef(new Date().toISOString());
-
-  const submitDraft = async (
-    text: string,
-    fromLang: LanguageCode,
-    toLang: LanguageCode,
-    lane: Utterance["lane"],
-    clear: () => void,
-  ) => {
-    const trimmed = text.trim();
-    if (!trimmed || busy) return;
-    Keyboard.dismiss();
-    clear();
-    try {
-      const translated = await translateText(trimmed, fromLang, toLang);
-      const utterance: Utterance = {
-        id: `manual-${Date.now()}`,
-        original: trimmed,
-        translation: translated,
-        sourceLang: fromLang,
-        targetLang: toLang,
-        lane,
-        createdAt: new Date().toISOString(),
-      };
-      setUtterances((prev) => {
-        const next = [...prev, utterance];
-        saveLiveSessionLocally({
-          id: sessionId.current, sourceLang: fromLang, targetLang: toLang,
-          mode: modeRef.current, utterances: next,
-          createdAt: sessionStart.current, endedAt: null,
-        }).catch(() => { });
-        return next;
-      });
-      scrollToLiveBottom(120);
-    } catch {
-      Alert.alert("QuickVoice", "Could not translate that text. Check your connection and try again.");
-    }
-  };
   const controlTransition = useRef(new Animated.Value(live.isListening ? 1 : 0)).current;
 
   useEffect(() => {
@@ -284,13 +258,94 @@ export function SessionScreen({
     if (live.error) {
       setStatus(live.error);
     } else if (interpreterSpeaking) {
-      setStatus("SPEAKING…");
+      setStatus(t("live.speaking"));
+    } else if (!live.isListening && live.interimText.trim()) {
+      setStatus(t("live.translating"));
     } else if (live.isListening) {
-      setStatus("LISTENING…");
+      setStatus(t("live.listening"));
     } else {
-      setStatus("TAP \u25CF TO SPEAK");
+      setStatus(t("live.start"));
     }
-  }, [interpreterSpeaking, live.error, live.isListening]);
+  }, [interpreterSpeaking, live.error, live.interimText, live.isListening, t]);
+
+  // Shared by spoken turns and typed messages so both land in the transcript
+  // the same way, on the side of whichever language they were composed in.
+  const appendUtterance = ({
+    id,
+    original,
+    translation,
+    sourceLang,
+    targetLang,
+  }: {
+    id: string;
+    original: string;
+    translation: string;
+    sourceLang: LanguageCode;
+    targetLang: LanguageCode;
+  }) => {
+    const utterance: Utterance = {
+      id,
+      original,
+      translation,
+      sourceLang,
+      targetLang,
+      // Place the conversation card on the same side as the language that
+      // was spoken. The live target-language box is on the right and the
+      // live source-language box is on the left.
+      lane: sourceLang === tgtRef.current ? "right" : "left",
+      createdAt: new Date().toISOString(),
+    };
+
+    setUtterances((prev) => {
+      const next = [...prev, utterance];
+      saveLiveSessionLocally({
+        id: sessionId.current, sourceLang, targetLang,
+        mode: modeRef.current, utterances: next,
+        createdAt: sessionStart.current, endedAt: null,
+      }).catch(() => { });
+      return next;
+    });
+    scrollToLiveBottom(120);
+  };
+
+  // Send a typed message. The mic is never running while the inputs are
+  // visible, so this needs none of the pause/resume dance the spoken path does.
+  const submitDraft = async (
+    text: string,
+    sourceLang: LanguageCode,
+    targetLang: LanguageCode,
+    clearDraft: () => void,
+  ) => {
+    const trimmed = text.trim();
+    if (!trimmed || sendingDraft) return;
+
+    clearDraft();
+    setSendingDraft(true);
+    try {
+      const translation = await translateTextViaApi(trimmed, sourceLang, targetLang);
+      appendUtterance({
+        id: `typed-${Date.now()}`,
+        original: trimmed,
+        translation,
+        sourceLang,
+        targetLang,
+      });
+
+      if (speakRef.current && translation) {
+        setInterpreterSpeaking(true);
+        void TTSService.speak(translation, targetLang === "ja" ? "ja" : "en", speedRef.current)
+          .catch(() => undefined)
+          .finally(() => setInterpreterSpeaking(false));
+      }
+    } catch (reason: unknown) {
+      Alert.alert(
+        t("live.translationFailed"),
+        reason instanceof Error ? reason.message : t("live.sendFailed"),
+      );
+    } finally {
+      setSendingDraft(false);
+    }
+  };
 
   useEffect(() => {
     const latest = live.entries[live.entries.length - 1];
@@ -302,27 +357,13 @@ export function SessionScreen({
     // Place the conversation card on the same side as the language that
     // was spoken. The live target-language box is on the right and the
     // live source-language box is on the left.
-    const lane: Utterance["lane"] = s === tgtRef.current ? "right" : "left";
-    const utterance: Utterance = {
+    appendUtterance({
       id: latest.id,
       original: latest.original,
       translation: latest.translation,
       sourceLang: s,
       targetLang: t,
-      lane,
-      createdAt: new Date().toISOString(),
-    };
-
-    setUtterances((prev) => {
-      const next = [...prev, utterance];
-      saveLiveSessionLocally({
-        id: sessionId.current, sourceLang: s, targetLang: t,
-        mode: modeRef.current, utterances: next,
-        createdAt: sessionStart.current, endedAt: null,
-      }).catch(() => { });
-      return next;
     });
-    scrollToLiveBottom(120);
 
     if (speakRef.current && latest.translation) {
       if (ttsTimerRef.current) clearTimeout(ttsTimerRef.current);
@@ -384,8 +425,19 @@ export function SessionScreen({
   };
 
   const busy = live.isListening;
-  const sourceIsListening = busy && live.listeningLanguage === src;
-  const targetIsListening = busy && live.listeningLanguage === tgt;
+  const hasTranscriptPreview = Boolean(live.interimText.trim());
+  // While the mic is open with nothing transcribed yet, the app genuinely does
+  // not know which language is coming — it alternates the recognizer's locale
+  // behind the scenes, including on every empty window. Surfacing that guess
+  // made the two cards flip between "Listening…" and "Waiting…" every couple of
+  // seconds while nobody spoke, which read as a bug. Both now say "Listening…"
+  // until real text arrives and claims one side.
+  const sourceIsListening = hasTranscriptPreview
+    ? live.listeningLanguage === src
+    : busy;
+  const targetIsListening = hasTranscriptPreview
+    ? live.listeningLanguage === tgt
+    : busy;
   const laneStyle = (lane: Utterance["lane"]) =>
     lane === "right" ? ss.cardRight : ss.cardLeft;
 
@@ -395,34 +447,41 @@ export function SessionScreen({
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={atoms.flex1}>
-    <View style={[atoms.flex1, { backgroundColor: dark ? "#0E1013" : BG, paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      // "padding" on both platforms. The manifest sets adjustResize, but this
+      // app runs edge-to-edge (the default since Expo 57), and under
+      // edge-to-edge Android stops shrinking the layout for the keyboard — so
+      // leaving Android with no behavior meant iOS lifted the boxes and
+      // Android silently did nothing.
+      behavior="padding"
+      style={[atoms.flex1, { backgroundColor: dark ? "#0E1013" : BG, paddingTop: insets.top }]}
+    >
       <View style={ss.topBar}>
         {embedded ? <View style={ss.circleButtonPlaceholder} /> : (
-          <Pressable onPress={handleBack} style={[ss.circleButton, dark && ss.circleButtonDark]} accessibilityLabel="Back">
+          <Pressable onPress={handleBack} style={[ss.circleButton, dark && ss.circleButtonDark]} accessibilityLabel={t("common.back")}>
             <Ionicons name="chevron-back" size={22} color={dark ? "#F5F7FA" : "#171A20"} />
           </Pressable>
         )}
-        <Text style={[ss.screenTitle, dark && ss.textDark]}>Live Interpreter</Text>
+        <Text style={[ss.screenTitle, dark && ss.textDark]}>{t("live.title")}</Text>
         <AnchoredMenu
           dark={dark}
           items={[
             {
               key: "continuous-mode",
-              label: continuousMode ? "Manual: Tap Each Time" : "Auto: Keep Listening",
+              label: continuousMode ? t("live.manualTap") : t("live.autoKeepListening"),
               icon: continuousMode ? "hand-left-outline" : "radio-outline",
               disabled: live.isListening,
               onPress: () => setContinuousMode((current) => !current),
             },
             {
               key: "auto-speak",
-              label: autoSpeak ? "Turn Off Auto-Speak" : "Turn On Auto-Speak",
+              label: autoSpeak ? t("live.autoSpeakOff") : t("live.autoSpeakOn"),
               icon: autoSpeak ? "volume-mute-outline" : "volume-high-outline",
               onPress: () => updatePrefs({ auto_speak: !autoSpeak }),
             },
             {
               key: "swap",
-              label: "Swap Languages",
+              label: t("live.swapLanguages"),
               icon: "swap-horizontal-outline",
               disabled: live.isListening,
               onPress: swap,
@@ -430,7 +489,7 @@ export function SessionScreen({
           ]}
         >
           {(open) => (
-            <Pressable onPress={open} style={[ss.circleButton, dark && ss.circleButtonDark]} accessibilityLabel="Live Interpreter actions">
+            <Pressable onPress={open} style={[ss.circleButton, dark && ss.circleButtonDark]} accessibilityLabel={t("live.actions")}>
               <Ionicons name="ellipsis-horizontal" size={21} color={dark ? "#E4E8EE" : "#303640"} />
             </Pressable>
           )}
@@ -440,10 +499,12 @@ export function SessionScreen({
       <ScrollView
         alwaysBounceVertical={false}
         bounces={false}
-        keyboardShouldPersistTaps="handled"
         ref={scrollRef}
         style={[atoms.flex1, ss.conversationViewport]}
         contentContainerStyle={ss.conversation}
+        // Without this, the first tap while the keyboard is open only dismisses
+        // it — the mic and Play buttons would need a second tap.
+        keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => {
           if (shouldFollowLatestRef.current) {
             scrollRef.current?.scrollToEnd({ animated: true });
@@ -467,8 +528,8 @@ export function SessionScreen({
 
         {utterances.map((u) => (
           <View key={`solid-card-${u.id}`} style={[ss.card, dark && ss.cardDark, laneStyle(u.lane)]}>
-            <View style={ss.cardHeader}>
-              <Text style={[ss.cardLanguage, dark && ss.secondaryTextDark]}>{getLabel(u.sourceLang)}</Text>
+            <View style={[ss.cardHeader, u.lane === "right" && ss.cardHeaderRight]}>
+              <Text style={[ss.cardLanguage, u.lane === "right" && ss.cardLanguageRight, dark && ss.secondaryTextDark]}>{getLabel(u.sourceLang)}</Text>
               <Pressable
                 onPress={() => {
                   void TTSService.speak(
@@ -477,21 +538,21 @@ export function SessionScreen({
                     speedRef.current,
                   ).catch((error: unknown) => {
                     Alert.alert(
-                      "Audio unavailable",
-                      error instanceof Error ? error.message : "Could not generate speech.",
+                      t("live.audioUnavailable"),
+                      error instanceof Error ? error.message : t("live.audioUnavailableMessage"),
                     );
                   });
                 }}
                 style={ss.playButton}
-                accessibilityLabel="Play translation"
+                accessibilityLabel={t("live.playTranslation")}
               >
                 <Ionicons name="play" size={13} color={WHITE} />
               </Pressable>
             </View>
-            <Text style={[ss.cardOriginal, dark && ss.textDark, { fontSize: 21 * textScale, lineHeight: 29 * textScale }]}>{u.original}</Text>
+            <Text style={[ss.cardOriginal, dark && ss.textDark, { fontSize: 21 * textScale, fontWeight: largeTextWeight, lineHeight: 29 * textScale }]}>{u.original}</Text>
             <View style={[ss.divider, dark && ss.dividerDark]} />
             <Text style={[ss.translationLabel, dark && ss.secondaryTextDark]}>{getLabel(u.targetLang)}</Text>
-            <Text style={[ss.cardTranslation, { fontSize: 20 * textScale, lineHeight: 28 * textScale }]}>{u.translation}</Text>
+            <Text style={[ss.cardTranslation, { fontSize: 20 * textScale, fontWeight: largeTextWeight, lineHeight: 28 * textScale }]}>{u.translation}</Text>
           </View>
         ))}
 
@@ -500,20 +561,39 @@ export function SessionScreen({
             <View style={[ss.waitingCard, dark && ss.cardDark, ss.cardRight]}>
             <LangPill dark={dark} value={tgt} onChange={(value) => { if (!busy) setTgt(value); }} disabled={busy} />
             <View style={ss.contentTransition}>
-              {!busy ? (
-                <TextInput multiline editable={!busy} onChangeText={setDraftTarget} onSubmitEditing={() => submitDraft(draftTarget, tgt, src, "right", () => setDraftTarget(""))} placeholder={inputPrompt(tgt)} placeholderTextColor={dark ? "#78818D" : FAINT} returnKeyType="send" scrollEnabled={false} style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, lineHeight: 25 * textScale }]} submitBehavior="submit" value={draftTarget} />
+              {!busy && !hasTranscriptPreview ? (
+                <TextInput
+                  multiline
+                  // With multiline the Return key inserts a newline by default;
+                  // blurOnSubmit hands it back to onSubmitEditing so the key
+                  // reads (and behaves) as Send.
+                  blurOnSubmit
+                  editable={!busy && !sendingDraft}
+                  enablesReturnKeyAutomatically
+                  onChangeText={setDraftTarget}
+                  onFocus={() => scrollToLiveBottom(320)}
+                  onSubmitEditing={() => submitDraft(draftTarget, tgt, src, () => setDraftTarget(""))}
+                  placeholder={t(tgt === "ja" ? "live.inputJapanese" : "live.inputEnglish")}
+                  placeholderTextColor={dark ? "#78818D" : FAINT}
+                  returnKeyType="send"
+                  scrollEnabled={false}
+                  style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, fontWeight: largeTextWeight, lineHeight: 25 * textScale }]}
+                  value={draftTarget}
+                />
               ) : (
                 <Animated.Text
                   style={[
                     ss.waitingText,
                     dark && ss.secondaryTextDark,
-                    { fontSize: 18 * textScale, lineHeight: 25 * textScale },
-                    { opacity: controlTransition, transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }] },
+                    { fontSize: 18 * textScale, fontWeight: largeTextWeight, lineHeight: 25 * textScale },
+                    hasTranscriptPreview
+                      ? { opacity: 1, transform: [{ translateY: 0 }] }
+                      : { opacity: controlTransition, transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }] },
                   ]}
                 >
                   {targetIsListening
-                    ? live.interimText || LISTENING_LABELS[tgt] || "Listening…"
-                    : WAITING_LABELS[tgt] ?? "Waiting…"}
+                    ? live.interimText || t(tgt === "ja" ? "live.listeningJapanese" : "live.listeningEnglish")
+                    : t(tgt === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
                 </Animated.Text>
               )}
             </View>
@@ -528,20 +608,36 @@ export function SessionScreen({
                   : null,
               ]}
             >
-              {!busy ? (
-                <TextInput multiline editable={!busy} onChangeText={setDraftSource} onSubmitEditing={() => submitDraft(draftSource, src, tgt, "left", () => setDraftSource(""))} placeholder={inputPrompt(src)} placeholderTextColor={dark ? "#78818D" : FAINT} returnKeyType="send" scrollEnabled={false} style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, lineHeight: 25 * textScale }]} submitBehavior="submit" value={draftSource} />
+              {!busy && !hasTranscriptPreview ? (
+                <TextInput
+                  multiline
+                  blurOnSubmit
+                  editable={!busy && !sendingDraft}
+                  enablesReturnKeyAutomatically
+                  onChangeText={setDraftSource}
+                  onFocus={() => scrollToLiveBottom(320)}
+                  onSubmitEditing={() => submitDraft(draftSource, src, tgt, () => setDraftSource(""))}
+                  placeholder={t(src === "ja" ? "live.inputJapanese" : "live.inputEnglish")}
+                  placeholderTextColor={dark ? "#78818D" : FAINT}
+                  returnKeyType="send"
+                  scrollEnabled={false}
+                  style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, fontWeight: largeTextWeight, lineHeight: 25 * textScale }]}
+                  value={draftSource}
+                />
               ) : (
                 <Animated.Text
                   style={[
                     ss.waitingText,
                     dark && ss.secondaryTextDark,
-                    { fontSize: 18 * textScale, lineHeight: 25 * textScale },
-                    { opacity: controlTransition, transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }] },
+                    { fontSize: 18 * textScale, fontWeight: largeTextWeight, lineHeight: 25 * textScale },
+                    hasTranscriptPreview
+                      ? { opacity: 1, transform: [{ translateY: 0 }] }
+                      : { opacity: controlTransition, transform: [{ translateY: controlTransition.interpolate({ inputRange: [0, 1], outputRange: [5, 0] }) }] },
                   ]}
                 >
                   {sourceIsListening
-                    ? live.interimText || LISTENING_LABELS[src] || "Listening…"
-                    : WAITING_LABELS[src] ?? "Waiting…"}
+                    ? live.interimText || t(src === "ja" ? "live.listeningJapanese" : "live.listeningEnglish")
+                    : t(src === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
                 </Animated.Text>
               )}
               </View>
@@ -561,7 +657,7 @@ export function SessionScreen({
               },
             ]}
           >
-            <Pressable accessibilityLabel="Stop listening" accessibilityRole="button" onPress={toggle} style={ss.fill}>
+            <Pressable accessibilityLabel={t("live.stopListening")} accessibilityRole="button" onPress={toggle} style={ss.fill}>
               <Waveform active={live.isListening} />
             </Pressable>
           </Animated.View>
@@ -577,18 +673,17 @@ export function SessionScreen({
               },
             ]}
           >
-            <Pressable onPress={toggle} style={({ pressed }) => [ss.micButton, pressed && { transform: [{ scale: 0.94 }] }]} accessibilityRole="button" accessibilityLabel="Start listening">
+            <Pressable onPress={toggle} style={({ pressed }) => [ss.micButton, pressed && { transform: [{ scale: 0.94 }] }]} accessibilityRole="button" accessibilityLabel={t("live.startListening")}>
               <Ionicons name="mic" size={35} color={WHITE} />
             </Pressable>
           </Animated.View>
           <Animated.Text style={[ss.statusText, dark && ss.secondaryTextDark, { opacity: controlTransition.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 0, 0] }) }]}>
-            {status === "TAP ● TO SPEAK" ? "Tap to speak" : status}
+            {status === t("live.start") ? t("live.tapToSpeak") : status}
           </Animated.Text>
           </View>
         </View>
         <View style={{ height: Math.max(insets.bottom, 12) }} />
       </ScrollView>
-    </View>
     </KeyboardAvoidingView>
   );
 }
@@ -596,8 +691,10 @@ export function SessionScreen({
 const ss = StyleSheet.create({
   card: { backgroundColor: SURFACE, borderRadius: 20, marginBottom: 10, maxWidth: "88%", opacity: 1, padding: 16, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18, elevation: 3 },
   cardHeader: { alignItems: "center", flexDirection: "row", marginBottom: 10 },
+  cardHeaderRight: { flexDirection: "row-reverse" },
   cardDark: { backgroundColor: "#25292F", shadowColor: "#000000" },
   cardLanguage: { color: "#69717E", flex: 1, fontSize: 12, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase" },
+  cardLanguageRight: { textAlign: "right" },
   cardLeft: { alignSelf: "flex-start" },
   cardOriginal: { color: "#15181E", fontSize: 21, fontWeight: "600", letterSpacing: -0.25, lineHeight: 29 },
   cardRight: { alignSelf: "flex-end" },
@@ -637,7 +734,13 @@ const ss = StyleSheet.create({
   screenTitle: { color: "#111318", fontSize: 20, fontWeight: "700", letterSpacing: -0.35 },
   statusText: { color: DIM, fontSize: 12, fontWeight: "600", marginTop: 86 },
   swapButton: { alignItems: "center", height: 42, justifyContent: "center", marginHorizontal: 7, width: 42 },
-  topBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 8 },
+  topBar: {
+    alignItems: "center",
+    flexDirection: "row",
+    height: 64,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+  },
   translationLabel: { color: "#8A929E", fontSize: 10, fontWeight: "700", letterSpacing: 0.6, marginBottom: 4, textTransform: "uppercase" },
   waitingCard: { backgroundColor: WHITE, borderRadius: 20, marginVertical: 6, maxWidth: "76%", minWidth: "54%", padding: 14, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 18 },
   waitingLanguage: { color: "#68717D", fontSize: 12, fontWeight: "700", marginBottom: 8 },

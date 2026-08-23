@@ -45,8 +45,7 @@
           "speechRecognitionPermission": "Allow QuickVoice to recognize speech for live interpretation."
         }
       ],
-      "expo-video",
-      "expo-web-browser"
+      "expo-video"
     ]
   }
 }

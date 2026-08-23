@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Animated, Image, PanResponder, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { AccessibilityInfo, Alert, Animated, Easing, Image, PanResponder, Pressable, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { atoms } from "./src/theme/atoms";
@@ -11,8 +13,9 @@ import { CreateAccountScreen } from "./src/screens/CreateAccountScreen";
 import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { OTPScreen } from "./src/screens/OTPScreen";
 import { PreferencesProvider, usePreferences } from "./src/features/preferences/context";
+import { I18nProvider, useTranslation } from "./src/i18n/I18nContext";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
-import { HistoryScreen } from "./src/screens/HistoryScreen";
+import { HistoryScreen, type HistoryKind } from "./src/screens/HistoryScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProfileScreen } from "./src/screens/ProfileScreen";
@@ -29,21 +32,48 @@ export type Tab = "home" | "live" | "record" | "history" | "settings" | "profile
 
 const TABS: Array<{
   key: Tab;
-  label: string;
+  labelKey: string;
   icon: keyof typeof Ionicons.glyphMap;
 }> = [
-  { key: "live",     label: "Live Interpreter", icon: "pulse-outline" },
-  { key: "record",   label: "Record",           icon: "mic-outline" },
-  { key: "history",  label: "History",          icon: "time-outline" },
-  { key: "settings", label: "Settings",         icon: "settings-outline" },
+  { key: "live",     labelKey: "nav.live",     icon: "pulse-outline" },
+  { key: "record",   labelKey: "nav.record",   icon: "mic-outline" },
+  { key: "history",  labelKey: "nav.history",  icon: "time-outline" },
+  { key: "settings", labelKey: "nav.settings", icon: "settings-outline" },
 ];
+
+// Straight cross-fade: the outgoing page fades out, then the incoming one
+// fades in. Cross-fading rather than sliding keeps tabs feeling like siblings
+// instead of a hierarchy.
+//
+// Deliberately no scale. A scale reads differently on every page, because it
+// pushes content away from the container's centre — the Live screen is
+// centred so it grows in place, while a scrolling page's content sits up
+// under the header and appears to leap upward. Same transform, two different
+// motions. Opacity alone has no anchor point, so every tab enters identically.
+const PAGE_FADE_OUT_MS = 120;
+const PAGE_FADE_IN_MS = 300;
+
+type UnauthenticatedStackParamList = {
+  Onboarding: undefined;
+  Authentication: undefined;
+  CreateAccount: undefined;
+  ForgotPassword: undefined;
+  OTP: { email: string };
+  ResetPassword: undefined;
+};
+
+const UnauthenticatedStack = createNativeStackNavigator<UnauthenticatedStackParamList>();
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <PreferencesProvider>
-          <AppFrame />
+          <I18nProvider>
+            <NavigationContainer>
+              <AppFrame />
+            </NavigationContainer>
+          </I18nProvider>
         </PreferencesProvider>
       </AuthProvider>
     </SafeAreaProvider>
@@ -51,6 +81,7 @@ export default function App() {
 }
 
 function AppFrame() {
+  const { t } = useTranslation();
   const { initialized, user } = useAuth();
   const { appearance_mode: appearanceMode } = usePreferences();
   const systemScheme = useColorScheme();
@@ -59,6 +90,12 @@ function AppFrame() {
     ? { background: "#0E1013", border: "#383D45", surface: "#25292F", text: "#F5F7FA", muted: "#A4ABB5", indicator: "#163A62" }
     : { background: colors.background, border: "#E3E6EB", surface: "#FFFFFF", text: "#111318", muted: "#5F6670", indicator: "#EAF3FF" };
   const [activeTab, setActiveTab] = useState<Tab>("live");
+  const [historyInitialKind, setHistoryInitialKind] = useState<HistoryKind>("conversations");
+  // The tab bar follows `activeTab` immediately so a tap feels instant, while
+  // the content keeps showing `renderedTab` until the outgoing page has faded.
+  const [renderedTab, setRenderedTab] = useState<Tab>("live");
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const contentTransition = useRef(new Animated.Value(1)).current;
   const [recordSessionActive, setRecordSessionActive] = useState(false);
   const [recordBackRequest, setRecordBackRequest] = useState(0);
   const [accountScreen, setAccountScreen] = useState<"privacy" | "email" | "password" | null>(null);
@@ -80,8 +117,42 @@ function AppFrame() {
   }, [user?.id]);
 
   useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduceMotion,
+    );
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     pageScrollY.setValue(0);
-  }, [activeTab, pageScrollY]);
+  }, [renderedTab, pageScrollY]);
+
+  // Fade the outgoing page out, then hand over to the incoming one. Swapping
+  // only once the screen is blank means the two pages are never visible at the
+  // same time, so nothing appears to jump between layouts.
+  useEffect(() => {
+    if (activeTab === renderedTab) return;
+
+    Animated.timing(contentTransition, {
+      duration: reduceMotion ? 0 : PAGE_FADE_OUT_MS,
+      easing: Easing.in(Easing.quad),
+      toValue: 0,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setRenderedTab(activeTab);
+    });
+  }, [activeTab, contentTransition, reduceMotion, renderedTab]);
+
+  useEffect(() => {
+    Animated.timing(contentTransition, {
+      duration: reduceMotion ? 0 : PAGE_FADE_IN_MS,
+      easing: Easing.out(Easing.cubic),
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  }, [contentTransition, reduceMotion, renderedTab]);
 
   useEffect(() => {
     const index = activeTab === "home" ? 0 : activeTab === "profile" ? 3 : TABS.findIndex((tab) => tab.key === activeTab);
@@ -116,6 +187,7 @@ function AppFrame() {
       onPanResponderRelease: (_event, gestureState) => {
         const index = Math.round(positionForPageX(gestureState.moveX || gestureState.x0));
         Animated.spring(tabIndicatorPosition, { damping: 21, mass: 0.72, stiffness: 185, toValue: index, useNativeDriver: true }).start();
+        if (TABS[index].key === "history") setHistoryInitialKind("conversations");
         setActiveTab(TABS[index].key);
       },
       onPanResponderTerminate: () => {
@@ -163,18 +235,38 @@ function AppFrame() {
   const TAB_HEIGHT = 68;
   const tabBarBottom = Math.max(6, insets.bottom - 10);
   const pageHeaderHeight = insets.top + 64;
+  const pageEnterStyle = { opacity: contentTransition };
+  const headerButtonStyle = ({ pressed }: { pressed: boolean }) => ({
+    alignItems: "center" as const,
+    backgroundColor: pressed ? (dark ? "#333942" : "#E5E8ED") : shell.surface,
+    borderColor: shell.border,
+    borderRadius: 999,
+    borderWidth: 0.5,
+    height: 40,
+    justifyContent: "center" as const,
+    shadowColor: dark ? "#000000" : "#202838",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    width: 40,
+  });
 
   return (
     <View style={[atoms.flex1, { backgroundColor: shell.background }]}>
       <StatusBar style={dark ? "light" : "dark"} />
 
       {/* ── Header ── */}
-      {activeTab !== "live" ? (
+      {renderedTab !== "live" ? (
         <Animated.View
           pointerEvents="box-none"
           style={{
             left: 0,
-            opacity: pageScrollY.interpolate({ inputRange: [0, 38, 66], outputRange: [1, 0.45, 0], extrapolate: "clamp" }),
+            // Two independent fades: the scroll-away header, and the page
+            // transition. Multiplying lets whichever is lower win.
+            opacity: Animated.multiply(
+              pageScrollY.interpolate({ inputRange: [0, 38, 66], outputRange: [1, 0.45, 0], extrapolate: "clamp" }),
+              contentTransition,
+            ),
             position: "absolute",
             right: 0,
             top: 0,
@@ -183,34 +275,34 @@ function AppFrame() {
           }}
         >
           <SafeAreaView edges={["top"]} style={{ backgroundColor: "transparent" }}>
-            <View style={{ alignItems: activeTab === "history" ? "flex-start" : "center", height: 64, justifyContent: "center", paddingHorizontal: spacing.lg }}>
-              <Text style={{ color: shell.text, fontSize: activeTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: activeTab === "history" ? -0.6 : -0.35, marginLeft: activeTab === "history" ? 8 : 0, textAlign: activeTab === "history" ? "left" : "center" }}>
-                {activeTab === "record" ? (recordSessionActive ? "New Recording" : "Record") : activeTab === "history" ? "History" : activeTab === "settings" ? "Settings" : activeTab === "profile" ? "Profile" : "Home"}
+            <View style={{ alignItems: renderedTab === "history" ? "flex-start" : "center", height: 64, justifyContent: "center", paddingHorizontal: spacing.lg }}>
+              <Text style={{ color: shell.text, fontSize: renderedTab === "history" ? 30 : 20, fontWeight: "700", letterSpacing: renderedTab === "history" ? -0.6 : -0.35, marginLeft: renderedTab === "history" ? 8 : 0, textAlign: renderedTab === "history" ? "left" : "center" }}>
+                {renderedTab === "record" ? t("nav.record") : renderedTab === "history" ? t("nav.history") : renderedTab === "settings" ? t("nav.settings") : renderedTab === "profile" ? t("profile.title") : t("nav.live")}
               </Text>
-              {activeTab === "record" && recordSessionActive ? (
+              {renderedTab === "record" && recordSessionActive ? (
                 <Pressable
-                  accessibilityLabel="Back to recording categories"
+                  accessibilityLabel={t("record.backToCategories")}
                   accessibilityRole="button"
                   onPress={() => setRecordBackRequest((request) => request + 1)}
-                  style={({ pressed }) => ({ alignItems: "center", backgroundColor: dark ? "#25292F" : pressed ? "#E5E8ED" : "#FFFFFF", borderColor: dark ? "#424953" : "#D7DBE1", borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, height: 40, justifyContent: "center", left: spacing.lg, position: "absolute", shadowColor: dark ? "#000000" : "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+                  style={(state) => [headerButtonStyle(state), { left: spacing.lg, position: "absolute" }]}
                 >
-                  <Ionicons name="chevron-back" size={22} color={dark ? "#F5F7FA" : "#171A20"} />
+                  <Ionicons name="chevron-back" size={22} color={shell.text} />
                 </Pressable>
               ) : null}
-              {activeTab === "record" ? (
+              {renderedTab === "record" ? (
                 <View style={{ position: "absolute", right: spacing.lg }}>
                   <AnchoredMenu
                     items={[
-                      { key: "history", label: "Recording History", icon: "time-outline", onPress: () => setActiveTab("history") },
-                      { key: "help", label: "How to Record", icon: "help-circle-outline", onPress: () => Alert.alert("How to Record", "Choose a category, select your languages, then tap the microphone to begin.") },
+                      { key: "history", label: t("record.recordingHistory"), icon: "time-outline", onPress: () => setActiveTab("history") },
+                      { key: "help", label: t("record.howToRecord"), icon: "help-circle-outline", onPress: () => Alert.alert(t("record.howToRecord"), t("record.howToRecordMessage")) },
                     ]}
                   >
                     {(open) => (
                       <Pressable
-                        accessibilityLabel="Record actions"
+                        accessibilityLabel={t("record.actions")}
                         accessibilityRole="button"
                         onPress={open}
-                        style={({ pressed }) => ({ alignItems: "center", backgroundColor: dark ? "#25292F" : pressed ? "#E5E8ED" : "#FFFFFF", borderColor: dark ? "#424953" : "#D7DBE1", borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, height: 40, justifyContent: "center", shadowColor: dark ? "#000000" : "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+                        style={headerButtonStyle}
                       >
                         <Ionicons name="ellipsis-horizontal" size={21} color={dark ? "#E4E8EE" : "#303640"} />
                       </Pressable>
@@ -224,27 +316,31 @@ function AppFrame() {
       ) : null}
 
       {/* ── Content ── */}
-      <View
+      <Animated.View
         style={[
           { flex: 1, paddingBottom: TAB_HEIGHT + tabBarBottom },
-          activeTab !== "live" && { display: "none" },
+          pageEnterStyle,
+          renderedTab !== "live" && { display: "none" },
         ]}
       >
+        {/* `activeTab`, not `renderedTab`: the microphone should stop the
+            instant another tab is tapped, not after the fade finishes. */}
         <LiveScreen active={activeTab === "live"} />
-      </View>
-      {activeTab !== "live" ? <Animated.ScrollView
+      </Animated.View>
+      {renderedTab !== "live" ? <Animated.ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg, paddingTop: pageHeaderHeight + spacing.sm }}
         keyboardShouldPersistTaps="handled"
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: pageScrollY } } }], { useNativeDriver: true })}
-        scrollEnabled={activeTab !== "record" || !recordSessionActive}
+        scrollEnabled={renderedTab !== "record" || !recordSessionActive}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
+        style={pageEnterStyle}
       >
-        {activeTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
-        {activeTab === "record"   && <RecordScreen setActiveTab={setActiveTab} onSessionChange={setRecordSessionActive} backRequest={recordBackRequest} />}
-        {activeTab === "history"  && <HistoryScreen />}
-        {activeTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onPrivacySecurity={() => setAccountScreen("privacy")} />}
-        {activeTab === "profile"  && <ProfileScreen />}
+        {renderedTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
+        {renderedTab === "record"   && <RecordScreen setActiveTab={(tab) => { setHistoryInitialKind("recordings"); setActiveTab(tab); }} onSessionChange={setRecordSessionActive} backRequest={recordBackRequest} />}
+        {renderedTab === "history"  && <HistoryScreen initialKind={historyInitialKind} />}
+        {renderedTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onPrivacySecurity={() => setAccountScreen("privacy")} />}
+        {renderedTab === "profile"  && <ProfileScreen />}
       </Animated.ScrollView> : null}
 
       {/* ── Floating pill tab bar ── */}
@@ -272,8 +368,11 @@ function AppFrame() {
                 key={tab.key}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={tab.label}
-                onPress={() => setActiveTab(tab.key)}
+                accessibilityLabel={t(tab.labelKey)}
+                onPress={() => {
+                  if (tab.key === "history") setHistoryInitialKind("conversations");
+                  setActiveTab(tab.key);
+                }}
                 style={{ alignItems: "center", backgroundColor: "transparent", borderRadius: 20, flex: 1, gap: 3, justifyContent: "center", marginHorizontal: 2, minHeight: 56, paddingHorizontal: 2, paddingVertical: 6 }}
               >
                 <Ionicons
@@ -282,7 +381,7 @@ function AppFrame() {
                   color={active ? "#007AFF" : shell.muted}
                 />
                 <Text adjustsFontSizeToFit minimumFontScale={0.68} numberOfLines={1} style={[{ color: shell.muted, fontSize: 10, fontWeight: "500", letterSpacing: -0.1, maxWidth: "100%", textAlign: "center" }, active && { color: "#007AFF", fontWeight: "700" }]}>
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -293,53 +392,73 @@ function AppFrame() {
   );
 }
 
-type AuthScreenState =
-  | { name: "Onboarding" }
-  | { name: "Authentication" }
-  | { name: "CreateAccount" }
-  | { name: "ForgotPassword" }
-  | { name: "OTP"; email: string }
-  | { name: "ResetPassword" };
-
 function UnauthenticatedFlow() {
-  const [history, setHistory] = useState<AuthScreenState[]>([{ name: "Onboarding" }]);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
-  const current = history[history.length - 1] ?? { name: "Onboarding" };
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const subscription = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduceMotion,
+    );
+    return () => subscription.remove();
+  }, []);
 
-  const push = (screen: AuthScreenState) => setHistory((prev) => [...prev, screen]);
-  const pop = () => setHistory((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
-  const resetToAuth = () => setHistory([{ name: "Authentication" }]);
-
-  switch (current.name) {
-    case "Onboarding":
-      return <OnboardingScreen onFinished={() => push({ name: "Authentication" })} />;
-    case "Authentication":
-      return (
-        <AuthScreen
-          onForgotPassword={() => push({ name: "ForgotPassword" })}
-          onSignUp={() => push({ name: "CreateAccount" })}
-        />
-      );
-    case "CreateAccount":
-      return <CreateAccountScreen onSignIn={pop} />;
-    case "ForgotPassword":
-      return (
-        <ForgotPasswordScreen
-          onBack={pop}
-          onOtpSent={(email) => push({ name: "OTP", email })}
-        />
-      );
-    case "OTP":
-      return (
-        <OTPScreen
-          email={current.email}
-          onBack={pop}
-          onVerified={() => push({ name: "ResetPassword" })}
-        />
-      );
-    case "ResetPassword":
-      return <ResetPasswordScreen onDone={resetToAuth} />;
-    default:
-      return <OnboardingScreen onFinished={() => push({ name: "Authentication" })} />;
-  }
+  return (
+    <UnauthenticatedStack.Navigator
+      screenOptions={{
+        animation: reduceMotion ? "fade" : "simple_push",
+        animationDuration: reduceMotion ? 180 : 360,
+        animationMatchesGesture: true,
+        contentStyle: { backgroundColor: "#FFFFFF" },
+        fullScreenGestureEnabled: !reduceMotion,
+        gestureEnabled: true,
+        headerShown: false,
+      }}
+    >
+      <UnauthenticatedStack.Screen name="Onboarding" options={{ gestureEnabled: false }}>
+        {({ navigation }) => (
+          <OnboardingScreen onFinished={() => navigation.navigate("Authentication")} />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen
+        name="Authentication"
+        options={{ animation: "fade", animationDuration: 220 }}
+      >
+        {({ navigation }) => (
+          <AuthScreen
+            onForgotPassword={() => navigation.navigate("ForgotPassword")}
+            onSignUp={() => navigation.navigate("CreateAccount")}
+          />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="CreateAccount">
+        {({ navigation }) => (
+          <CreateAccountScreen onSignIn={() => navigation.goBack()} />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="ForgotPassword">
+        {({ navigation }) => (
+          <ForgotPasswordScreen
+            onBack={() => navigation.goBack()}
+            onOtpSent={(email) => navigation.navigate("OTP", { email })}
+          />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="OTP">
+        {({ navigation, route }) => (
+          <OTPScreen
+            email={route.params.email}
+            onBack={() => navigation.goBack()}
+            onVerified={() => navigation.navigate("ResetPassword")}
+          />
+        )}
+      </UnauthenticatedStack.Screen>
+      <UnauthenticatedStack.Screen name="ResetPassword">
+        {({ navigation }) => (
+          <ResetPasswordScreen onDone={() => navigation.popTo("Authentication")} />
+        )}
+      </UnauthenticatedStack.Screen>
+    </UnauthenticatedStack.Navigator>
+  );
 }
