@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
 import { appStorage } from "../services/nativeStorage";
+import { useSwipeBack } from "../hooks/useSwipeBack";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -93,8 +94,10 @@ export function PrivacySecurityScreen({
     );
   };
 
+  const swipeBack = useSwipeBack(onBack);
+
   return (
-    <SafeAreaView style={[styles.page, dark && styles.pageDark]}>
+    <SafeAreaView style={[styles.page, dark && styles.pageDark]} {...swipeBack}>
       <View style={styles.header}>
         <Pressable accessibilityLabel="Back to Settings" onPress={onBack} style={[styles.backButton, dark && styles.backButtonDark]}>
           <Ionicons name="chevron-back" size={23} color={dark ? "#F5F7FA" : "#171A20"} />

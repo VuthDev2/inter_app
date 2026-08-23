@@ -1,128 +1,201 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
-import { Shield, Sparkles, Zap, Copyright, Globe, Hexagon, Fingerprint, Command, Speaker, Mic, Play, Volume2, Folder, Layers } from "lucide-react";
+import { Shield, Sparkles, Zap, Copyright, Globe, Languages, Menu, X } from "lucide-react";
+import { FeatureStepDemo } from "@/components/FeatureStepDemo";
+import { DeviceEcosystemShowcase } from "@/components/DeviceEcosystemShowcase";
 
-const featuresData = [
+const HOW_IT_WORKS = [
+  {
+    number: "01",
+    title: "Live Speech-to-Text",
+    description: "Say it your way. QuickVoice turns your speech into clear text as you talk.",
+    visual: "speak",
+    reverse: false,
+  },
+  {
+    number: "02",
+    title: "Context-Aware Voice Recognition",
+    description: "QuickVoice listens for pronunciation and context, so the meaning behind your words stays intact.",
+    visual: "understand",
+    reverse: true,
+  },
+  {
+    number: "03",
+    title: "Real-Time English–Japanese Translation",
+    description: "Your message moves between English and Japanese in real time, without breaking the conversation.",
+    visual: "translate",
+    reverse: false,
+  },
+  {
+    number: "04",
+    title: "Natural AI Voice Playback",
+    description: "Hear every translation spoken back in a clear, natural voice.",
+    visual: "respond",
+    reverse: true,
+  },
+] as const;
+
+const PRODUCT_FEATURES = [
   {
     id: 1,
-    icon: Volume2,
-    iconColor: "text-teal-400",
-    iconBg: "bg-teal-900/40 border-teal-500/20",
-    shadow: "shadow-[0_0_15px_rgba(20,184,166,0.15)]",
-    dotColor: "bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.5)]",
-    title1: "One-Way",
+    title1: "One-Way Live",
     title2: "Interpretation",
     description: "Perfect for speeches, lectures, and broadcasts. Our AI captures nuances in the speaker's tone and delivers crisp, translated audio to thousands of listeners simultaneously.",
-    buttonColor: "border-pink-400/40 text-pink-100 hover:bg-pink-500/10 shadow-[0_0_20px_rgba(244,114,182,0.05)]",
-    image: "/feature1.png"
+    image: "/feature1.png",
+    imageWidth: 2586,
+    imageHeight: 1954,
+    dotColor: "bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.5)]",
   },
   {
     id: 2,
-    icon: Layers,
-    iconColor: "text-purple-400",
-    iconBg: "bg-purple-900/40 border-purple-500/20",
-    shadow: "shadow-[0_0_15px_rgba(168,85,247,0.15)]",
-    dotColor: "bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]",
-    title1: "Multiple",
-    title2: "Translation Modes",
+    title1: "Three Ways",
+    title2: "to Translate",
     description: "Switch seamlessly between one-way broadcasts, two-way live conversations, or upload pre-recorded audio for instant, accurate translations tailored to any scenario.",
-    buttonColor: "border-cyan-400/40 text-cyan-100 hover:bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.05)]",
-    image: "/feature2.png"
+    image: "/feature2.png",
+    imageWidth: 1586,
+    imageHeight: 828,
+    dotColor: "bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]",
   },
   {
     id: 3,
-    icon: Folder,
-    iconColor: "text-blue-400",
-    iconBg: "bg-blue-900/40 border-blue-500/20",
-    shadow: "shadow-[0_0_15px_rgba(59,130,246,0.15)]",
-    dotColor: "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]",
-    title1: "Smart",
+    title1: "Smart Recording",
     title2: "Organization",
     description: "Keep your workspace clutter-free. Easily organize your translated audio, transcripts, and projects into custom folders for quick access and seamless team collaboration.",
-    buttonColor: "border-purple-400/40 text-purple-100 hover:bg-purple-500/10 shadow-[0_0_20px_rgba(192,132,252,0.05)]",
-    image: "/feature3.png"
-  }
-];
+    image: "/feature3.png",
+    imageWidth: 1190,
+    imageHeight: 709,
+    dotColor: "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]",
+  },
+] as const;
+
+/**
+ * Two kinds of destination, deliberately separated by a divider in the nav.
+ * Section links scroll within this page; product links leave it. Mixing them
+ * without a visual break made every item look like it scrolled.
+ */
+const SECTION_LINKS = [
+  { label: "How it works", hash: "#featuring" },
+  { label: "Why QuickVoice", hash: "#features" },
+] as const;
 
 export default function LandingPage() {
-  const [activeFeature, setActiveFeature] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const wheelTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [activeHowStep, setActiveHowStep] = useState(0);
+  const [activeProductFeature, setActiveProductFeature] = useState(0);
+  const [activeNav, setActiveNav] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [navVisible, setNavVisible] = useState(true);
+  const [isAtTop, setIsAtTop] = useState(true);
+  const [heroVisible, setHeroVisible] = useState(true);
+  const [howSectionVisible, setHowSectionVisible] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const howSectionRef = useRef<HTMLElement>(null);
+  const lastScrollY = useRef(0);
+  const scrollingRef = useRef(false);
+  const scrollEndTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveFeature((prev) => (prev + 1) % featuresData.length);
+    const interval = window.setInterval(() => {
+      setActiveProductFeature((current) => (current + 1) % PRODUCT_FEATURES.length);
     }, 6000);
-    return () => clearInterval(interval);
+    return () => window.clearInterval(interval);
   }, []);
 
-  const minSwipeDistance = 50;
+  useEffect(() => {
+    const syncActiveNav = () => {
+      const section = window.location.hash.slice(1);
+      if (section) setActiveNav(section);
+    };
 
-  const handleSwipe = (start: number, end: number) => {
-    const distance = start - end;
-    if (distance > minSwipeDistance) {
-      setActiveFeature((prev) => (prev + 1) % featuresData.length);
-    } else if (distance < -minSwipeDistance) {
-      setActiveFeature((prev) => (prev - 1 + featuresData.length) % featuresData.length);
-    }
-  };
+    syncActiveNav();
+    window.addEventListener("hashchange", syncActiveNav);
+    return () => window.removeEventListener("hashchange", syncActiveNav);
+  }, []);
 
-  // Touch Events
-  const onTouchStartEvent = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-  const onTouchMoveEvent = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-  const onTouchEndEvent = () => {
-    if (!touchStart || !touchEnd) return;
-    handleSwipe(touchStart, touchEnd);
-  };
+  useEffect(() => {
+    let frame = 0;
+    const updateNavigation = () => {
+      const currentY = Math.max(window.scrollY, 0);
+      const difference = currentY - lastScrollY.current;
+      setIsAtTop(currentY < 28);
 
-  // Mouse Events
-  const onMouseDownEvent = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setTouchEnd(null);
-    setTouchStart(e.clientX);
-  };
-  const onMouseMoveEvent = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setTouchEnd(e.clientX);
-  };
-  const onMouseUpEvent = () => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    if (touchStart && touchEnd) handleSwipe(touchStart, touchEnd);
-  };
-  const onMouseLeaveEvent = () => {
-    if (isDragging) {
-      setIsDragging(false);
-      if (touchStart && touchEnd) handleSwipe(touchStart, touchEnd);
-    }
-  };
-
-  // Scroll/Wheel Events
-  const onWheelEvent = (e: React.WheelEvent) => {
-    if (wheelTimeout.current) return;
-    if (Math.abs(e.deltaX) > 20) {
-      if (e.deltaX > 0) {
-        setActiveFeature((prev) => (prev + 1) % featuresData.length);
-      } else {
-        setActiveFeature((prev) => (prev - 1 + featuresData.length) % featuresData.length);
+      if (currentY < 96 || menuOpen) {
+        setNavVisible(true);
+      } else if (difference > 6) {
+        setNavVisible(false);
+        setMenuOpen(false);
+      } else if (difference < -6) {
+        setNavVisible(true);
       }
-      wheelTimeout.current = setTimeout(() => {
-        wheelTimeout.current = null;
-      }, 500);
-    }
-  };
+
+      lastScrollY.current = currentY;
+    };
+    const onScroll = () => {
+      if (!scrollingRef.current) {
+        scrollingRef.current = true;
+        setIsScrolling(true);
+      }
+      if (scrollEndTimer.current) window.clearTimeout(scrollEndTimer.current);
+      scrollEndTimer.current = window.setTimeout(() => {
+        scrollingRef.current = false;
+        setIsScrolling(false);
+      }, 140);
+
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(updateNavigation);
+    };
+
+    updateNavigation();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (scrollEndTimer.current) window.clearTimeout(scrollEndTimer.current);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    const section = howSectionRef.current;
+    if (!section) return;
+    const cards = section.querySelectorAll<HTMLElement>("[data-how-step]");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setActiveHowStep(Number((visible.target as HTMLElement).dataset.howStep));
+      },
+      { rootMargin: "-28% 0px -28% 0px", threshold: [0.1, 0.35, 0.6] },
+    );
+    cards.forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    const howSection = howSectionRef.current;
+    if (!hero || !howSection) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.target === hero) setHeroVisible(entry.isIntersecting);
+          if (entry.target === howSection) setHowSectionVisible(entry.isIntersecting);
+        });
+      },
+      { rootMargin: "120px 0px", threshold: 0.01 },
+    );
+
+    observer.observe(hero);
+    observer.observe(howSection);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-[#05050A] text-white font-sans overflow-x-hidden selection:bg-blue-500/30">
+    <div className="min-h-screen bg-[#05050A] text-white font-sans selection:bg-blue-500/30">
       
       {/* Custom Styles */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -143,75 +216,110 @@ export default function LandingPage() {
         }
         .animate-float-pop {
           animation: float-pop 6s ease-in-out infinite;
+        @media (prefers-reduced-motion: reduce) {
+          .animate-wave, .animate-wave-slow, .animate-float-pop {
+            animation: none !important;
+          }
         }
-        @keyframes soundwave {
-          0%, 100% { height: 4px; }
-          50% { height: 24px; }
-        }
-        .bar-1 { animation: soundwave 1s ease-in-out infinite 0.1s; }
-        .bar-2 { animation: soundwave 1.2s ease-in-out infinite 0.3s; }
-        .bar-3 { animation: soundwave 0.8s ease-in-out infinite 0.2s; }
-        .bar-4 { animation: soundwave 1.1s ease-in-out infinite 0.4s; }
-        .bar-5 { animation: soundwave 0.9s ease-in-out infinite 0.1s; }
       `}} />
 
       {/* --- HERO SECTION --- */}
-      <div className="relative w-full min-h-screen flex flex-col items-center">
+      <div ref={heroRef} className="relative w-full min-h-screen flex flex-col items-center">
         
         {/* Animated Wave Background SVG & Ambient Light */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-[10%] right-[10%] w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-[150px]"></div>
-          <div className="absolute top-[40%] left-[5%] w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[120px]"></div>
+        <div className="absolute inset-0 overflow-hidden [contain:paint] pointer-events-none z-0">
+          <div className="absolute top-0 right-0 h-[72%] w-[62%] bg-[radial-gradient(circle,rgba(59,130,246,.12),transparent_68%)]"></div>
+          <div className="absolute bottom-0 left-0 h-[56%] w-[48%] bg-[radial-gradient(circle,rgba(37,99,235,.10),transparent_70%)]"></div>
           
           <div className="absolute top-[20%] left-0 right-0 h-[800px] w-[200%] opacity-50">
-            {/* Wave Layer 1 */}
-            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="absolute w-full h-full animate-wave-slow stroke-blue-800 fill-none opacity-40" strokeWidth="1">
-              <path d="M0,160 C320,300 420,0 720,160 C1020,320 1120,0 1440,160 C1760,320 1860,0 2160,160 C2460,320 2560,0 2880,160" />
-              <path d="M0,180 C300,10 400,310 720,180 C1040,50 1140,350 1440,180 C1740,10 1840,310 2160,180 C2460,50 2560,350 2880,180" />
-            </svg>
-            {/* Wave Layer 2 */}
-            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="absolute w-full h-full animate-wave-slow stroke-blue-700 fill-none opacity-60" strokeWidth="1.5" style={{marginTop: '20px'}}>
+            {/* Low-cost background wave */}
+            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className={`absolute w-full h-full animate-wave-slow stroke-blue-700 fill-none opacity-60 ${heroVisible && !isScrolling ? "" : "[animation-play-state:paused]"}`} strokeWidth="1.5" style={{marginTop: '20px'}}>
               <path d="M0,150 C280,250 380,50 720,150 C1060,250 1160,50 1440,150 C1760,250 1860,50 2160,150 C2460,250 2560,50 2880,150" />
               <path d="M0,170 C310,20 410,320 720,170 C1030,20 1130,320 1440,170 C1750,20 1850,320 2160,170 C2460,20 2560,320 2880,170" />
             </svg>
-            {/* Wave Layer 3 */}
-            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="absolute w-full h-full animate-wave stroke-blue-500 fill-none opacity-80" strokeWidth="2.5" style={{marginTop: '40px'}}>
-              <path d="M0,160 C280,0 380,320 720,160 C1060,0 1160,320 1440,160 C1720,0 1820,320 2160,160 C2440,0 2540,320 2880,160" />
-              <path d="M0,190 C320,30 420,350 720,190 C1020,30 1120,350 1440,190 C1740,30 1840,350 2160,190 C2440,30 2540,350 2880,190" />
-            </svg>
-            {/* Wave Layer 4 */}
-            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="absolute w-full h-full animate-wave stroke-blue-400 fill-none opacity-90" strokeWidth="3" style={{marginTop: '60px'}}>
+            {/* Foreground wave */}
+            <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className={`absolute w-full h-full animate-wave stroke-blue-400 fill-none opacity-90 ${heroVisible && !isScrolling ? "" : "[animation-play-state:paused]"}`} strokeWidth="3" style={{marginTop: '60px'}}>
               <path d="M0,140 C250,50 350,280 720,140 C1090,50 1190,280 1440,140 C1790,50 1890,280 2160,140 C2510,50 2610,280 2880,140" />
             </svg>
           </div>
         </div>
 
         {/* Top Floating Navbar */}
-        <div className="w-full flex justify-center pt-8 relative z-20 px-6">
-          <nav className="w-full max-w-[1000px] px-6 py-4 flex items-center justify-between bg-black/50 rounded-full border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center gap-3 pl-3 pr-4">
-              <img src="/logo-d.png" alt="QuickVoice Logo" className="h-7 w-auto" />
-              <span className="text-lg font-bold italic tracking-tight text-white">
+        <div className={`fixed top-0 left-0 right-0 w-full flex justify-center pt-5 md:pt-6 z-50 px-6 transition-transform duration-500 ease-out transform-gpu [backface-visibility:hidden] ${navVisible ? "translate-y-0" : "-translate-y-[130%]"}`}>
+          <nav className={`w-full max-w-[1200px] px-4 md:px-6 py-4 flex items-center justify-between gap-2 rounded-full border transition-all duration-500 ${
+            isAtTop
+              ? "bg-transparent border-transparent shadow-none"
+              : "bg-black/80 backdrop-blur-md border-white/[0.09] shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
+          }`}>
+            <Link href="/landing" className="flex items-center gap-2 md:gap-3 pl-1 md:pl-3 pr-1 md:pr-4 min-w-0 shrink">
+              <Image src="/logo-d.png" alt="QuickVoice Logo" width={122} height={122} priority className="h-7 w-7 shrink-0" />
+              <span className="text-base md:text-lg font-bold italic tracking-tight text-white truncate">
                 Quick<span className="text-blue-500">Voice</span>
               </span>
+            </Link>
+
+            <div className="hidden md:flex items-center gap-8 text-[13px] font-medium text-gray-300">
+              {SECTION_LINKS.map(({ label, hash }) => (
+                <Link
+                  key={hash}
+                  href={hash}
+                  onClick={() => setActiveNav(hash.slice(1))}
+                  className={`pb-1 border-b-2 transition-colors ${activeNav === hash.slice(1) ? "border-blue-500 text-white" : "border-transparent hover:text-white"}`}
+                >
+                  {label}
+                </Link>
+              ))}
             </div>
 
-            <div className="hidden md:flex items-center gap-10 text-[13px] font-medium text-gray-300">
-              <Link href="#features" className="hover:text-white transition-colors">Live Interpreter</Link>
-              <Link href="#featuring" className="hover:text-white transition-colors">Features</Link>
-              <Link href="#" className="hover:text-white transition-colors">more</Link>
-            </div>
-
-            <div className="flex items-center gap-3 text-[14px] font-semibold pr-1">
-              <Link href="/signup" className="px-5 py-2 rounded-full text-gray-400 hover:text-white transition-all">
+            <div className="flex items-center gap-2 md:gap-3 text-[14px] font-semibold pr-0 md:pr-1 shrink-0">
+              <button
+                type="button"
+                aria-expanded={menuOpen}
+                aria-controls="landing-mobile-nav"
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+                onClick={() => setMenuOpen((open) => !open)}
+                className="md:hidden p-2 -ml-1 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+              <Link href="/signup" className="hidden sm:inline-block px-5 py-2 rounded-full text-gray-400 hover:text-white transition-all">
                 Sign Up
               </Link>
-              <Link href="/login" className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-[0_0_20px_rgba(0,195,255,0.4)]">
+              <Link href="/login" className="px-4 md:px-6 py-2 md:py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-[0_0_20px_rgba(0,195,255,0.4)]">
                 Login
               </Link>
             </div>
           </nav>
         </div>
+
+        {/* Mobile navigation. Without this the links were hidden behind
+            `md:` breakpoints and phone visitors saw only the logo. */}
+        {menuOpen && (
+          <div className={`md:hidden fixed top-[92px] left-0 right-0 w-full flex justify-center px-6 z-50 transition-all duration-300 ${navVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"}`}>
+            <div
+              id="landing-mobile-nav"
+              className="w-full max-w-[1200px] rounded-3xl border border-white/[0.08] bg-black/80 backdrop-blur px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+            >
+              {SECTION_LINKS.map(({ label, hash }) => (
+                <Link
+                  key={hash}
+                  href={hash}
+                  onClick={() => { setActiveNav(hash.slice(1)); setMenuOpen(false); }}
+                  className="block px-3 py-2.5 rounded-xl text-[15px] text-gray-300 hover:text-white hover:bg-white/[0.06] transition-colors"
+                >
+                  {label}
+                </Link>
+              ))}
+              <Link
+                href="/signup"
+                onClick={() => setMenuOpen(false)}
+                className="sm:hidden mt-2 block px-3 py-2.5 rounded-xl text-[15px] font-semibold text-white bg-white/[0.08] hover:bg-white/[0.14] text-center transition-colors"
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Hero Content */}
         <div className="w-full max-w-7xl px-6 flex-1 flex flex-col lg:flex-row items-center justify-between mt-12 lg:mt-0 relative z-10 gap-12">
@@ -233,89 +341,145 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Right Side: Image Stack */}
-          <div className="w-full lg:w-[55%] flex justify-end relative items-center z-10 mt-16 lg:mt-0 pr-4" style={{ perspective: '1200px' }}>
-            <div 
-              className="relative w-full max-w-[650px] flex items-center justify-center animate-float-pop"
-              style={{ transformStyle: 'preserve-3d', transform: 'rotateY(25deg) rotateX(8deg) rotateZ(-3deg)' }}
-            >
-                {/* Back Screen (Scaled up, slightly blurred, pushed back in 3D) */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0" style={{ transform: 'translateZ(-80px)' }}>
-                    <img src="/screen.png" alt="" className="w-full h-auto object-cover opacity-90 rounded-2xl" style={{ transform: 'scale(1.25)', filter: 'blur(4px)' }} />
-                </div>
-
-                {/* Front Screen (Clear, pushed forward in 3D) */}
-                <div className="w-[85%] rounded-2xl border border-blue-900/40 shadow-[0_30px_60px_rgba(0,0,0,0.7)] overflow-hidden relative z-10 bg-[#0b0f19]" style={{ transform: 'translateZ(40px)' }}>
-                    <img src="/screen.png" alt="Dashboard interface" className="w-full h-auto object-cover relative z-10" />
-                </div>
-            </div>
+          {/* Connected web and mobile product ecosystem */}
+          <div className="w-full lg:w-[57%] flex justify-end relative items-center z-10 mt-12 lg:mt-0">
+            <DeviceEcosystemShowcase paused={isScrolling} />
           </div>
         </div>
       </div>
 
-      {/* --- FEATURES SECTION --- */}
-      <div id="featuring" className="w-full py-32 px-6 flex flex-col items-center relative z-10 overflow-hidden">
-        <div 
-          className="w-full max-w-6xl flex flex-col gap-12"
-          onTouchStart={onTouchStartEvent}
-          onTouchMove={onTouchMoveEvent}
-          onTouchEnd={onTouchEndEvent}
-          onMouseDown={onMouseDownEvent}
-          onMouseMove={onMouseMoveEvent}
-          onMouseUp={onMouseUpEvent}
-          onMouseLeave={onMouseLeaveEvent}
-          onWheel={onWheelEvent}
-        >
-            
-            {/* Carousel Container */}
-            <div className="w-full overflow-hidden relative rounded-[2.5rem]">
-                <div 
-                    className="flex transition-transform duration-700 ease-in-out items-stretch"
-                    style={{ transform: `translateX(-${activeFeature * 100}%)` }}
-                >
-                    {featuresData.map((feature) => {
-                        const Icon = feature.icon;
-                        return (
-                            <div key={feature.id} className="w-full shrink-0 flex">
-                                {/* Feature Card */}
-                                <div className="w-full h-full bg-[#18181b]/80 border border-white/5 rounded-[2.5rem] p-12 lg:p-16 flex flex-col lg:flex-row items-center justify-between gap-12">
-                                    {/* Left Content */}
-                                    <div className="w-full lg:w-1/2 flex flex-col items-start justify-center">
-                                        <h3 className="text-4xl lg:text-5xl font-bold text-white leading-[1.15] mb-6 tracking-tight">
-                                            {feature.title1}<br/>{feature.title2}
-                                        </h3>
-                                        
-                                        <p className="text-[#a1a1aa] text-[17px] leading-relaxed max-w-md font-medium">
-                                            {feature.description}
-                                        </p>
-                                    </div>
-                                    
-                                    {/* Right Image */}
-                                    <div className="w-full lg:w-[45%] flex justify-end">
-                                        <div className="w-full rounded-[2rem] overflow-hidden shadow-2xl border border-white/5">
-                                            <img src={feature.image} alt={feature.title1} className="w-full h-auto object-cover" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+      {/* --- HOW QUICKVOICE WORKS --- */}
+      <section
+        id="featuring"
+        ref={howSectionRef}
+        className="relative z-10 w-full bg-[#06080d] px-6 py-28 md:py-36 overflow-hidden"
+      >
+        <div className="w-full max-w-7xl mx-auto">
+          <div className="mb-20 md:mb-28 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-400">Real-Time Voice Translation</p>
+            <h2 className="mt-4 text-3xl md:text-5xl font-semibold tracking-[-0.035em] text-white">
+              Four steps. One natural conversation.
+            </h2>
+          </div>
 
-            {/* Carousel Dots */}
-            <div className="flex justify-center gap-3 mt-6">
-                {featuresData.map((feature, idx) => (
-                    <div 
-                        key={feature.id}
-                        onClick={() => setActiveFeature(idx)}
-                        className={`h-2.5 rounded-full cursor-pointer transition-all duration-300 ${activeFeature === idx ? feature.dotColor + ' w-6' : 'bg-gray-700 hover:bg-gray-500 w-2.5'}`}
-                    ></div>
-                ))}
-            </div>
+            <div>
+              {HOW_IT_WORKS.map((step, index) => {
+                const active = activeHowStep === index;
+                const text = (
+                  <div className={`w-full lg:w-[40%] transition-all duration-1000 delay-100 ease-out ${
+                    active ? "opacity-100 translate-x-0" : step.reverse ? "opacity-0 translate-x-10" : "opacity-0 -translate-x-10"
+                  }`}>
+                    <div className="text-xs font-medium tracking-[0.16em] text-blue-400">{step.number}</div>
+                    <h3 className="mt-4 text-3xl md:text-4xl font-semibold tracking-[-0.035em] text-white">{step.title}</h3>
+                    <p className="mt-4 max-w-md text-base md:text-[17px] leading-7 text-gray-400">{step.description}</p>
+                  </div>
+                );
 
+                const visual = (
+                  <div className={`w-full lg:w-[48%] transition-all duration-1000 delay-150 ease-out ${
+                    active ? "opacity-100 translate-x-0" : step.reverse ? "opacity-0 -translate-x-10" : "opacity-0 translate-x-10"
+                  }`}>
+                    <FeatureStepDemo
+                      feature={step.visual as "speak" | "understand" | "translate" | "respond"}
+                      active={howSectionVisible && active && !isScrolling}
+                    />
+                  </div>
+                );
+
+                return (
+                  <div
+                    key={step.number}
+                    data-how-step={index}
+                    className={`min-h-[62vh] flex items-center ${index % 2 === 0 ? "justify-start" : "justify-end"}`}
+                  >
+                    <article
+                      className={`w-full lg:w-[86%] min-h-[340px] rounded-[2rem] md:rounded-[2.35rem] border border-white/[0.08] bg-[#0d1018]/95 shadow-[0_24px_80px_rgba(0,0,0,0.28)] px-7 py-8 md:px-11 md:py-10 lg:px-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16 transition-[opacity,transform] duration-700 ease-out ${
+                        active
+                          ? "opacity-100 translate-x-0 translate-y-0"
+                          : index % 2 === 0
+                            ? "opacity-0 -translate-x-20 translate-y-8"
+                            : "opacity-0 translate-x-20 translate-y-8"
+                      }`}
+                    >
+                      <div className={`contents ${step.reverse ? "lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1" : ""}`}>
+                        {text}
+                        {visual}
+                      </div>
+                    </article>
+                  </div>
+                );
+              })}
+            </div>
         </div>
-      </div>
+      </section>
+
+      {/* --- ORIGINAL PRODUCT FEATURE SHOWCASE --- */}
+      <section id="product-showcase" className="w-full py-28 md:py-32 px-6 flex flex-col items-center relative z-10 overflow-hidden">
+        <div className="w-full max-w-6xl">
+          <div className="max-w-2xl mx-auto mb-14 md:mb-16 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-400">
+              Ways to Use QuickVoice
+            </p>
+            <h2 className="mt-4 text-3xl md:text-5xl font-semibold tracking-[-0.035em] text-white">
+              Talk, listen, or save it for later.
+            </h2>
+            <p className="mt-5 text-base md:text-lg leading-8 text-gray-400">
+              Use QuickVoice for a speech, a real conversation, or a recording you want to translate when you have time.
+            </p>
+          </div>
+
+          <div className="w-full overflow-hidden relative rounded-[2.5rem]">
+            <div
+              className="flex transition-transform duration-700 ease-in-out items-stretch"
+              style={{ transform: `translateX(-${activeProductFeature * 100}%)` }}
+            >
+              {PRODUCT_FEATURES.map((feature) => (
+                <div key={feature.id} className="w-full shrink-0 flex">
+                  <div className="w-full min-h-[420px] bg-[#18181b]/80 border border-white/5 rounded-[2.25rem] p-9 md:p-11 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-10">
+                    <div className="w-full lg:w-1/2 flex flex-col items-start justify-center">
+                      <h3 className="text-3xl lg:text-4xl font-bold text-white leading-[1.15] mb-3 tracking-tight">
+                        {feature.title1}<br />{feature.title2}
+                      </h3>
+                      <p className="text-[#a1a1aa] text-[17px] leading-relaxed max-w-md font-medium">
+                        {feature.description}
+                      </p>
+                    </div>
+
+                    <div className="w-full lg:w-[45%] flex justify-end">
+                      <div className="w-full rounded-[2rem] overflow-hidden shadow-2xl border border-white/5">
+                        <Image
+                          src={feature.image}
+                          alt={`${feature.title1} ${feature.title2}`}
+                          width={feature.imageWidth}
+                          height={feature.imageHeight}
+                          sizes="(min-width: 1024px) 500px, 90vw"
+                          className="w-full h-auto max-h-[280px] object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-center gap-3 mt-8">
+            {PRODUCT_FEATURES.map((feature, index) => (
+              <button
+                key={feature.id}
+                type="button"
+                aria-label={`Show ${feature.title1} ${feature.title2}`}
+                onClick={() => setActiveProductFeature(index)}
+                className={`h-2.5 rounded-full cursor-pointer transition-all duration-300 ${
+                  activeProductFeature === index
+                    ? `${feature.dotColor} w-6`
+                    : "bg-gray-700 hover:bg-gray-500 w-2.5"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* --- THE EDGE SECTION --- */}
       <div id="features" className="w-full py-24 flex flex-col items-center bg-[#070b14] relative z-10">
@@ -324,7 +488,7 @@ export default function LandingPage() {
         
         <div className="w-full max-w-7xl px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Card 1 */}
-            <div className="bg-[#0b1221]/80 backdrop-blur-sm border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
                 <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-6">
                     <Shield size={18} className="text-purple-400" />
                 </div>
@@ -335,7 +499,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 2 */}
-            <div className="bg-[#0b1221]/80 backdrop-blur-sm border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
                 <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center mb-6">
                     <Sparkles size={18} className="text-cyan-400" />
                 </div>
@@ -346,7 +510,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 3 */}
-            <div className="bg-[#0b1221]/80 backdrop-blur-sm border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
                 <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
                     <Zap size={18} className="text-blue-400" />
                 </div>
@@ -359,39 +523,80 @@ export default function LandingPage() {
       </div>
 
       {/* --- FOOTER --- */}
-      <footer className="w-full border-t border-gray-800/50 pt-20 pb-10 flex flex-col items-center bg-[#05080f] relative z-10">
-        <p className="text-[11px] text-gray-500 uppercase tracking-[0.2em] font-semibold mb-12">Empowering Global Communication</p>
-        
-        {/* Partner Logos Placeholder */}
-        <div className="flex flex-wrap items-center justify-center gap-12 md:gap-24 mb-24 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-            <span className="text-[13px] font-bold tracking-widest text-gray-400 flex items-center gap-2"><Globe size={16}/> GLOBALHUB</span>
-            <span className="text-[13px] font-bold tracking-widest text-gray-400 flex items-center gap-2"><Fingerprint size={16}/> LEXICON</span>
-            <span className="text-[13px] font-bold tracking-widest text-gray-400 flex items-center gap-2"><Hexagon size={16}/> UNIFY AI</span>
-            <span className="text-[13px] font-bold tracking-widest text-gray-400 flex items-center gap-2"><Speaker size={16}/> NEUROVOICE</span>
-            <span className="text-[13px] font-bold tracking-widest text-gray-400 flex items-center gap-2"><Command size={16}/> STRATO</span>
-        </div>
+      <footer id="more" className="w-full border-t border-white/[0.08] bg-[#04070d] relative z-10">
+        <div className="w-full max-w-7xl mx-auto px-6 pt-10 pb-6">
+          <div className="grid grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-x-5 sm:gap-x-10 gap-y-8 pb-8">
+            <div className="col-span-3 lg:col-span-1 max-w-sm">
+              <Link href="/landing" className="inline-flex items-center gap-3">
+                <Image src="/logo-d.png" alt="QuickVoice Logo" width={122} height={122} className="h-10 w-10" />
+                <span className="text-xl font-bold italic tracking-tight text-white">
+                  Quick<span className="text-blue-500">Voice</span>
+                </span>
+              </Link>
+              <p className="mt-5 text-sm leading-6 text-gray-500">
+                Real-time English and Japanese voice interpretation for natural conversations without language barriers.
+              </p>
+              <div className="mt-7 flex flex-wrap items-center gap-2" aria-label="QuickVoice mobile app availability">
+                {/* Official store artwork must remain unmodified and is served by each platform. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg"
+                  alt="Download QuickVoice on the App Store"
+                  loading="lazy"
+                  decoding="async"
+                  className="h-10 w-auto"
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
+                  alt="Get QuickVoice on Google Play"
+                  loading="lazy"
+                  decoding="async"
+                  className="h-[58px] w-auto"
+                />
+              </div>
+            </div>
 
-        {/* Footer Bottom Bar */}
-        <div className="w-full max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-gray-800/50">
-            <div className="flex items-center gap-1.5 text-[12px] text-gray-500">
-                <Copyright size={14} /> 2026 QuickVoice AI. All rights reserved.
+            <div>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-gray-300">Product</h3>
+              <nav className="flex flex-col items-start gap-3.5 text-sm text-gray-500">
+                <Link href="#features" className="hover:text-white transition-colors">Live Interpreter</Link>
+                <Link href="#featuring" className="hover:text-white transition-colors">Features</Link>
+                <Link href="/prerecord" className="hover:text-white transition-colors">Voice Record</Link>
+                <Link href="/history" className="hover:text-white transition-colors">History</Link>
+              </nav>
             </div>
-            
-            <div className="flex items-center gap-6 text-[12px] text-gray-400">
-                <Link href="#" className="hover:text-white transition-colors">Legal</Link>
-                <Link href="#" className="hover:text-white transition-colors">Privacy Center</Link>
-                <Link href="#" className="hover:text-white transition-colors">Cookie Policy</Link>
-                <Link href="#" className="hover:text-white transition-colors">About Ads</Link>
+
+            <div>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-gray-300">Account</h3>
+              <nav className="flex flex-col items-start gap-3.5 text-sm text-gray-500">
+                <Link href="/login" className="hover:text-white transition-colors">Log in</Link>
+                <Link href="/signup" className="hover:text-white transition-colors">Sign up</Link>
+                <Link href="/forgotpassword" className="hover:text-white transition-colors">Reset password</Link>
+                <Link href="/setting" className="hover:text-white transition-colors">Settings</Link>
+              </nav>
             </div>
-            
-            <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gray-800 cursor-pointer transition-colors text-gray-400 hover:text-white">
-                    <Globe size={14} />
-                </div>
-                <div className="w-8 h-8 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gray-800 cursor-pointer transition-colors text-gray-400 hover:text-white">
-                    <Speaker size={14} />
-                </div>
+
+            <div>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-gray-300">Languages</h3>
+              <div className="flex flex-col items-start gap-3.5 text-sm text-gray-500">
+                <span className="inline-flex items-center gap-2"><Globe size={14} className="text-blue-500" /> English</span>
+                <span className="inline-flex items-center gap-2"><Languages size={14} className="text-blue-500" /> 日本語</span>
+                <span className="inline-flex items-center gap-2"><Shield size={14} className="text-blue-500" /> Privacy focused</span>
+              </div>
             </div>
+          </div>
+
+          <div className="border-t border-white/[0.08] pt-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-600">
+            <div className="flex items-center gap-1.5">
+              <Copyright size={13} /> 2026 QuickVoice. All rights reserved.
+            </div>
+            <div className="flex items-center gap-6">
+              <Link href="#" className="hover:text-gray-300 transition-colors">Privacy</Link>
+              <Link href="#" className="hover:text-gray-300 transition-colors">Terms</Link>
+              <Link href="#" className="hover:text-gray-300 transition-colors">Cookies</Link>
+            </div>
+          </div>
         </div>
       </footer>
 

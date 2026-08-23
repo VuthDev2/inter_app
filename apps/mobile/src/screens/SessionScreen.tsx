@@ -5,6 +5,9 @@ import {
   Alert,
   Animated,
   Easing,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +25,7 @@ import { AnchoredMenu } from "../components/AnchoredMenu";
 import { atoms } from "../theme/atoms";
 import { languages, type LanguageCode } from "../constants/data";
 import { saveLiveSessionLocally } from "../services/storage";
+import { translateText } from "../services/api";
 
 // ─── iOS-inspired palette ─────────────────────────────────────────────────────
 const BG = "#F5F7FA";
@@ -221,6 +225,43 @@ export function SessionScreen({
 
   const sessionId = useRef(`live-${Date.now()}`);
   const sessionStart = useRef(new Date().toISOString());
+
+  const submitDraft = async (
+    text: string,
+    fromLang: LanguageCode,
+    toLang: LanguageCode,
+    lane: Utterance["lane"],
+    clear: () => void,
+  ) => {
+    const trimmed = text.trim();
+    if (!trimmed || busy) return;
+    Keyboard.dismiss();
+    clear();
+    try {
+      const translated = await translateText(trimmed, fromLang, toLang);
+      const utterance: Utterance = {
+        id: `manual-${Date.now()}`,
+        original: trimmed,
+        translation: translated,
+        sourceLang: fromLang,
+        targetLang: toLang,
+        lane,
+        createdAt: new Date().toISOString(),
+      };
+      setUtterances((prev) => {
+        const next = [...prev, utterance];
+        saveLiveSessionLocally({
+          id: sessionId.current, sourceLang: fromLang, targetLang: toLang,
+          mode: modeRef.current, utterances: next,
+          createdAt: sessionStart.current, endedAt: null,
+        }).catch(() => { });
+        return next;
+      });
+      scrollToLiveBottom(120);
+    } catch {
+      Alert.alert("QuickVoice", "Could not translate that text. Check your connection and try again.");
+    }
+  };
   const controlTransition = useRef(new Animated.Value(live.isListening ? 1 : 0)).current;
 
   useEffect(() => {
@@ -354,6 +395,7 @@ export function SessionScreen({
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
+    <KeyboardAvoidingView behavior={Platform.select({ ios: "padding", android: undefined })} style={atoms.flex1}>
     <View style={[atoms.flex1, { backgroundColor: dark ? "#0E1013" : BG, paddingTop: insets.top }]}>
       <View style={ss.topBar}>
         {embedded ? <View style={ss.circleButtonPlaceholder} /> : (
@@ -398,6 +440,7 @@ export function SessionScreen({
       <ScrollView
         alwaysBounceVertical={false}
         bounces={false}
+        keyboardShouldPersistTaps="handled"
         ref={scrollRef}
         style={[atoms.flex1, ss.conversationViewport]}
         contentContainerStyle={ss.conversation}
@@ -458,7 +501,7 @@ export function SessionScreen({
             <LangPill dark={dark} value={tgt} onChange={(value) => { if (!busy) setTgt(value); }} disabled={busy} />
             <View style={ss.contentTransition}>
               {!busy ? (
-                <TextInput multiline editable={!busy} onChangeText={setDraftTarget} placeholder={inputPrompt(tgt)} placeholderTextColor={dark ? "#78818D" : FAINT} scrollEnabled={false} style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, lineHeight: 25 * textScale }]} value={draftTarget} />
+                <TextInput multiline editable={!busy} onChangeText={setDraftTarget} onSubmitEditing={() => submitDraft(draftTarget, tgt, src, "right", () => setDraftTarget(""))} placeholder={inputPrompt(tgt)} placeholderTextColor={dark ? "#78818D" : FAINT} returnKeyType="send" scrollEnabled={false} style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, lineHeight: 25 * textScale }]} submitBehavior="submit" value={draftTarget} />
               ) : (
                 <Animated.Text
                   style={[
@@ -486,7 +529,7 @@ export function SessionScreen({
               ]}
             >
               {!busy ? (
-                <TextInput multiline editable={!busy} onChangeText={setDraftSource} placeholder={inputPrompt(src)} placeholderTextColor={dark ? "#78818D" : FAINT} scrollEnabled={false} style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, lineHeight: 25 * textScale }]} value={draftSource} />
+                <TextInput multiline editable={!busy} onChangeText={setDraftSource} onSubmitEditing={() => submitDraft(draftSource, src, tgt, "left", () => setDraftSource(""))} placeholder={inputPrompt(src)} placeholderTextColor={dark ? "#78818D" : FAINT} returnKeyType="send" scrollEnabled={false} style={[ss.draftInput, dark && ss.textDark, { fontSize: 18 * textScale, lineHeight: 25 * textScale }]} submitBehavior="submit" value={draftSource} />
               ) : (
                 <Animated.Text
                   style={[
@@ -546,6 +589,7 @@ export function SessionScreen({
         <View style={{ height: Math.max(insets.bottom, 12) }} />
       </ScrollView>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

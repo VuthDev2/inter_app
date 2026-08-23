@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Alert, Animated, Image, PanResponder, Pressable, Text, useColorScheme, View } from "react-native";
+import { AccessibilityInfo, Alert, Animated, Image, PanResponder, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { atoms } from "./src/theme/atoms";
@@ -192,9 +192,9 @@ function AppFrame() {
                   accessibilityLabel="Back to recording categories"
                   accessibilityRole="button"
                   onPress={() => setRecordBackRequest((request) => request + 1)}
-                  style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "rgba(255,255,255,0.92)", borderColor: "#D7DBE1", borderRadius: 999, borderWidth: 0.5, height: 40, justifyContent: "center", left: spacing.lg, position: "absolute", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+                  style={({ pressed }) => ({ alignItems: "center", backgroundColor: dark ? "#25292F" : pressed ? "#E5E8ED" : "#FFFFFF", borderColor: dark ? "#424953" : "#D7DBE1", borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, height: 40, justifyContent: "center", left: spacing.lg, position: "absolute", shadowColor: dark ? "#000000" : "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
                 >
-                  <Ionicons name="chevron-back" size={22} color="#171A20" />
+                  <Ionicons name="chevron-back" size={22} color={dark ? "#F5F7FA" : "#171A20"} />
                 </Pressable>
               ) : null}
               {activeTab === "record" ? (
@@ -210,9 +210,9 @@ function AppFrame() {
                         accessibilityLabel="Record actions"
                         accessibilityRole="button"
                         onPress={open}
-                        style={({ pressed }) => ({ alignItems: "center", backgroundColor: pressed ? "#E5E8ED" : "rgba(255,255,255,0.92)", borderColor: "#D7DBE1", borderRadius: 999, borderWidth: 0.5, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
+                        style={({ pressed }) => ({ alignItems: "center", backgroundColor: dark ? "#25292F" : pressed ? "#E5E8ED" : "#FFFFFF", borderColor: dark ? "#424953" : "#D7DBE1", borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, height: 40, justifyContent: "center", shadowColor: dark ? "#000000" : "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 })}
                       >
-                        <Ionicons name="ellipsis-horizontal" size={21} color="#303640" />
+                        <Ionicons name="ellipsis-horizontal" size={21} color={dark ? "#E4E8EE" : "#303640"} />
                       </Pressable>
                     )}
                   </AnchoredMenu>

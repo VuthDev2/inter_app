@@ -25,6 +25,7 @@ type OnboardingPageLayoutProps = {
   onContinue: () => void;
   media?: ReactNode;
   buttonLabel?: string;
+  buttonTone?: "dark" | "accent";
   featureHeading?: string;
   showLogo?: boolean;
   activeIndicatorColor?: string;
@@ -42,6 +43,7 @@ export function OnboardingPageLayout({
   onContinue,
   media,
   buttonLabel = "Get started",
+  buttonTone = "dark",
   featureHeading,
   showLogo = true,
   activeIndicatorColor = "#111214",
@@ -174,6 +176,7 @@ export function OnboardingPageLayout({
             disabled={transitionDisabled}
             label={buttonLabel}
             onPress={onContinue}
+            tone={buttonTone}
           />
         </View>
         <View style={styles.indicatorSlot}>
@@ -193,10 +196,12 @@ function AnimatedOnboardingButton({
   disabled,
   label,
   onPress,
+  tone = "dark",
 }: {
   disabled: boolean;
   label: string;
   onPress: () => void;
+  tone?: "dark" | "accent";
 }) {
   const motion = useRef(new Animated.Value(1)).current;
   const running = useRef(false);
@@ -260,7 +265,7 @@ function AnimatedOnboardingButton({
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        tone="dark"
+        tone={tone}
       >
         {label}
       </PrimaryButton>

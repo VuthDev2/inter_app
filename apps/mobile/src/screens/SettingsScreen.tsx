@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState, type ComponentProps, type ReactNode } from "react";
-import { Alert, Image, Modal, Pressable, StyleSheet, Switch, Text, useColorScheme, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
+import { Alert, Image, Modal, PanResponder, Pressable, StyleSheet, Switch, Text, useColorScheme, View } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import type { Tab } from "../../App";
 import { useAuth } from "../features/auth/auth";
@@ -151,20 +151,22 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
         presentationStyle="fullScreen"
         visible={detail !== null}
       >
-        <SettingsDetailScreen
-          dark={dark}
-          detail={detail}
-          appearanceMode={appearanceMode}
-          preferredSource={preferredSource}
-          textSize={textSize}
-          onBack={() => setDetail(null)}
-          onAppearanceChange={(value) => update({ appearance_mode: value })}
-          onLanguageChange={(value) => update({
-            preferred_source_lang: value,
-            preferred_target_lang: value === "en" ? "ja" : "en",
-          })}
-          onTextSizeChange={(value) => update({ text_size: value })}
-        />
+        <SafeAreaProvider>
+          <SettingsDetailScreen
+            dark={dark}
+            detail={detail}
+            appearanceMode={appearanceMode}
+            preferredSource={preferredSource}
+            textSize={textSize}
+            onBack={() => setDetail(null)}
+            onAppearanceChange={(value) => update({ appearance_mode: value })}
+            onLanguageChange={(value) => update({
+              preferred_source_lang: value,
+              preferred_target_lang: value === "en" ? "ja" : "en",
+            })}
+            onTextSizeChange={(value) => update({ text_size: value })}
+          />
+        </SafeAreaProvider>
       </Modal>
     </View>
   );
@@ -288,8 +290,20 @@ function SettingsDetailScreen({
     else onLanguageChange(value as "en" | "ja");
   };
 
+  const dismissPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (event, gesture) =>
+          event.nativeEvent.pageX < 24 && gesture.dx > 10 && Math.abs(gesture.dy) < 40,
+        onPanResponderRelease: (_event, gesture) => {
+          if (gesture.dx > 80) onBack();
+        },
+      }),
+    [onBack],
+  );
+
   return (
-    <SafeAreaView style={[styles.detailPage, dark && styles.detailPageDark]}>
+    <SafeAreaView style={[styles.detailPage, dark && styles.detailPageDark]} {...dismissPanResponder.panHandlers}>
       <View style={styles.detailHeader}>
         <Pressable accessibilityLabel="Back to Settings" onPress={onBack} style={({ pressed }) => [styles.backButton, dark && styles.backButtonDark, pressed && styles.profilePressed]}>
           <Ionicons name="chevron-back" size={23} color={dark ? "#F5F7FA" : "#171A20"} />

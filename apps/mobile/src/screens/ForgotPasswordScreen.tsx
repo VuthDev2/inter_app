@@ -52,7 +52,7 @@ export function ForgotPasswordScreen({
   const canSend = !busy && authReady && cooldown === 0;
 
   return (
-    <AuthScreenLayout title={"Forgot\nYour password"} titleVariant="password">
+    <AuthScreenLayout onSwipeBack={onBack} title={"Forgot\nYour password"} titleVariant="password">
       <View style={styles.form}>
         <AuthTextField
           icon="mail-outline"

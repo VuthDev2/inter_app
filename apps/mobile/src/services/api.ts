@@ -100,6 +100,7 @@ export async function transcribeAudio(
 export async function transcribeAudioResult(
   audioUri: string,
   language: string,
+  expectedLanguage?: "en" | "ja",
 ): Promise<{ text: string; language: "en" | "ja" | "unknown" }> {
   try {
     const ext = audioUri.split(".").pop()?.toLowerCase() ?? "wav";
@@ -107,6 +108,7 @@ export async function transcribeAudioResult(
     const form = new FormData();
     form.append("file", audioFile as unknown as Blob, `recording.${ext}`);
     form.append("language", language);
+    if (expectedLanguage) form.append("expected", expectedLanguage);
 
     const res = await fetch(`${baseUrl()}/transcribe`, {
       method: "POST",

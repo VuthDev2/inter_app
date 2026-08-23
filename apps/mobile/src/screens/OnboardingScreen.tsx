@@ -5,6 +5,7 @@ import {
   AnimatedOnboardingIndicator,
   OnboardingPageLayout,
 } from "../components/onboarding/OnboardingPageLayout";
+import { OnboardingVideo } from "../components/onboarding/OnboardingVideo";
 
 type OnboardingPage = 1 | 2 | 3;
 
@@ -14,18 +15,21 @@ const pages = [
     featureHeading: undefined,
     title: "Live Interpreter",
     titleLead: "Welcome to",
-  },
-  {
-    description: "Quick one-way voice translations for fast communication.",
-    featureHeading: "Live Translate",
-    title: "Live Interpretation",
-    titleLead: undefined,
+    video: require("../../assets/onboarding/conversation.mp4"),
   },
   {
     description: "Two-way chat with real-time voice translation, perfect for dialogues.",
     featureHeading: "Conversation",
     title: "Live Interpretation",
     titleLead: undefined,
+    video: require("../../assets/onboarding/welcome.mp4"),
+  },
+  {
+    description: "Record meetings, lectures, and voice notes, then organize them by category.",
+    featureHeading: "Voice Recording",
+    title: "Record & Organize",
+    titleLead: undefined,
+    video: require("../../assets/onboarding/record.mp4"),
   },
 ] as const;
 
@@ -54,7 +58,7 @@ export function OnboardingScreen({ onFinished }: { onFinished: () => void }) {
     setTransitionDisabled(true);
 
     Animated.timing(contentProgress, {
-      duration: reduceMotion ? 120 : 140,
+      duration: reduceMotion ? 120 : 300,
       easing: Easing.inOut(Easing.quad),
       toValue: 0,
       useNativeDriver: true,
@@ -67,7 +71,7 @@ export function OnboardingScreen({ onFinished }: { onFinished: () => void }) {
 
       setPage(nextPage);
       Animated.timing(contentProgress, {
-        duration: reduceMotion ? 180 : 200,
+        duration: reduceMotion ? 180 : 440,
         easing: Easing.out(Easing.quad),
         toValue: 1,
         useNativeDriver: true,
@@ -130,11 +134,12 @@ export function OnboardingScreen({ onFinished }: { onFinished: () => void }) {
         />
       )}
       media={(
-        <View
-          accessibilityLabel={`Future onboarding page ${page} media`}
-          style={{ flex: 1 }}
+        <OnboardingVideo
+          accessibilityLabel={`Onboarding page ${page} media`}
+          source={pageContent.video}
         />
       )}
+      buttonTone={page === 3 ? "accent" : "dark"}
       onContinue={handleContinue}
       page={page}
       panHandlers={swipeResponder.panHandlers}

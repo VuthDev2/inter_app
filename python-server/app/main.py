@@ -1,23 +1,29 @@
 import asyncio
 import os
+import secrets
 import threading
+import traceback
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 import torch
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-from asr import WhisperASRService
+from asr import TextCorrectionService, WhisperASRService
 from tts import KokoroTTSService, TTSServiceError
 
 
-MODEL_NAME = "facebook/nllb-200-distilled-600M"
 SERVER_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(SERVER_ROOT / ".env")
+
+MODEL_NAME = os.getenv("NLLB_MODEL", "facebook/nllb-200-distilled-600M")
 LANGUAGE_CODES = {
     "en": "eng_Latn",
     "en-us": "eng_Latn",
@@ -55,6 +61,7 @@ class TranscriptionResponse(BaseModel):
 
 
 asr_service = WhisperASRService()
+correction_service = TextCorrectionService()
 tts_service = KokoroTTSService(SERVER_ROOT / "tts" / "kokoro_models")
 
 
@@ -81,6 +88,22 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="QuickVoice Translation API", version="1.0.0", lifespan=lifespan)
 
+# Browser clients (the web app) call this API directly from a different
+# origin/port — without CORS headers every request is silently blocked by the
+# browser before it even reaches a route. Native clients (mobile) are
+# unaffected either way, since CORS is a browser-only restriction.
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv("QUICKVOICE_CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def normalize_language(language: str) -> str:
     normalized = LANGUAGE_CODES.get(language.strip().lower())
@@ -90,6 +113,26 @@ def normalize_language(language: str) -> str:
             detail="QuickVoice currently supports only English and Japanese.",
         )
     return normalized
+
+
+# ─── Access control ──────────────────────────────────────────────────────────
+# The server holds GPU models and accepts file uploads, so once it is reachable
+# from the internet an open endpoint is someone else's free compute. When
+# QUICKVOICE_API_KEY is set, every route except /health requires it. Unset (the
+# default) leaves local development exactly as it was.
+API_KEY = os.getenv("QUICKVOICE_API_KEY", "").strip()
+
+
+async def require_api_key(request: Request) -> None:
+    if not API_KEY:
+        return
+    supplied = request.headers.get("x-api-key", "").strip()
+    if not supplied:
+        auth = request.headers.get("authorization", "")
+        if auth.lower().startswith("bearer "):
+            supplied = auth[7:].strip()
+    if not secrets.compare_digest(supplied, API_KEY):
+        raise HTTPException(status_code=401, detail="Missing or invalid API key.")
 
 
 @app.get("/health")
@@ -131,7 +174,7 @@ def run_translation(text: str, source: str, target: str) -> str:
         )[0].strip()
 
 
-@app.post("/translate", response_model=TranslationResponse)
+@app.post("/translate", response_model=TranslationResponse, dependencies=[Depends(require_api_key)])
 async def translate(payload: TranslationRequest) -> TranslationResponse:
     text = payload.text.strip()
     source = normalize_language(payload.source)
@@ -167,10 +210,11 @@ async def translate(payload: TranslationRequest) -> TranslationResponse:
     )
 
 
-@app.post("/transcribe", response_model=TranscriptionResponse)
+@app.post("/transcribe", response_model=TranscriptionResponse, dependencies=[Depends(require_api_key)])
 async def transcribe(
     file: UploadFile = File(...),
     language: str = Form(default="auto"),
+    expected: str = Form(default=""),
 ) -> TranscriptionResponse:
     audio = await file.read()
     if not audio:
@@ -179,10 +223,13 @@ async def transcribe(
     suffix = Path(file.filename or "recording.m4a").suffix or ".m4a"
 
     try:
-        result = await asyncio.to_thread(asr_service.transcribe, audio, suffix, language)
+        result = await asyncio.to_thread(
+            asr_service.transcribe, audio, suffix, language, expected.strip().lower() or None
+        )
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except Exception as error:
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail="The local speech recognition model could not transcribe this audio.",
@@ -193,11 +240,13 @@ async def transcribe(
         return TranscriptionResponse(ok=True, text="", language="unknown")
 
     detected_language = "ja" if result.language == "ja" else "en"
+    text = await asyncio.to_thread(correction_service.correct, text, detected_language)
     return TranscriptionResponse(ok=True, text=text, language=detected_language)
 
 
 @app.post(
     "/tts",
+    dependencies=[Depends(require_api_key)],
     response_class=Response,
     responses={
         200: {

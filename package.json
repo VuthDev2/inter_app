@@ -16,6 +16,7 @@
     "typecheck": "npm --prefix apps/mobile run typecheck"
   },
   "dependencies": {
-    "@react-navigation/stack": "^7.10.17"
+    "@react-navigation/stack": "^7.10.17",
+    "lightningcss": "^1.33.0"
   }
 }
