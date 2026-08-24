@@ -1,32 +1,22 @@
-# React + TypeScript + Vite
+# QuickVoice Chrome Extension
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+## How to build and load the extension
 
-Currently, two official plugins are available:
+1. Open your terminal and navigate to the `extension` directory:
+   ```bash
+   cd extension
+   ```
+2. Install the dependencies:
+   ```bash
+   npm install
+   ```
+3. Build the extension:
+   ```bash
+   npm run build
+   ```
+4. Open Google Chrome and go to the extensions page by typing `chrome://extensions/` in the URL bar.
+5. Enable **Developer mode** by toggling the switch in the top right corner.
+6. Click the **Load unpacked** button.
+7. Select the `dist` folder that was generated inside the `extension` directory.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The extension should now be loaded and ready to use!

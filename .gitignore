@@ -33,3 +33,6 @@ apps/web/.next/
 
 # macOS
 .DS_Store
+
+# Large AI Models
+live_interpreter/models/

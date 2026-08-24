@@ -1,10 +1,51 @@
-import { useState } from 'react'
-import { Mic, Settings, Cloud, ExternalLink } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Mic, Settings, Cloud, ExternalLink, Check, Loader2 } from 'lucide-react'
 import { useLiveInterpretation } from './hooks/useLiveInterpretation'
-
+import { supabase } from './lib/supabase'
 function App() {
   const [isTwoWay, setIsTwoWay] = useState(false)
   const { isListening, interimText, entries, start, stop } = useLiveInterpretation("English (US)", "Japanese")
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  useEffect(() => {
+    async function initAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserId(session.user.id);
+      } else {
+        const { data } = await supabase.auth.signInAnonymously();
+        if (data.user) {
+          setUserId(data.user.id);
+        }
+      }
+    }
+    initAuth();
+  }, [])
+
+  const handleSave = async () => {
+    if (entries.length === 0 || !userId) return;
+    setIsSaving(true);
+    
+    const transcript = entries.map(e => `${e.original}\n${e.translation}`).join('\n\n');
+    
+    const { error } = await supabase.from('recordings').insert({
+      owner_id: userId,
+      recording_type: 'live',
+      title: 'Live Interpretation - ' + new Date().toLocaleDateString(),
+      transcript: transcript,
+      source_lang: 'en',
+      target_lang: 'ja',
+      status: 'saved'
+    });
+
+    setIsSaving(false);
+    if (!error) {
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }
+  };
 
   return (
     <div className="w-[360px] h-[500px] flex flex-col bg-background font-sans p-4 gap-4">
@@ -18,9 +59,7 @@ function App() {
           <span className="px-2 py-1 rounded-md glass text-[12px] font-semibold tracking-wider border-[rgba(37,99,235,0.3)] text-primary">
             EN ↔ JA
           </span>
-          <button className="text-muted hover:text-text transition-colors">
-            <Settings className="w-4 h-4" />
-          </button>
+
         </div>
       </div>
 
@@ -108,11 +147,25 @@ function App() {
 
       {/* 4. Web Sync & Save Section */}
       <div className="flex items-center gap-2">
-        <button className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-blue-700 text-white py-2.5 rounded-xl text-[13px] font-semibold transition-colors shadow-[0_4px_14px_rgba(37,99,235,0.4)]">
-          <Cloud className="w-4 h-4" />
-          Save to QuickVoice Web
+        <button 
+          onClick={handleSave}
+          disabled={isSaving || saveSuccess || entries.length === 0}
+          className={`flex-1 flex items-center justify-center gap-2 ${saveSuccess ? 'bg-green-600 hover:bg-green-700' : 'bg-primary hover:bg-blue-700'} text-white py-2.5 rounded-xl text-[13px] font-semibold transition-colors shadow-[0_4px_14px_rgba(37,99,235,0.4)] disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : saveSuccess ? (
+            <Check className="w-4 h-4" />
+          ) : (
+            <Cloud className="w-4 h-4" />
+          )}
+          {isSaving ? 'Saving...' : saveSuccess ? 'Saved to History!' : 'Save to QuickVoice Web'}
         </button>
-        <button className="w-10 h-10 flex items-center justify-center glass rounded-xl hover:bg-[rgba(255,255,255,0.1)] transition-colors">
+        <button 
+          onClick={() => window.open('http://localhost:3000/allrecords', '_blank')}
+          className="w-10 h-10 flex items-center justify-center glass rounded-xl hover:bg-[rgba(255,255,255,0.1)] transition-colors"
+          title="Open website history"
+        >
           <ExternalLink className="w-4 h-4 text-primary" />
         </button>
       </div>
@@ -121,7 +174,7 @@ function App() {
       <div className="flex items-center justify-center gap-1.5 mt-1">
         <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]" />
         <span className="text-[10px] text-muted truncate">
-          Connected to Supabase Realtime • Account: roth@kirirom.edu.kh
+          Connected to Supabase Realtime • Account: {userId ? 'Anonymous (Temp)' : 'Loading...'}
         </span>
       </div>
     </div>
