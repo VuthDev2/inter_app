@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { translate as mymemoryTranslate } from "../services/mymemory.js";
-import { translateText as geminiTranslate } from "../services/gemini.js";
+import { PYTHON_SERVER_URL } from "../config.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -13,19 +12,26 @@ router.post("/translate", requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, text: "", source, target });
     }
 
-    const mymemoryResult = await mymemoryTranslate(text, source, target);
-    if (mymemoryResult) {
-      return res.json({ ok: true, text: mymemoryResult, source, target });
+    const response = await fetch(`${PYTHON_SERVER_URL}/translate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, source, target }),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({
+        ok: false,
+        text: "",
+        error: errData.detail || "Translation failed on local model server.",
+      });
     }
 
-    const geminiResult = await geminiTranslate(text, source, target);
-    if (geminiResult) {
-      return res.json({ ok: true, text: geminiResult, source, target });
-    }
-
-    res.json({ ok: false, text: `[${source}->${target}] ${text}`, source, target });
-  } catch {
-    res.status(500).json({ ok: false, text: "", error: "Translation failed." });
+    const data = await response.json();
+    res.json({ ok: true, text: data.text, source, target });
+  } catch (err) {
+    console.error("[Translate Route] Error calling local model server:", err);
+    res.status(500).json({ ok: false, text: "", error: "Translation service unavailable." });
   }
 });
 

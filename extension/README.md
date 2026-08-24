@@ -1,5 +1,7 @@
 # QuickVoice Chrome Extension
 
+This extension connects Chrome to the local QuickVoice project.
+
 ## How to build and load the extension
 
 1. Open your terminal and navigate to the `extension` directory:

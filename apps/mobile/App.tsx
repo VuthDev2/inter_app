@@ -1,6 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Alert, Animated, Image, PanResponder, Pressable, Text, useColorScheme, View } from "react-native";
@@ -40,25 +38,12 @@ const TABS: Array<{
   { key: "settings", label: "Settings",         icon: "settings-outline" },
 ];
 
-type UnauthenticatedStackParamList = {
-  Onboarding: undefined;
-  Authentication: undefined;
-  CreateAccount: undefined;
-  ForgotPassword: undefined;
-  OTP: { email: string };
-  ResetPassword: undefined;
-};
-
-const UnauthenticatedStack = createNativeStackNavigator<UnauthenticatedStackParamList>();
-
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <PreferencesProvider>
-          <NavigationContainer>
-            <AppFrame />
-          </NavigationContainer>
+          <AppFrame />
         </PreferencesProvider>
       </AuthProvider>
     </SafeAreaProvider>
@@ -308,73 +293,53 @@ function AppFrame() {
   );
 }
 
+type AuthScreenState =
+  | { name: "Onboarding" }
+  | { name: "Authentication" }
+  | { name: "CreateAccount" }
+  | { name: "ForgotPassword" }
+  | { name: "OTP"; email: string }
+  | { name: "ResetPassword" };
+
 function UnauthenticatedFlow() {
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const [history, setHistory] = useState<AuthScreenState[]>([{ name: "Onboarding" }]);
 
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      setReduceMotion,
-    );
-    return () => subscription.remove();
-  }, []);
+  const current = history[history.length - 1] ?? { name: "Onboarding" };
 
-  return (
-    <UnauthenticatedStack.Navigator
-      screenOptions={{
-        animation: reduceMotion ? "fade" : "simple_push",
-        animationDuration: reduceMotion ? 180 : 360,
-        animationMatchesGesture: true,
-        contentStyle: { backgroundColor: "#FFFFFF" },
-        fullScreenGestureEnabled: !reduceMotion,
-        gestureEnabled: true,
-        headerShown: false,
-      }}
-    >
-      <UnauthenticatedStack.Screen name="Onboarding" options={{ gestureEnabled: false }}>
-        {({ navigation }) => (
-          <OnboardingScreen onFinished={() => navigation.navigate("Authentication")} />
-        )}
-      </UnauthenticatedStack.Screen>
-      <UnauthenticatedStack.Screen
-        name="Authentication"
-        options={{ animation: "fade", animationDuration: 220 }}
-      >
-        {({ navigation }) => (
-          <AuthScreen
-            onForgotPassword={() => navigation.navigate("ForgotPassword")}
-            onSignUp={() => navigation.navigate("CreateAccount")}
-          />
-        )}
-      </UnauthenticatedStack.Screen>
-      <UnauthenticatedStack.Screen name="CreateAccount">
-        {({ navigation }) => (
-          <CreateAccountScreen onSignIn={() => navigation.goBack()} />
-        )}
-      </UnauthenticatedStack.Screen>
-      <UnauthenticatedStack.Screen name="ForgotPassword">
-        {({ navigation }) => (
-          <ForgotPasswordScreen
-            onBack={() => navigation.goBack()}
-            onOtpSent={(email) => navigation.navigate("OTP", { email })}
-          />
-        )}
-      </UnauthenticatedStack.Screen>
-      <UnauthenticatedStack.Screen name="OTP">
-        {({ navigation, route }) => (
-          <OTPScreen
-            email={route.params.email}
-            onBack={() => navigation.goBack()}
-            onVerified={() => navigation.navigate("ResetPassword")}
-          />
-        )}
-      </UnauthenticatedStack.Screen>
-      <UnauthenticatedStack.Screen name="ResetPassword">
-        {({ navigation }) => (
-          <ResetPasswordScreen onDone={() => navigation.popTo("Authentication")} />
-        )}
-      </UnauthenticatedStack.Screen>
-    </UnauthenticatedStack.Navigator>
-  );
+  const push = (screen: AuthScreenState) => setHistory((prev) => [...prev, screen]);
+  const pop = () => setHistory((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  const resetToAuth = () => setHistory([{ name: "Authentication" }]);
+
+  switch (current.name) {
+    case "Onboarding":
+      return <OnboardingScreen onFinished={() => push({ name: "Authentication" })} />;
+    case "Authentication":
+      return (
+        <AuthScreen
+          onForgotPassword={() => push({ name: "ForgotPassword" })}
+          onSignUp={() => push({ name: "CreateAccount" })}
+        />
+      );
+    case "CreateAccount":
+      return <CreateAccountScreen onSignIn={pop} />;
+    case "ForgotPassword":
+      return (
+        <ForgotPasswordScreen
+          onBack={pop}
+          onOtpSent={(email) => push({ name: "OTP", email })}
+        />
+      );
+    case "OTP":
+      return (
+        <OTPScreen
+          email={current.email}
+          onBack={pop}
+          onVerified={() => push({ name: "ResetPassword" })}
+        />
+      );
+    case "ResetPassword":
+      return <ResetPasswordScreen onDone={resetToAuth} />;
+    default:
+      return <OnboardingScreen onFinished={() => push({ name: "Authentication" })} />;
+  }
 }

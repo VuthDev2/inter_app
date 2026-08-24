@@ -85,10 +85,11 @@ export function setupWebSocket(server) {
       return;
     }
 
-    const room = url.pathname.replace("/ws/", "");
+    const rawRoom = url.pathname.replace(/^\/ws\/?/, "");
+    const room = rawRoom.replace(/[^a-zA-Z0-9_-]/g, "");
 
     if (!room) {
-      ws.close(4000, "Room path required");
+      ws.close(4000, "Valid room path required");
       return;
     }
 

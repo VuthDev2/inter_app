@@ -92,10 +92,10 @@ function DashboardContent() {
                                         <span className="text-[13px] text-[rgba(var(--muted),1)]">Interpret audio directly from your browser tabs.</span>
                             </div>
                         </div>
-                        <button className="shrink-0 px-4 py-2 rounded-full bg-[rgba(var(--text),0.05)] hover:bg-[rgba(var(--text),0.1)] text-[13px] font-medium text-[rgba(var(--text),0.9)] flex items-center gap-2 border border-[rgb(var(--border))] transition-colors relative z-10 w-full sm:w-auto justify-center">
+                        <Link href="/extension" className="shrink-0 px-4 py-2 rounded-full bg-[rgba(var(--text),0.05)] hover:bg-[rgba(var(--text),0.1)] text-[13px] font-medium text-[rgba(var(--text),0.9)] flex items-center gap-2 border border-[rgb(var(--border))] transition-colors relative z-10 w-full sm:w-auto justify-center">
                             <Download size={14} />
                             Get Extension
-                        </button>
+                        </Link>
                     </div>
 
                     {/* Recent Sessions */}

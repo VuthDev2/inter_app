@@ -11,8 +11,10 @@ export const SMTP_USER = process.env.SMTP_USER || process.env.GMAIL_USER || "";
 export const SMTP_PASS = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "";
 export const SMTP_FROM = process.env.SMTP_FROM || "QuickVoice <noreply@quickvoice.app>";
 
+export const PYTHON_SERVER_URL = process.env.PYTHON_SERVER_URL || "http://localhost:8000";
 export const HOST = process.env.HOST || "0.0.0.0";
-export const PORT = parseInt(process.env.PORT || "8000", 10);
+
+export const PORT = parseInt(process.env.PORT || "5000", 10);
 
 export const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
