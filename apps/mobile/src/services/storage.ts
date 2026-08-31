@@ -6,6 +6,24 @@ const RECORDING_KEY        = "quickvoice.recordingSessions";
 const LIVE_SESSION_KEY     = "quickvoice.liveSessions";
 const AUDIO_RECORDING_KEY  = "quickvoice.audioRecordings";
 
+// ─── Cloud sync switch ───────────────────────────────────────────────────────
+// Conversations are always kept on the device. Copying them to Supabase — which
+// is what makes them readable from the web app or a second phone — is opt-in,
+// because it moves what people said off their own device.
+//
+// This is a module-level flag rather than a hook because the save helpers below
+// are plain async functions called from services and effects, not components.
+// PreferencesProvider mirrors the stored preference into it on every change.
+let cloudSyncEnabled = false;
+
+export function setCloudSyncEnabled(enabled: boolean): void {
+  cloudSyncEnabled = enabled;
+}
+
+export function isCloudSyncEnabled(): boolean {
+  return cloudSyncEnabled;
+}
+
 // ─── Tiny UUID-v4 generator (no native crypto needed) ────────────────────────
 function uuid4(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -33,7 +51,7 @@ export async function saveRecordingSession(session: SavedRecordingSession): Prom
   await appStorage.setItem(RECORDING_KEY, JSON.stringify(existing.slice(0, 100)));
 
   // 2. Try cloud sync in the background — never throw
-  if (!supabase) return;
+  if (!supabase || !cloudSyncEnabled) return;
   try {
     const { data: { session: auth } } = await supabase.auth.getSession();
     if (!auth?.user) return;
@@ -93,7 +111,7 @@ export async function saveLiveSession(session: LiveSession): Promise<void> {
   await saveLiveSessionLocally(session);
 
   // 2. Cloud sync — save to sessions + transcripts tables
-  if (!supabase || session.utterances.length === 0) return;
+  if (!supabase || !cloudSyncEnabled || session.utterances.length === 0) return;
   try {
     const { data: { session: auth } } = await supabase.auth.getSession();
     if (!auth?.user) return;
@@ -166,7 +184,7 @@ export async function addAudioRecording(rec: LocalAudioRecording): Promise<void>
   list.unshift(rec);
   await saveAudioRecordingsIndex(list);
 
-  if (!supabase) return;
+  if (!supabase || !cloudSyncEnabled) return;
   try {
     const { data: { session: auth } } = await supabase.auth.getSession();
     if (!auth?.user) return;

@@ -1,7 +1,7 @@
 {
   "name": "quickvoice",
   "private": true,
-  "description": "QuickVoice — real-time voice interpretation for mobile and web",
+  "description": "QuickVoice \u2014 real-time voice interpretation for mobile and web",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -9,11 +9,15 @@
   "scripts": {
     "start": "npm run mobile",
     "mobile": "npm --prefix apps/mobile run start",
+    "mobile:clear": "npm --prefix apps/mobile run start -- --clear",
     "ios": "npm --prefix apps/mobile run ios",
     "android": "npm --prefix apps/mobile run android",
     "web": "npm --prefix apps/web run dev",
     "backend": "npm --prefix backend run dev",
-    "typecheck": "npm --prefix apps/mobile run typecheck"
+    "typecheck": "npm --prefix apps/mobile run typecheck",
+    "extension": "npm --prefix extension run dev",
+    "extension:build": "npm --prefix extension run build",
+    "install:all": "npm install && npm --prefix extension install && npm --prefix backend install"
   },
   "dependencies": {
     "@react-navigation/stack": "^7.10.17",

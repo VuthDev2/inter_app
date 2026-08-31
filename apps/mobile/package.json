@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "main": "index.js",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client --lan --scheme quickvoice",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
@@ -30,7 +30,7 @@
     "expo-video": "~57.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "latest",
+    "react-native": "0.86.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-svg": "15.15.4",

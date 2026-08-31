@@ -126,16 +126,15 @@ export function AuthTextField({
     <View style={styles.fieldShell}>
       {icon ? <Ionicons name={icon} size={19} color={authColors.muted} /> : null}
       <View style={styles.inputContainer}>
-        <Animated.Text
-          numberOfLines={1}
+        <Animated.View
           pointerEvents="none"
           style={[
-            styles.floatingLabel,
+            styles.floatingLabelContainer,
             { transform: [{ translateY: labelTranslateY }, { scale: labelScale }] },
           ]}
         >
-          {placeholder}
-        </Animated.Text>
+          <Text style={styles.floatingLabel}>{placeholder}</Text>
+        </Animated.View>
         <TextInput
           autoCapitalize={keyboardType === "email-address" ? "none" : "none"}
           keyboardType={keyboardType}
@@ -316,17 +315,19 @@ const styles = StyleSheet.create({
   passwordTitleContainer: { alignItems: "flex-start", minHeight: 120 },
   passwordTitleSmall: { fontSize: 42, letterSpacing: 0.42, lineHeight: 52 },
   inputContainer: { flex: 1, position: "relative", paddingTop: 10 },
-  floatingLabel: {
+  floatingLabelContainer: {
     alignSelf: "flex-start",
+    position: "absolute",
+    left: -5,
+    top: 17,
+    zIndex: 1,
+  },
+  floatingLabel: {
     backgroundColor: "#FFFFFF",
     color: authColors.muted,
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
     lineHeight: 20,
     paddingHorizontal: 3,
-    position: "absolute",
-    left: -5,
-    top: 17,
-    zIndex: 1,
   },
 });

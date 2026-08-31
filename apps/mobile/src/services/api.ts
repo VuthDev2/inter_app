@@ -20,6 +20,35 @@ const translationCache = new Map<string, string>();
 const ttsCache = new Map<string, Uint8Array>();
 const MAX_CACHE_ITEMS = 128;
 
+/**
+ * fetch() with a hard ceiling. Plain fetch has no timeout of its own, so a
+ * server that accepts the connection and then never answers — which the
+ * Whisper model server has done, wedged behind a full swap — leaves the
+ * caller waiting forever with no error and no way to recover. A live
+ * interpretation turn showed "TRANSLATING…" for the better part of an hour
+ * because of exactly this. Every call on the live-interpreter path goes
+ * through this instead of a bare fetch so a stuck server surfaces as a
+ * timely error the UI can react to, not a silent, permanent freeze.
+ */
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`${input} did not respond within ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function remember<K, V>(cache: Map<K, V>, key: K, value: V): V {
   if (cache.size >= MAX_CACHE_ITEMS) {
     const firstKey = cache.keys().next().value as K | undefined;
@@ -179,9 +208,20 @@ export function forgetResolvedServers(): void {
   resolvedBases.clear();
 }
 
-/** Base URL for the AI server (transcribe/translate/tts), port 8001. */
+/**
+ * Base URL for the AI server (transcribe/translate/tts), port 8000.
+ *
+ * QuickVoice runs ONE python-server that serves speech, translation and TTS
+ * alongside the rest of the API — there is no second service on 8001. The port
+ * matters more than it looks: the first address tried is Metro's own host,
+ * which is by definition the machine the bundle just came from, so pairing it
+ * with the right port makes the app find the server on any network without
+ * anyone editing .env. With the wrong port that automatic path can never win
+ * and every device falls back to a hard-coded IP that goes stale the moment
+ * the laptop reconnects to Wi-Fi.
+ */
 function baseUrl(): Promise<string> {
-  return serverBaseUrl("EXPO_PUBLIC_AI_BASE_URL", 8001);
+  return serverBaseUrl("EXPO_PUBLIC_AI_BASE_URL", 8000);
 }
 
 /** Base URL for the Node backend (auth, signup, etc.), port 8000. */
@@ -215,6 +255,39 @@ export async function getBackendHealth(): Promise<BackendHealth> {
 }
 
 
+// ─── Protected names ─────────────────────────────────────────────────────────
+// Names and organisations held intact through translation. NLLB renders most
+// proper nouns correctly on its own; this list is for the ones that are also
+// ordinary words, where "Hello, Nana" came back as こんにちは おばあちゃん.
+
+export async function loadProtectedNames(): Promise<string[]> {
+  try {
+    const res = await fetch(`${await baseUrl()}/glossary`, { headers: await authHeaders() });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return Array.isArray(json?.terms) ? json.terms.filter((t: unknown): t is string => typeof t === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Returns the stored list, or null when the server could not be reached. */
+export async function saveProtectedNames(terms: string[]): Promise<string[] | null> {
+  try {
+    const res = await fetch(`${await baseUrl()}/glossary`, {
+      method: "PUT",
+      headers: await authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ terms }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return Array.isArray(json?.terms) ? json.terms.filter((t: unknown): t is string => typeof t === "string") : [];
+  } catch {
+    return null;
+  }
+}
+
+
 // ─── Transcription (via backend ASR) ─────────────────────────────────────────
 
 export async function transcribeAudio(
@@ -243,11 +316,11 @@ export async function transcribeAudioResult(
     form.append("language", language);
     if (expectedLanguage) form.append("expected", expectedLanguage);
 
-    const res = await fetch(`${await baseUrl()}/transcribe`, {
+    const res = await fetchWithTimeout(`${await baseUrl()}/transcribe`, {
       method: "POST",
       headers: await authHeaders(),
       body: form,
-    });
+    }, 15_000);
 
     if (res.ok) {
       const json = await res.json();
@@ -293,11 +366,11 @@ async function translateViaBackend(
   let url = "the translation server";
   try {
     url = `${await baseUrl()}/translate`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       method: "POST",
       headers: await authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ text, source, target }),
-    });
+    }, 15_000);
 
     if (!res.ok) {
       let detail = "";
@@ -355,11 +428,11 @@ export async function synthesizeSpeechViaApi(
   const cached = ttsCache.get(cacheKey);
   if (cached) return cached;
 
-  const response = await fetch(`${await baseUrl()}/tts`, {
+  const response = await fetchWithTimeout(`${await baseUrl()}/tts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: normalizedText, language, speed }),
-  });
+  }, 20_000);
 
   if (!response.ok) {
     let message = "Text-to-speech server unavailable.";

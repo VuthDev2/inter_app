@@ -6,6 +6,22 @@ import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
 
+/**
+ * Coerce whatever an API or SDK put in an `error` field into text safe to
+ * render. These values reach the form's error box directly, and a non-string
+ * (an error object, a validation map) renders as a bare "{}" — which is what
+ * the signup form showed while the auth backend was unreachable, telling the
+ * user nothing at all about what went wrong.
+ */
+function errorText(value: unknown, fallback: string): string {
+  if (typeof value === "string" && value.trim()) return value;
+  if (value && typeof value === "object") {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 type AuthContextValue = {
   initialized: boolean;
   session: Session | null;
@@ -17,6 +33,8 @@ type AuthContextValue = {
   verifyOTP: (_email: string, token: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
   signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
+  updateProfile: (displayName: string) => Promise<{ error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -83,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return error ? { error: error.message } : {};
           }
           const resData = await res.json();
-          return { error: resData.error || "Failed to create account." };
+          return { error: errorText(resData.error, "Failed to create account.") };
         } catch {
           const { data, error } = await supabase.auth.signUp({
             email,
@@ -112,6 +130,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         });
       },
+      signInWithFacebook: async () => {
+        if (!supabase) return;
+        await supabase.auth.signInWithOAuth({
+          provider: "facebook",
+          options: { redirectTo: typeof window !== "undefined" ? window.location.origin : undefined },
+        });
+      },
+      updateProfile: async (displayName) => {
+        if (!supabase) return { error: "Supabase is not configured." };
+        const { data, error } = await supabase.auth.updateUser({ data: { display_name: displayName.trim() } });
+        if (data.user) setSession((current) => current ? { ...current, user: data.user } : current);
+        return error ? { error: error.message } : {};
+      },
       sendOTP: async (email) => {
         const cleanEmail = email.trim().toLowerCase();
         try {
@@ -127,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return {};
           }
           if (data && data.error && res.status < 500) {
-            return { error: data.error };
+            return { error: errorText(data.error, "Failed to send verification code.") };
           }
         } catch {
           // Backend not reachable, fallback to Supabase
@@ -157,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               pendingOTP.current = { otp: token.trim(), expiresAt: Date.now() + 10 * 60 * 1000, email: cleanEmail, resetToken: data.resetToken };
               return {};
             }
-            return { error: data.error || "Invalid verification code." };
+            return { error: errorText(data.error, "Invalid verification code.") };
           } catch {
             return { error: "Failed to connect to backend for verification." };
           }

@@ -25,7 +25,25 @@ import { AnchoredMenu } from "../components/AnchoredMenu";
 import { atoms } from "../theme/atoms";
 import { languages, type LanguageCode } from "../constants/data";
 import { translateTextViaApi } from "../services/api";
-import { saveLiveSessionLocally } from "../services/storage";
+import { saveLiveSession, saveLiveSessionLocally } from "../services/storage";
+
+/**
+ * Typed text carries no audio for Whisper to listen to, so unlike voice
+ * turns nothing detects its language — the app trusted whichever box you
+ * typed into. Typing English into a box currently set to Japanese sent
+ * {text: "dog", source: "ja"} to the translator, which dutifully "translated"
+ * Latin letters as if they were Japanese and returned "Dogs." instead of 犬.
+ * A script check catches that before the request goes out. Only en/ja is
+ * worth detecting — those are the only languages this input pair ever sends.
+ */
+function detectTypedLanguage(text: string): "en" | "ja" | null {
+  // Hiragana/Katakana (぀-ヿ) plus CJK Unified Ideographs, kanji's
+  // block (㐀-鿿). Codepoints, not typed glyphs, so there is nothing
+  // here that depends on this file's encoding round-tripping correctly.
+  if (/[぀-ヿ㐀-鿿]/.test(text)) return "ja";
+  if (/[a-zA-Z]/.test(text)) return "en";
+  return null;
+}
 
 // ─── iOS-inspired palette ─────────────────────────────────────────────────────
 const BG = "#F5F7FA";
@@ -126,8 +144,16 @@ const wv = StyleSheet.create({
 });
 
 // ─── Language pill + picker ───────────────────────────────────────────────────
-function LangPill({ value, onChange, disabled, dark, showDot = false }: {
+function LangPill({ value, otherValue, onChange, disabled, dark, showDot = false }: {
   value: LanguageCode;
+  /**
+   * The paired pill's current language. Excluded from this menu instead of
+   * being auto-flipped when it collides: silently changing a box the person
+   * never touched is worse than just not offering the colliding choice here.
+   * Input and output only ever being en/ja means excluding one always leaves
+   * exactly one option, so this never empties the menu.
+   */
+  otherValue: LanguageCode;
   onChange: (v: LanguageCode) => void;
   disabled: boolean;
   dark: boolean;
@@ -137,12 +163,15 @@ function LangPill({ value, onChange, disabled, dark, showDot = false }: {
   return (
     <AnchoredMenu
       dark={dark}
-      items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({
-        key: language.code,
-        label: `${getFlag(language.code)}  ${t(language.code === "ja" ? "common.japanese" : "common.english")}`,
-        selected: language.code === value,
-        onPress: () => onChange(language.code as LanguageCode),
-      }))}
+      items={languages
+        .filter((language) => language.code === "en" || language.code === "ja")
+        .filter((language) => language.code !== otherValue)
+        .map((language) => ({
+          key: language.code,
+          label: `${getFlag(language.code)}  ${t(language.code === "ja" ? "common.japanese" : "common.english")}`,
+          selected: language.code === value,
+          onPress: () => onChange(language.code as LanguageCode),
+        }))}
       width={190}
     >
       {(open) => (
@@ -322,13 +351,25 @@ export function SessionScreen({
     clearDraft();
     setSendingDraft(true);
     try {
-      const translation = await translateTextViaApi(trimmed, sourceLang, targetLang);
+      // The box you typed into never moves — this only decides which
+      // language code goes to the translator, so a word typed into the
+      // wrong-language box still translates correctly instead of being
+      // mistranslated as if it were written in that box's language.
+      const detected = detectTypedLanguage(trimmed);
+      const mismatched =
+        detected && (sourceLang === "en" || sourceLang === "ja") && detected !== sourceLang;
+      const effectiveSource: LanguageCode = mismatched ? detected : sourceLang;
+      const effectiveTarget: LanguageCode = mismatched
+        ? (detected === "en" ? "ja" : "en")
+        : targetLang;
+
+      const translation = await translateTextViaApi(trimmed, effectiveSource, effectiveTarget);
       appendUtterance({
         id: `typed-${Date.now()}`,
         original: trimmed,
         translation,
-        sourceLang,
-        targetLang,
+        sourceLang: effectiveSource,
+        targetLang: effectiveTarget,
       });
 
       if (speakRef.current && translation) {
@@ -411,11 +452,36 @@ export function SessionScreen({
     setTgt(tmp);
   };
 
+  // Two separate lists hold what's on screen — this screen's own
+  // `utterances` (what actually renders) and the hook's `live.entries` (what
+  // feeds it) — and neither ever cleared on its own, including on a fresh
+  // session. A bad turn from a server hiccup stayed on screen permanently
+  // with no way to dismiss it short of restarting the whole app.
+  const clearConversation = () => {
+    if (live.isListening || utterances.length === 0) return;
+    Alert.alert(t("live.clearConversation"), t("live.clearConversationConfirm"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("live.clearConversation"),
+        style: "destructive",
+        onPress: () => {
+          setUtterances([]);
+          live.clearEntries();
+          handledEntryIdRef.current = null;
+        },
+      },
+    ]);
+  };
+
   // ─── Back ───────────────────────────────────────────────────────────────────
   const handleBack = async () => {
     if (live.isListening) live.stop();
     if (utterances.length > 0) {
-      await saveLiveSessionLocally({
+      // The finished conversation, unlike the running one saved after every
+      // utterance, goes through saveLiveSession: it always stores locally and
+      // additionally uploads when the "Sync conversations" switch is on, so the
+      // same conversation can be opened from the web app or another device.
+      await saveLiveSession({
         id: sessionId.current, sourceLang: src, targetLang: tgt,
         mode: sessionMode, utterances, createdAt: sessionStart.current,
         endedAt: new Date().toISOString(),
@@ -485,6 +551,13 @@ export function SessionScreen({
               icon: "swap-horizontal-outline",
               disabled: live.isListening,
               onPress: swap,
+            },
+            {
+              key: "clear",
+              label: t("live.clearConversation"),
+              icon: "trash-outline",
+              disabled: live.isListening || utterances.length === 0,
+              onPress: clearConversation,
             },
           ]}
         >
@@ -559,7 +632,7 @@ export function SessionScreen({
         <View style={ss.controlsArea}>
           <View style={ss.liveStatus}>
             <View style={[ss.waitingCard, dark && ss.cardDark, ss.cardRight]}>
-            <LangPill dark={dark} value={tgt} onChange={(value) => { if (!busy) setTgt(value); }} disabled={busy} />
+            <LangPill dark={dark} value={tgt} otherValue={src} onChange={(value) => { if (!busy) setTgt(value); }} disabled={busy} />
             <View style={ss.contentTransition}>
               {!busy && !hasTranscriptPreview ? (
                 <TextInput
@@ -599,7 +672,7 @@ export function SessionScreen({
             </View>
             </View>
             <View style={[ss.waitingCard, dark && ss.cardDark, ss.cardLeft]}>
-            <LangPill dark={dark} value={src} onChange={(value) => { if (!busy) setSrc(value); }} disabled={busy} />
+            <LangPill dark={dark} value={src} otherValue={tgt} onChange={(value) => { if (!busy) setSrc(value); }} disabled={busy} />
             <View
               style={[
                 ss.contentTransition,

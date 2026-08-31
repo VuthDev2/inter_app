@@ -46,9 +46,11 @@ import {
 // natural dips between syllables end the turn mid-sentence.
 const SPEECH_MARGIN_DB = 9;
 const RELEASE_MARGIN_DB = 5;
-// Speech must hold above the gate for this many consecutive polls. A single
-// loud frame is a door slam, not a word.
-const SPEECH_CONFIRM_FRAMES = 3;
+// Start on the first clear rise above the calibrated room level. Requiring
+// three 100 ms samples caused short words such as "hello" and Japanese
+// acknowledgements to finish before the gate opened, leaving the UI looking
+// unresponsive until the no-speech timeout.
+const SPEECH_CONFIRM_FRAMES = 1;
 // The floor chases the room: quickly downward when it gets quieter, slowly
 // upward as noise persists. A running minimum (the previous approach) pinned
 // the floor to the quietest instant ever heard, so steady room noise sat
@@ -70,8 +72,17 @@ const POLL_INTERVAL_MS = 100;
 // Silence after speech that ends the turn. This is dead time on every single
 // turn — nothing is computed during it — so it is the cheapest latency to buy
 // back. The floor is set by how long a speaker pauses mid-sentence; Japanese
-// clause breaks run ~300-400ms, so 600ms leaves headroom without feeling slow.
-const TRAILING_SILENCE_MS = 600;
+// clause breaks run ~300-400ms, so this sits just above them: low enough to
+// feel immediate, high enough that a mid-sentence pause does not cut the turn
+// short. Raise it back toward 600 if sentences start getting chopped in half.
+const TRAILING_SILENCE_MS = 420;
+// A short reply is over the moment it stops — nobody pauses in the middle of
+// "hello". Waiting the full window on those makes a one-word answer feel
+// sluggish for no benefit, so anything this brief ends on a much shorter
+// silence. Longer sentences keep the full window, because a speaker really
+// can pause mid-clause.
+const SHORT_UTTERANCE_MS = 1_200;
+const SHORT_TRAILING_SILENCE_MS = 240;
 // Give up (and report an empty turn) if nobody starts speaking.
 const NO_SPEECH_TIMEOUT_MS = 6_000;
 // Hard ceiling so a noisy room cannot record forever.
@@ -100,6 +111,8 @@ class WhisperSpeechService implements SpeechServiceInterface {
   private turnId = 0;
   private heardSpeech = false;
   private lastLoudAt = 0;
+  /** When speech was first confirmed this turn, for the short-reply rule. */
+  private speechStartedAt = 0;
   private noiseFloorDb: number | null = null;
   private peakDb = Number.NEGATIVE_INFINITY;
   private aboveGateFrames = 0;
@@ -126,6 +139,7 @@ class WhisperSpeechService implements SpeechServiceInterface {
     this.aboveGateFrames = 0;
     this.startedAt = Date.now();
     this.lastLoudAt = 0;
+    this.speechStartedAt = 0;
 
     const permission = await AudioModule.requestRecordingPermissionsAsync();
     if (!permission.granted) {
@@ -167,8 +181,13 @@ class WhisperSpeechService implements SpeechServiceInterface {
 
     if (typeof level !== "number" || !Number.isFinite(level)) {
       // No metering on this device — fall back to a fixed window so the turn
-      // still ends instead of running to the hard cap.
-      if (elapsed >= FALLBACK_UTTERANCE_MS) void this.finishTurn(turnId);
+      // still ends instead of running to the hard cap. Mark it as speech too:
+      // without that flag the stop path treats the turn as empty and abandons
+      // the upload that is about to carry a perfectly good transcript.
+      if (elapsed >= FALLBACK_UTTERANCE_MS) {
+        this.heardSpeech = true;
+        void this.finishTurn(turnId);
+      }
       return;
     }
 
@@ -201,6 +220,7 @@ class WhisperSpeechService implements SpeechServiceInterface {
             );
           }
           this.heardSpeech = true;
+          this.speechStartedAt = now;
           this.lastLoudAt = now;
         }
       } else {
@@ -211,7 +231,10 @@ class WhisperSpeechService implements SpeechServiceInterface {
     }
 
     if (this.heardSpeech) {
-      if (this.lastLoudAt && now - this.lastLoudAt >= TRAILING_SILENCE_MS) {
+      const spokenMs = this.speechStartedAt ? now - this.speechStartedAt : 0;
+      const requiredSilence =
+        spokenMs <= SHORT_UTTERANCE_MS ? SHORT_TRAILING_SILENCE_MS : TRAILING_SILENCE_MS;
+      if (this.lastLoudAt && now - this.lastLoudAt >= requiredSilence) {
         void this.finishTurn(turnId);
         return;
       }
@@ -307,7 +330,17 @@ class WhisperSpeechService implements SpeechServiceInterface {
       return;
     }
 
-    if (this.heardSpeech && !this.finishing) {
+    // A turn that is already uploading owns this turnId: bumping it here would
+    // make finishTurn discard its own result as stale, which is how a correct
+    // transcript could be fetched and then silently thrown away. It happens on
+    // any device without audio metering (the Mac build), where heardSpeech is
+    // never set and this path used to be the only one taken.
+    if (this.finishing) {
+      this.clearPolling();
+      return;
+    }
+
+    if (this.heardSpeech) {
       await this.finishTurn(this.turnId);
       return;
     }

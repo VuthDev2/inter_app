@@ -3,9 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Shield, Sparkles, Zap, Copyright, Globe, Languages, Menu, X } from "lucide-react";
 import { FeatureStepDemo } from "@/components/FeatureStepDemo";
-import { DeviceEcosystemShowcase } from "@/components/DeviceEcosystemShowcase";
 
 const HOW_IT_WORKS = [
   {
@@ -36,6 +36,12 @@ const HOW_IT_WORKS = [
     visual: "respond",
     reverse: true,
   },
+] as const;
+
+const HOW_CAROUSEL_ITEMS = [
+  { key: "loop-last", stepIndex: HOW_IT_WORKS.length - 1 },
+  ...HOW_IT_WORKS.map((_, stepIndex) => ({ key: `step-${stepIndex}`, stepIndex })),
+  { key: "loop-first", stepIndex: 0 },
 ] as const;
 
 const PRODUCT_FEATURES = [
@@ -81,21 +87,59 @@ const SECTION_LINKS = [
   { label: "Why QuickVoice", hash: "#features" },
 ] as const;
 
+const MAN_CONVERSATION_FRAMES = [
+  "/hero-conversation-people.png",
+  "/hero-conversation-frames/man/listening.png",
+  "/hero-conversation-frames/man/speaking-start.png",
+  "/hero-conversation-frames/man/speaking-emphasis.png",
+  "/hero-conversation-frames/man/reacting.png",
+] as const;
+
+const WOMAN_CONVERSATION_FRAMES = [
+  "/hero-conversation-english.png",
+  "/hero-conversation-frames/woman/listening.png",
+  "/hero-conversation-frames/woman/speaking-start.png",
+  "/hero-conversation-frames/woman/speaking-emphasis.png",
+  "/hero-conversation-frames/woman/reacting.png",
+] as const;
+
 export default function LandingPage() {
   const [activeHowStep, setActiveHowStep] = useState(0);
+  const [howCarouselPosition, setHowCarouselPosition] = useState(1);
+  const [howCarouselInstant, setHowCarouselInstant] = useState(false);
   const [activeProductFeature, setActiveProductFeature] = useState(0);
   const [activeNav, setActiveNav] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [navVisible, setNavVisible] = useState(true);
   const [isAtTop, setIsAtTop] = useState(true);
   const [heroVisible, setHeroVisible] = useState(true);
+  const [conversationProgress, setConversationProgress] = useState(0);
+  const [conversationSectionVisible, setConversationSectionVisible] = useState(false);
+  const [conversationCharactersEntered, setConversationCharactersEntered] = useState(false);
+  const [conversationContentReady, setConversationContentReady] = useState(false);
   const [howSectionVisible, setHowSectionVisible] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
+  const conversationRef = useRef<HTMLElement>(null);
   const howSectionRef = useRef<HTMLElement>(null);
+  const howCardsTrackRef = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
   const scrollingRef = useRef(false);
   const scrollEndTimer = useRef<number | null>(null);
+  const conversationStageRef = useRef(0);
+  // Whether the conversation section currently fills the viewport. Maintained
+  // by an IntersectionObserver so gesture handlers never measure layout.
+  const pinnedRef = useRef(false);
+  const lastConversationAdvance = useRef(Date.now());
+
+  useEffect(() => {
+    [...MAN_CONVERSATION_FRAMES.slice(1), ...WOMAN_CONVERSATION_FRAMES.slice(1)].forEach((src) => {
+      const frame = new window.Image();
+      frame.decoding = "async";
+      frame.src = src;
+      void frame.decode().catch(() => undefined);
+    });
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -158,21 +202,244 @@ export default function LandingPage() {
   }, [menuOpen]);
 
   useEffect(() => {
-    const section = howSectionRef.current;
+    const section = conversationRef.current;
     if (!section) return;
-    const cards = section.querySelectorAll<HTMLElement>("[data-how-step]");
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible) setActiveHowStep(Number((visible.target as HTMLElement).dataset.howStep));
-      },
-      { rootMargin: "-28% 0px -28% 0px", threshold: [0.1, 0.35, 0.6] },
-    );
-    cards.forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
+    let frame = 0;
+    const update = () => {
+      const rect = section.getBoundingClientRect();
+      const scrollable = Math.max(section.offsetHeight - window.innerHeight, 1);
+      setConversationProgress(Math.min(1, Math.max(0, -rect.top / scrollable)));
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
+
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section || !conversationContentReady) return;
+    let conversationWasActive = false;
+
+    const moveToStage = (targetStage: number) => {
+      const scrollable = Math.max(section.offsetHeight - window.innerHeight, 1);
+      const targetProgress = (targetStage + 0.1) / 5;
+      const sectionTop = section.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: sectionTop + scrollable * targetProgress, behavior: "smooth" });
+    };
+
+    const recordUserInteraction = () => {
+      lastConversationAdvance.current = Date.now();
+    };
+
+    // One scroll gesture = one conversation step, rather than the stage being
+    // read continuously off the scroll offset. While the section is pinned the
+    // page itself does not move; scrolling drives the four beats instead
+    // (Japanese -> English, then English -> Japanese). Control is handed back
+    // to the page at either end so the section can still be scrolled past.
+    // The cooldown matches the 1s CSS transition on the bubbles — without it a
+    // single trackpad flick, which fires dozens of wheel events, would blow
+    // through every stage at once.
+    const STEP_COOLDOWN_MS = 900;
+    let lastStepAt = 0;
+
+    // Read from the observer's cached result — calling getBoundingClientRect
+    // here forced a synchronous layout on every single wheel event.
+    const sectionIsPinned = () => pinnedRef.current;
+
+    /** Returns true when the gesture was consumed as a step. */
+    const stepFromGesture = (goingDown: boolean, preventDefault: () => void) => {
+      if (!sectionIsPinned()) return false;
+
+      const stage = conversationStageRef.current;
+      // At the ends, let the gesture through so the page scrolls normally.
+      if (goingDown && stage >= 4) return false;
+      if (!goingDown && stage <= 0) return false;
+
+      preventDefault();
+
+      const now = Date.now();
+      if (now - lastStepAt < STEP_COOLDOWN_MS) return true;
+      lastStepAt = now;
+      lastConversationAdvance.current = now;
+      moveToStage(stage + (goingDown ? 1 : -1));
+      return true;
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) < 2) return;
+      stepFromGesture(event.deltaY > 0, () => event.preventDefault());
+    };
+
+    let touchStartY: number | null = null;
+    const onTouchStart = (event: TouchEvent) => {
+      recordUserInteraction();
+      touchStartY = event.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchStartY === null) return;
+      const currentY = event.touches[0]?.clientY ?? touchStartY;
+      const delta = touchStartY - currentY;
+      // Ignore the small jitter that starts every swipe.
+      if (Math.abs(delta) < 12) return;
+      if (stepFromGesture(delta > 0, () => event.preventDefault())) {
+        touchStartY = currentY;
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+        recordUserInteraction();
+      }
+      if (!sectionIsPinned()) return;
+      if (event.key === "ArrowDown" || event.key === "PageDown" || event.key === " ") {
+        stepFromGesture(true, () => event.preventDefault());
+      } else if (event.key === "ArrowUp" || event.key === "PageUp") {
+        stepFromGesture(false, () => event.preventDefault());
+      }
+    };
+
+    const autoAdvance = window.setInterval(() => {
+      const rect = section.getBoundingClientRect();
+      const active = rect.top <= 1 && rect.bottom >= window.innerHeight - 1;
+
+      if (!active) {
+        conversationWasActive = false;
+        return;
+      }
+      if (!conversationWasActive) {
+        conversationWasActive = true;
+        lastConversationAdvance.current = Date.now();
+        return;
+      }
+      if (
+        conversationStageRef.current >= 4 ||
+        Date.now() - lastConversationAdvance.current < 3000
+      ) return;
+
+      lastConversationAdvance.current = Date.now();
+      moveToStage(conversationStageRef.current + 1);
+    }, 250);
+
+    // The stepping handlers must be non-passive so they can preventDefault,
+    // but a non-passive wheel/touchmove listener makes the browser wait for
+    // JavaScript before every scroll tick — across the whole page that reads
+    // as lag. So they are attached ONLY while this section is actually
+    // pinned, and removed the moment it is not; everywhere else on the page
+    // scrolling stays fully passive and untouched.
+    let steppingAttached = false;
+    const attachStepping = () => {
+      if (steppingAttached) return;
+      steppingAttached = true;
+      window.addEventListener("wheel", onWheel, { passive: false });
+      window.addEventListener("touchmove", onTouchMove, { passive: false });
+    };
+    const detachStepping = () => {
+      if (!steppingAttached) return;
+      steppingAttached = false;
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+
+    // IntersectionObserver rather than a scroll handler: it reports the
+    // pinned/unpinned transition off the main thread, so nothing here has to
+    // measure layout on every wheel event.
+    const pinObserver = new IntersectionObserver(
+      ([entry]) => {
+        pinnedRef.current = entry.intersectionRatio >= 0.99;
+        if (pinnedRef.current) attachStepping();
+        else detachStepping();
+      },
+      { threshold: [0, 0.99, 1] }
+    );
+    pinObserver.observe(section);
+
+    window.addEventListener("wheel", recordUserInteraction, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      pinObserver.disconnect();
+      detachStepping();
+      window.removeEventListener("wheel", recordUserInteraction);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearInterval(autoAdvance);
+    };
+  }, [conversationContentReady]);
+
+  useEffect(() => {
+    const previousBodyBackground = document.body.style.backgroundColor;
+    const previousHtmlBackground = document.documentElement.style.backgroundColor;
+    const previousOverscroll = document.body.style.overscrollBehaviorY;
+
+    document.body.style.backgroundColor = "#05050a";
+    document.documentElement.style.backgroundColor = "#05050a";
+    document.body.style.overscrollBehaviorY = "none";
+
+    return () => {
+      document.body.style.backgroundColor = previousBodyBackground;
+      document.documentElement.style.backgroundColor = previousHtmlBackground;
+      document.body.style.overscrollBehaviorY = previousOverscroll;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!howSectionVisible) return;
+
+    const interval = window.setInterval(() => {
+      setActiveHowStep((current) => (current + 1) % HOW_IT_WORKS.length);
+      setHowCarouselPosition((current) => current + 1);
+    }, 6500);
+    return () => window.clearInterval(interval);
+  }, [howSectionVisible]);
+
+  useEffect(() => {
+    const track = howCardsTrackRef.current;
+    const card = track?.querySelector<HTMLElement>(`[data-carousel-position="${howCarouselPosition}"]`);
+    if (!track || !card) return;
+
+    const targetLeft = card.offsetLeft - (track.clientWidth - card.offsetWidth) / 2;
+    if (howCarouselInstant) {
+      track.scrollTo({ left: Math.max(0, targetLeft) });
+      setHowCarouselInstant(false);
+      return;
+    }
+
+    const startLeft = track.scrollLeft;
+    const distance = Math.max(0, targetLeft) - startLeft;
+    const startedAt = performance.now();
+    let frame = 0;
+    const duration = 1450;
+
+    const animate = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      track.scrollLeft = startLeft + distance * eased;
+      if (progress < 1) frame = requestAnimationFrame(animate);
+    };
+
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [howCarouselInstant, howCarouselPosition]);
+
+  useEffect(() => {
+    if (howCarouselPosition !== HOW_CAROUSEL_ITEMS.length - 1) return;
+    const reset = window.setTimeout(() => {
+      setHowCarouselInstant(true);
+      setHowCarouselPosition(1);
+    }, 1550);
+    return () => window.clearTimeout(reset);
+  }, [howCarouselPosition]);
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -186,7 +453,7 @@ export default function LandingPage() {
           if (entry.target === howSection) setHowSectionVisible(entry.isIntersecting);
         });
       },
-      { rootMargin: "120px 0px", threshold: 0.01 },
+      { rootMargin: "0px", threshold: 0.01 },
     );
 
     observer.observe(hero);
@@ -194,8 +461,50 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setConversationSectionVisible(entry.isIntersecting),
+      { rootMargin: "-34% 0px -34% 0px", threshold: 0.01 },
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!conversationSectionVisible) {
+      setConversationCharactersEntered(false);
+      setConversationContentReady(false);
+      return;
+    }
+
+    const characterTimer = window.setTimeout(() => setConversationCharactersEntered(true), 450);
+    const contentTimer = window.setTimeout(() => {
+      setConversationContentReady(true);
+      lastConversationAdvance.current = Date.now();
+    }, 1550);
+
+    return () => {
+      window.clearTimeout(characterTimer);
+      window.clearTimeout(contentTimer);
+    };
+  }, [conversationSectionVisible]);
+
+  const conversationStage = Math.min(4, Math.floor(conversationProgress * 5));
+  const manFramesByStage = [1, 2, 3, 1, 4] as const;
+  const womanFramesByStage = [1, 1, 4, 2, 3] as const;
+  const activeManFrame = manFramesByStage[conversationStage];
+  const activeWomanFrame = womanFramesByStage[conversationStage];
+
+  useEffect(() => {
+    conversationStageRef.current = conversationStage;
+  }, [conversationStage]);
+
   return (
-    <div className="min-h-screen bg-[#05050A] text-white font-sans selection:bg-blue-500/30">
+    <div className="flex min-h-screen flex-col bg-[#05050A] text-white font-sans selection:bg-blue-500/30">
       
       {/* Custom Styles */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -216,15 +525,37 @@ export default function LandingPage() {
         }
         .animate-float-pop {
           animation: float-pop 6s ease-in-out infinite;
+        }
+        @keyframes hero-rise {
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes hero-glow {
+          0%, 100% { opacity: .55; transform: scale(.94); }
+          50% { opacity: .9; transform: scale(1.06); }
+        }
+        .hero-rise { animation: hero-rise .9s cubic-bezier(.22,1,.36,1) both; }
+        .hero-rise-delay-1 { animation-delay: .12s; }
+        .hero-rise-delay-2 { animation-delay: .24s; }
+        .hero-rise-delay-3 { animation-delay: .36s; }
+        .hero-glow { animation: hero-glow 7s ease-in-out infinite; }
+        @keyframes how-card-progress {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
+        .how-card-progress {
+          animation: how-card-progress 6.5s linear both;
+          transform-origin: left;
+        }
         @media (prefers-reduced-motion: reduce) {
-          .animate-wave, .animate-wave-slow, .animate-float-pop {
+          .animate-wave, .animate-wave-slow, .animate-float-pop, .hero-rise, .hero-glow, .how-card-progress {
             animation: none !important;
           }
         }
       `}} />
 
       {/* --- HERO SECTION --- */}
-      <div ref={heroRef} className="relative w-full min-h-screen flex flex-col items-center">
+      <div ref={heroRef} className="relative order-1 w-full min-h-screen flex flex-col items-center">
         
         {/* Animated Wave Background SVG & Ambient Light */}
         <div className="absolute inset-0 overflow-hidden [contain:paint] pointer-events-none z-0">
@@ -242,6 +573,30 @@ export default function LandingPage() {
               <path d="M0,140 C250,50 350,280 720,140 C1090,50 1190,280 1440,140 C1790,50 1890,280 2160,140 C2510,50 2610,280 2880,140" />
             </svg>
           </div>
+        </div>
+
+        {/* Hero-only people. They belong to section one and scroll away with it. */}
+        <div className="pointer-events-none absolute inset-0 z-10 hidden overflow-hidden lg:block" aria-hidden="true">
+          <Image
+            src={MAN_CONVERSATION_FRAMES[0]}
+            alt=""
+            width={1672}
+            height={941}
+            priority
+            sizes="100vw"
+            style={{ clipPath: "inset(0 50% 0 0)", transform: "translateX(-50%) scaleX(1.04)" }}
+            className="absolute -bottom-[12%] left-[46.5%] h-auto w-[98%] max-w-none select-none object-contain object-bottom"
+          />
+          <Image
+            src={MAN_CONVERSATION_FRAMES[0]}
+            alt=""
+            width={1672}
+            height={941}
+            priority
+            sizes="100vw"
+            style={{ clipPath: "inset(0 0 0 50%)", transform: "translateX(-50%) scaleX(1.02)" }}
+            className="absolute -bottom-[10%] left-[53.5%] h-auto w-[92%] max-w-none select-none object-contain object-bottom"
+          />
         </div>
 
         {/* Top Floating Navbar */}
@@ -322,99 +677,285 @@ export default function LandingPage() {
         )}
 
         {/* Hero Content */}
-        <div className="w-full max-w-7xl px-6 flex-1 flex flex-col lg:flex-row items-center justify-between mt-12 lg:mt-0 relative z-10 gap-12">
-          
-          {/* Left Side */}
-          <div className="w-full lg:w-[45%] flex flex-col items-start gap-6">
-            <h1 className="text-[52px] leading-[1.05] font-bold tracking-tight text-white">
-              Break The Language<br/>Barrier Instantly
+        <div className="relative z-20 flex w-full flex-1 items-center justify-center overflow-hidden px-6 pb-10 pt-36 md:pb-14 md:pt-44">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[min(850px,90vw)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600/[0.13] blur-[110px] hero-glow" />
+
+          <div className="relative z-[2] mx-auto flex max-w-4xl translate-y-3 flex-col items-center text-center md:translate-y-8">
+            <div className="hero-rise inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-300 backdrop-blur">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-400" />
+              </span>
+              English ↔ Japanese, naturally
+            </div>
+
+            <h1 className="hero-rise hero-rise-delay-1 mt-6 text-balance text-[clamp(2.75rem,5.7vw,5.75rem)] font-semibold leading-[0.96] tracking-[-0.058em] text-white drop-shadow-[0_8px_35px_rgba(0,0,0,.72)]">
+              Every conversation,
+              <span className="mt-2 block bg-gradient-to-r from-blue-300 via-blue-500 to-cyan-300 bg-clip-text pb-2 text-transparent">
+                understood instantly.
+              </span>
             </h1>
-            
-            <p className="text-[17px] text-blue-500 font-medium max-w-md leading-relaxed">
-              Experience real-time AI voice interpretation between English and Japanese conversations.
+
+            <p className="hero-rise hero-rise-delay-2 mt-6 max-w-xl text-balance text-base leading-7 text-gray-300 drop-shadow-[0_3px_15px_rgba(0,0,0,.9)] md:text-lg md:leading-8">
+              Speak naturally in English or Japanese. QuickVoice listens, translates, and responds with a clear voice—so the conversation never loses its flow.
             </p>
-            
-            <div className="flex items-center gap-5 mt-4">
-              <Link href="/signup" className="px-8 py-3.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_30px_rgba(37,99,235,0.4)]">
-                Get started
+
+            <div className="hero-rise hero-rise-delay-3 mt-9 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+              <Link href="/signup" className="group flex w-full items-center justify-center gap-2 rounded-full bg-blue-600 px-8 py-4 text-[15px] font-semibold text-white shadow-[0_12px_45px_rgba(37,99,235,.38)] transition-all duration-300 hover:-translate-y-1 hover:bg-blue-500 hover:shadow-[0_18px_55px_rgba(37,99,235,.52)] sm:w-auto">
+                Start translating
+                <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+              </Link>
+              <Link href="#featuring" className="flex w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.045] px-8 py-4 text-[15px] font-semibold text-gray-200 backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.09] sm:w-auto">
+                See how it works
               </Link>
             </div>
-          </div>
 
-          {/* Connected web and mobile product ecosystem */}
-          <div className="w-full lg:w-[57%] flex justify-end relative items-center z-10 mt-12 lg:mt-0">
-            <DeviceEcosystemShowcase paused={isScrolling} />
+            <div className="hero-rise hero-rise-delay-3 mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-gray-500">
+              <span>Private local AI</span><span className="hidden h-1 w-1 rounded-full bg-gray-700 sm:block"/><span>Real-time speech</span><span className="hidden h-1 w-1 rounded-full bg-gray-700 sm:block"/><span>Natural voice playback</span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* --- SCROLL-DRIVEN CONVERSATION --- */}
+      <section
+        id="conversation"
+        ref={conversationRef}
+        className="relative order-3 h-[240vh] w-full border-t border-white/[0.06] bg-[#05070c]"
+      >
+        <div className="sticky top-0 h-screen w-full overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,.16),transparent_38%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#05050a] to-transparent" />
+
+          {/* Conversation-only people. These start and end with section three. */}
+          <div className="pointer-events-none absolute inset-0 z-10 hidden overflow-hidden lg:block" aria-hidden="true">
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={`conversation-man-${activeManFrame}`}
+                initial={{ opacity: 0, y: 4, scale: 0.999 }}
+                animate={conversationCharactersEntered
+                  ? {
+                      opacity: 1,
+                      x: 0,
+                      y: [0, -4, 0],
+                      scale: [1, 1.002, 1],
+                    }
+                  : {
+                      opacity: 0,
+                      x: "-24vw",
+                      y: 8,
+                      scale: 0.995,
+                    }}
+                exit={{
+                  opacity: 0,
+                  y: -2,
+                  scale: 1,
+                  transition: { duration: 0.42, ease: [0.4, 0, 0.2, 1] },
+                }}
+                transition={{
+                  opacity: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+                  x: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 4.8, repeat: Infinity, ease: "easeInOut" },
+                  scale: { duration: 4.8, repeat: Infinity, ease: "easeInOut" },
+                }}
+                data-conversation-character="man"
+                className="absolute inset-0 transform-gpu [backface-visibility:hidden] [will-change:opacity,transform]"
+              >
+                <Image
+                  src={MAN_CONVERSATION_FRAMES[activeManFrame]}
+                  alt=""
+                  width={1672}
+                  height={941}
+                  sizes="50vw"
+                  unoptimized
+                  style={{ clipPath: "inset(0 50% 0 0)", transform: "translateX(calc(-50% + 4vw)) scaleX(1.04)" }}
+                  className="absolute -bottom-[12%] left-[46.5%] h-auto w-[98%] max-w-none select-none object-contain object-bottom"
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={`conversation-woman-${activeWomanFrame}`}
+                initial={{ opacity: 0, y: 4, scale: 0.999 }}
+                animate={conversationCharactersEntered
+                  ? {
+                      opacity: 1,
+                      x: 0,
+                      y: [-1, -5, -1],
+                      scale: [1, 1.002, 1],
+                    }
+                  : {
+                      opacity: 0,
+                      x: "24vw",
+                      y: 8,
+                      scale: 0.995,
+                    }}
+                exit={{
+                  opacity: 0,
+                  y: -3,
+                  scale: 1,
+                  transition: { duration: 0.42, ease: [0.4, 0, 0.2, 1] },
+                }}
+                transition={{
+                  opacity: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+                  x: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
+                  scale: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
+                }}
+                data-conversation-character="woman"
+                className="absolute inset-0 transform-gpu [backface-visibility:hidden] [will-change:opacity,transform]"
+              >
+                <Image
+                  src={WOMAN_CONVERSATION_FRAMES[activeWomanFrame]}
+                  alt=""
+                  width={1672}
+                  height={941}
+                  sizes="50vw"
+                  unoptimized
+                  style={{ clipPath: "inset(0 0 0 50%)", transform: "translateX(calc(-50% - 2vw)) scaleX(1.02)" }}
+                  className="absolute -bottom-[10%] left-[53.5%] h-auto w-[92%] max-w-none select-none object-contain object-bottom"
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div
+            data-conversation-heading
+            className={`absolute inset-x-0 top-[11%] z-20 px-6 text-center transition-all duration-700 ease-out ${
+              conversationSectionVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-blue-400">A conversation without barriers</p>
+            <h2 className="mx-auto mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white md:text-5xl">
+              They speak naturally. QuickVoice handles the rest.
+            </h2>
+          </div>
+
+          <div
+            data-conversation-content
+            className={`absolute inset-x-0 top-[31%] z-20 mx-auto w-[min(92vw,620px)] px-4 transition-all duration-700 ease-out ${
+              conversationContentReady
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-5 opacity-0"
+            }`}
+          >
+            <div className={`mx-auto flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-1000 ${conversationStage > 0 && conversationStage < 4 ? "border-blue-400/35 bg-blue-500/15 text-blue-200 opacity-100 shadow-[0_0_35px_rgba(59,130,246,.22)]" : "border-white/10 bg-white/[0.04] text-gray-500 opacity-70"}`}>
+              <Languages className="h-4 w-4" />
+              {conversationStage === 0 ? "Ready to interpret" : conversationStage === 1 ? "Listening to Japanese…" : conversationStage === 2 ? "Translating into English…" : conversationStage === 3 ? "Listening to English…" : "Reply understood"}
+            </div>
+
+            <div className="relative mt-8 h-[250px] md:h-[290px]">
+              <article className={`absolute left-0 top-0 max-w-[78%] rounded-3xl rounded-bl-md border border-blue-400/20 bg-[#101827]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,.38)] backdrop-blur transition-all duration-1000 md:max-w-[68%] ${conversationStage >= 1 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-300"><span>🇯🇵</span> Japanese</div>
+                <p className="mt-3 text-lg font-medium text-white md:text-xl">こんにちは、今日はどうでしたか？</p>
+                <p className={`mt-3 border-t border-white/10 pt-3 text-sm text-blue-300 transition-opacity duration-1000 ${conversationStage >= 2 ? "opacity-100" : "opacity-0"}`}>Hi, how was your day?</p>
+              </article>
+
+              <article className={`absolute bottom-0 right-0 max-w-[78%] rounded-3xl rounded-br-md border border-cyan-300/20 bg-[#111923]/95 p-5 text-right shadow-[0_20px_60px_rgba(0,0,0,.38)] backdrop-blur transition-all duration-1000 md:max-w-[68%] ${conversationStage >= 3 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                <div className="flex items-center justify-end gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200"><span>🇬🇧</span> English</div>
+                <p className="mt-3 text-lg font-medium text-white md:text-xl">It was great, thank you!</p>
+                <p className={`mt-3 border-t border-white/10 pt-3 text-sm text-cyan-300 transition-opacity duration-1000 ${conversationStage >= 4 ? "opacity-100" : "opacity-0"}`}>とても良かったです、ありがとう！</p>
+              </article>
+            </div>
+          </div>
+
+        </div>
+      </section>
 
       {/* --- HOW QUICKVOICE WORKS --- */}
       <section
         id="featuring"
         ref={howSectionRef}
-        className="relative z-10 w-full bg-[#06080d] px-6 py-28 md:py-36 overflow-hidden"
+        className="relative z-10 order-2 w-full border-t border-white/[0.06] bg-[#06080d] px-6 py-24 md:py-32"
       >
-        <div className="w-full max-w-7xl mx-auto">
-          <div className="mb-20 md:mb-28 text-center">
+        <div className="mx-auto w-full max-w-[1480px]">
+          <div className="mx-auto max-w-3xl text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-400">Real-Time Voice Translation</p>
-            <h2 className="mt-4 text-3xl md:text-5xl font-semibold tracking-[-0.035em] text-white">
+            <h2 className="mt-3 text-3xl md:text-5xl font-semibold tracking-[-0.035em] text-white">
               Four steps. One natural conversation.
             </h2>
           </div>
 
-            <div>
-              {HOW_IT_WORKS.map((step, index) => {
-                const active = activeHowStep === index;
-                const text = (
-                  <div className={`w-full lg:w-[40%] transition-all duration-1000 delay-100 ease-out ${
-                    active ? "opacity-100 translate-x-0" : step.reverse ? "opacity-0 translate-x-10" : "opacity-0 -translate-x-10"
-                  }`}>
-                    <div className="text-xs font-medium tracking-[0.16em] text-blue-400">{step.number}</div>
-                    <h3 className="mt-4 text-3xl md:text-4xl font-semibold tracking-[-0.035em] text-white">{step.title}</h3>
-                    <p className="mt-4 max-w-md text-base md:text-[17px] leading-7 text-gray-400">{step.description}</p>
-                  </div>
-                );
-
-                const visual = (
-                  <div className={`w-full lg:w-[48%] transition-all duration-1000 delay-150 ease-out ${
-                    active ? "opacity-100 translate-x-0" : step.reverse ? "opacity-0 -translate-x-10" : "opacity-0 translate-x-10"
-                  }`}>
-                    <FeatureStepDemo
-                      feature={step.visual as "speak" | "understand" | "translate" | "respond"}
-                      active={howSectionVisible && active && !isScrolling}
-                    />
-                  </div>
-                );
-
+          <div className="relative mt-8 md:mt-10">
+            <div
+              ref={howCardsTrackRef}
+              className="flex gap-7 overflow-x-hidden px-[max(0px,calc((100%-620px)/2))] pb-7 pt-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {HOW_CAROUSEL_ITEMS.map((item, carouselIndex) => {
+                const step = HOW_IT_WORKS[item.stepIndex];
+                const active = howCarouselPosition === carouselIndex;
                 return (
-                  <div
-                    key={step.number}
-                    data-how-step={index}
-                    className={`min-h-[62vh] flex items-center ${index % 2 === 0 ? "justify-start" : "justify-end"}`}
+                  <article
+                    key={item.key}
+                    data-carousel-position={carouselIndex}
+                    data-how-step={item.stepIndex}
+                    className={`relative flex h-[440px] w-[min(88vw,620px)] shrink-0 flex-col rounded-[2rem] border p-6 transition-[opacity,transform,border-color,background-color,box-shadow] duration-[1450ms] ease-[cubic-bezier(.65,0,.35,1)] md:p-7 ${
+                      active
+                        ? "border-blue-400/45 bg-[#0d1422] opacity-100 shadow-[0_24px_75px_rgba(37,99,235,.20)]"
+                        : "scale-[0.92] border-white/[0.08] bg-[#0b0f18] opacity-40"
+                    }`}
                   >
-                    <article
-                      className={`w-full lg:w-[86%] min-h-[340px] rounded-[2rem] md:rounded-[2.35rem] border border-white/[0.08] bg-[#0d1018]/95 shadow-[0_24px_80px_rgba(0,0,0,0.28)] px-7 py-8 md:px-11 md:py-10 lg:px-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16 transition-[opacity,transform] duration-700 ease-out ${
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveHowStep(item.stepIndex);
+                        setHowCarouselPosition(carouselIndex);
+                      }}
+                      aria-label={`Show step ${item.stepIndex + 1}: ${step.title}`}
+                      className="absolute inset-0 z-10 cursor-pointer rounded-[2rem]"
+                    />
+
+                    <div className="pointer-events-none relative z-20 flex min-h-[100px] items-start gap-5">
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-all duration-[1450ms] ${
                         active
-                          ? "opacity-100 translate-x-0 translate-y-0"
-                          : index % 2 === 0
-                            ? "opacity-0 -translate-x-20 translate-y-8"
-                            : "opacity-0 translate-x-20 translate-y-8"
-                      }`}
-                    >
-                      <div className={`contents ${step.reverse ? "lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1" : ""}`}>
-                        {text}
-                        {visual}
+                          ? "border-blue-300/50 bg-blue-500 text-white shadow-[0_0_24px_rgba(59,130,246,.45)]"
+                          : "border-white/10 bg-white/[0.04] text-gray-500"
+                      }`}>
+                        {step.number}
                       </div>
-                    </article>
-                  </div>
+                      <div className="flex min-h-12 items-center pt-1">
+                        <h3 className={`text-2xl font-semibold leading-8 tracking-[-0.03em] transition-colors duration-[1450ms] md:text-3xl ${active ? "text-white" : "text-gray-400"}`}>
+                          {step.title}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div className="pointer-events-none relative z-20 mt-auto">
+                      <FeatureStepDemo
+                        feature={step.visual as "speak" | "understand" | "translate" | "respond"}
+                        active={howSectionVisible && active}
+                      />
+                    </div>
+
+                    <div className="absolute inset-x-6 bottom-0 h-1 overflow-hidden rounded-full bg-white/[0.05]">
+                      {active && <span key={`how-progress-${activeHowStep}-${howCarouselPosition}`} className="how-card-progress block h-full w-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400" />}
+                    </div>
+                  </article>
                 );
               })}
             </div>
+
+            <div className="mx-auto mt-8 flex max-w-xs items-center justify-center gap-2" aria-label={`Active step ${activeHowStep + 1} of ${HOW_IT_WORKS.length}`}>
+              {HOW_IT_WORKS.map((step, index) => (
+                <button
+                  key={step.number}
+                  type="button"
+                  aria-label={`Show step ${index + 1}`}
+                  onClick={() => {
+                    setActiveHowStep(index);
+                    setHowCarouselPosition(index + 1);
+                  }}
+                  className={`h-2 rounded-full transition-all duration-500 ${activeHowStep === index ? "w-8 bg-blue-400" : "w-2 bg-white/15 hover:bg-white/30"}`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       {/* --- ORIGINAL PRODUCT FEATURE SHOWCASE --- */}
-      <section id="product-showcase" className="w-full py-28 md:py-32 px-6 flex flex-col items-center relative z-10 overflow-hidden">
+      <section id="product-showcase" className="relative z-10 order-4 flex w-full flex-col items-center overflow-hidden px-6 py-28 md:py-32">
         <div className="w-full max-w-6xl">
           <div className="max-w-2xl mx-auto mb-14 md:mb-16 text-center">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-400">
@@ -482,7 +1023,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- THE EDGE SECTION --- */}
-      <div id="features" className="w-full py-24 flex flex-col items-center bg-[#070b14] relative z-10">
+      <div id="features" className="relative z-10 order-5 flex w-full flex-col items-center bg-[#070b14] py-24">
         <h2 className="text-3xl font-bold mb-4 tracking-wide">The Edge</h2>
         <p className="text-[14px] text-gray-400 mb-20 font-medium">The next generation of human connection.</p>
         
@@ -523,7 +1064,7 @@ export default function LandingPage() {
       </div>
 
       {/* --- FOOTER --- */}
-      <footer id="more" className="w-full border-t border-white/[0.08] bg-[#04070d] relative z-10">
+      <footer id="more" className="relative z-10 order-6 w-full border-t border-white/[0.08] bg-[#04070d]">
         <div className="w-full max-w-7xl mx-auto px-6 pt-10 pb-6">
           <div className="grid grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-x-5 sm:gap-x-10 gap-y-8 pb-8">
             <div className="col-span-3 lg:col-span-1 max-w-sm">

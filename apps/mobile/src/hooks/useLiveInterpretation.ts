@@ -49,15 +49,21 @@ export function useLiveInterpretation(
   const listeningLanguageRef = useRef<LanguageCode>(sourceLang);
   const suspendedRef = useRef(false);
 
-  // Pin recognition to the selected source language. This keeps Japanese on
-  // the ja-JP recognizer and avoids a slower auto-detection/transcription pass.
+  // Both languages stay active for every turn. The pills define the two sides
+  // of the conversation; they are not a hidden recognition lock. Passing the
+  // selected side as an `expected` prior biased short Japanese words (先生,
+  // はい, etc.) toward the English decoder, so automatic EN/JA mode deliberately
+  // sends no prior and lets the audio choose.
   const listenWithLanguage = useCallback(
     async (language: LanguageCode) => {
       listeningLanguageRef.current = language;
-      await speech.startListening(
-        language === "ja" ? "ja-JP" : "en-US",
-        language === "ja" ? "ja" : "en",
-      );
+      // Still no decoder prior (second argument) — that is what biased short
+      // Japanese words toward English. The third is the preview locale only,
+      // so the on-device recognizer shows Japanese as Japanese while the
+      // speaker talks instead of romanising it, without touching how the
+      // transcript is actually decoded.
+      const preview = language === "en" || language === "ja" ? language : undefined;
+      await speech.startListening("en-ja", undefined, preview);
     },
     [speech.startListening],
   );
@@ -141,9 +147,19 @@ export function useLiveInterpretation(
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
-    const turnSource = segmentSourceRef.current;
-    const turnTarget = segmentTargetRef.current;
-    const nextListeningLanguage = turnSource;
+    // Route the turn by what was actually spoken, not by which pill happens to
+    // be selected. Whisper already decided between the only two languages this
+    // app supports, so the detected language IS the source and the other one is
+    // the target. Trusting the pill instead is what made Japanese speech get
+    // labelled ENGLISH and "translated" ja->ja, coming back unchanged.
+    const detected = speech.finalLanguage;
+    const turnSource: LanguageCode =
+      detected === "en" || detected === "ja" ? detected : segmentSourceRef.current;
+    const turnTarget: LanguageCode =
+      turnSource === segmentSourceRef.current
+        ? segmentTargetRef.current
+        : segmentSourceRef.current;
+    const nextListeningLanguage = segmentSourceRef.current;
 
     setProcessingText(transcript);
     setProcessingLanguage(turnSource);
@@ -259,7 +275,29 @@ export function useLiveInterpretation(
   return {
     isListening: sessionActive,
     listeningLanguage: displayLanguage,
-    interimText: speech.partialTranscript || processingText || speech.finalTranscript,
+    // Only ever Whisper-confirmed text.
+    //
+    // `speech.partialTranscript` (the on-device live preview) used to lead
+    // here, and it cannot be trusted to name a language: iOS pins its
+    // recogniser to exactly one locale, while this is a two-way interpreter
+    // where either side may speak next. Whichever locale is chosen, the
+    // other speaker's turns come back transliterated — Japanese speech
+    // rendering as "Konnichiwa" inside the *English* card, which reads as
+    // the app mishearing the language entirely. No locale choice fixes
+    // that; only Whisper knows what was actually spoken.
+    //
+    // So the preview no longer reaches the screen. The recogniser is still
+    // what makes turn-taking feel instant (it detects speech start/stop far
+    // faster than a round trip), it just no longer supplies displayed text.
+    // Empty here means the cards show their "Listening…" placeholder, and
+    // `displayLanguage` resolves via processingLanguage — the *detected*
+    // language — so confirmed text always lands in the correct card.
+    //
+    // Deliberately no `speech.finalTranscript` fallback either: it holds the
+    // last completed turn indefinitely, so the card kept showing the
+    // previous sentence instead of returning to the placeholder — that turn
+    // is already in `entries`.
+    interimText: processingText,
     liveTranslation,
     entries,
     volume: 0,
@@ -268,10 +306,16 @@ export function useLiveInterpretation(
     stop,
     pauseForSpeech,
     resumeAfterSpeech,
+    // `entries` only ever appends (see the handler above) — nothing clears
+    // it, not even starting a new session, so a bad turn (a server hiccup
+    // echoing the wrong text) stays on screen indefinitely with no way to
+    // dismiss it short of restarting the app. This is that way.
+    clearEntries: () => setEntries([]),
   } satisfies LiveInterpretationState & {
     start: () => Promise<void>;
     stop: () => void;
     pauseForSpeech: (durationMs: number) => void;
     resumeAfterSpeech: () => void;
+    clearEntries: () => void;
   };
 }

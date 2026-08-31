@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 import zlib
 
@@ -80,6 +81,42 @@ _ROMAJI_CUES = frozenset({
 })
 
 
+# One Japanese kana syllable in romaji: an optional consonant (including the
+# digraphs and y-glides), a vowel, or a standalone/doubled consonant.
+# 'v' is in the consonant set because Whisper's English decoder often
+# renders wa/ba as "va" on accented speech (こんにちは -> "konijiva"),
+# and without it those spellings parse as non-Japanese and are missed.
+_ROMAJI_SYLLABLE_RE = re.compile(
+    r"(?:ky|gy|sh|ch|ts|ny|hy|by|py|my|ry|[kgsztdnhbpmyrwjfv])?[aiueo]|n(?![aiueo])|tt|kk|ss|pp"
+)
+_ROMAJI_WORD_RE = re.compile(
+    r"(?:(?:(?:ky|gy|sh|ch|ts|ny|hy|by|py|my|ry|[kgsztdnhbpmyrwjfv])?[aiueo])|n(?![aiueo])|tt|kk|ss|pp)+"
+)
+
+
+def _looks_like_kana_syllables(word: str) -> bool:
+    """True when a word decomposes entirely into Japanese kana syllables.
+
+    Exact and fuzzy cue matching both fail once Whisper mangles a word badly
+    enough — こんにちは came back as "kinijiwa", which is four edits from
+    "konnichiwa" and so slips past the two-edit allowance. Structure survives
+    the mangling even when spelling does not: Japanese is built from open
+    consonant-vowel syllables drawn from a small inventory, so "ki-ni-ji-wa"
+    parses cleanly, while English words — full of consonant clusters and final
+    consonants — generally do not.
+
+    This only decides whether to *re-decode* with the Japanese decoder, and
+    that result is kept only when it actually contains Japanese characters, so
+    an occasional false positive costs one decode and changes no output.
+    """
+    if len(word) < 7 or not _ROMAJI_WORD_RE.fullmatch(word):
+        return False
+    # Two syllables is far too easy to hit by accident, and six letters lets
+    # ordinary English loanwords through ("banana", "tomato", "camera").
+    # Three or more syllables across at least seven letters holds the line.
+    return len(_ROMAJI_SYLLABLE_RE.findall(word)) >= 3
+
+
 def _within_edits(a: str, b: str, limit: int) -> bool:
     """Levenshtein distance between a and b is at most `limit`."""
     if abs(len(a) - len(b)) > limit:
@@ -130,6 +167,13 @@ class WhisperASRService:
             "WHISPER_MLX_REPO", f"mlx-community/whisper-{self.model_name}-mlx"
         )
         self._mlx_model = None
+        # Whisper runs on Metal via MLX, and Metal command buffers are not
+        # safe to drive from several threads at once. Requests arrive on
+        # asyncio's thread pool, so a rapid back-and-forth (or a second
+        # device) puts two transcriptions in the model simultaneously and
+        # takes the whole server down. Kokoro already serialises its own
+        # inference for the same reason; this is the ASR equivalent.
+        self._inference_lock = threading.Lock()
         # faster-whisper's vad_filter already runs Silero VAD internally; the
         # mlx path has no such thing built in (see _strip_silence), so it
         # needs its own copy. Disable with WHISPER_VAD_ENABLED=0.
@@ -191,6 +235,16 @@ class WhisperASRService:
                 japanese_result = self._transcribe_path(temp_path, "ja")
                 if self._contains_japanese(japanese_result.text):
                     return japanese_result
+                # The Japanese decoder could not read it either — on an
+                # accented or very short greeting it often returns nothing at
+                # all. Falling through to `result` here meant keeping the
+                # English label on text we had already identified as Japanese
+                # romaji, which put spoken Japanese in the *English* card and
+                # translated it as English. The transcript stays romaji (it is
+                # the only reading available), but the language is reported as
+                # what it actually is, so the turn lands on the Japanese side
+                # and is translated ja->en.
+                return TranscriptionResult(text=result.text, language="ja")
 
             return result
         finally:
@@ -202,9 +256,11 @@ class WhisperASRService:
         language: str | None,
         expected_language: str | None = None,
     ) -> TranscriptionResult:
-        if self.backend == "mlx":
-            return self._transcribe_mlx(audio_path, language, expected_language)
-        return self._transcribe_ct2(audio_path, language, expected_language)
+        # One turn through the model at a time. See _inference_lock above.
+        with self._inference_lock:
+            if self.backend == "mlx":
+                return self._transcribe_mlx(audio_path, language, expected_language)
+            return self._transcribe_ct2(audio_path, language, expected_language)
 
     def _load_vad_model(self):
         if self._vad_model is None:
@@ -259,9 +315,31 @@ class WhisperASRService:
             if audio.size == 0:
                 return TranscriptionResult(text="", language="unknown")
 
+        def _run(lang: str | None):
+            return mlx_whisper.transcribe(
+                audio,
+                path_or_hf_repo=self.mlx_repo,
+                language=lang,
+                temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+                compression_ratio_threshold=2.4,
+                logprob_threshold=-1.0,
+                no_speech_threshold=0.6,
+                condition_on_previous_text=False,
+            )
+
         chosen = language
         probabilities: dict[str, float] = {}
-        if chosen is None:
+
+        if chosen is not None:
+            result = _run(chosen)
+        else:
+            # QuickVoice automatic mode supports exactly English and Japanese,
+            # so compare those two languages *before* decoding every turn.
+            # Trusting mlx-whisper's unconstrained first label let short
+            # Japanese words such as 先生 be decoded as English "sensei" and
+            # then committed to the wrong lane. This explicit comparison keeps
+            # both languages active simultaneously and decodes once with the
+            # winner, producing Japanese script when Japanese was spoken.
             probabilities = self._detect_mlx(audio)
             english = probabilities.get("en", 0.0)
             japanese = probabilities.get("ja", 0.0)
@@ -271,17 +349,7 @@ class WhisperASRService:
             weaker = max(min(japanese, english), 1e-9)
             if (stronger / weaker) < self.ambiguity_ratio and expected_language in {"en", "ja"}:
                 chosen = expected_language
-
-        result = mlx_whisper.transcribe(
-            audio,
-            path_or_hf_repo=self.mlx_repo,
-            language=chosen,
-            temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
-            compression_ratio_threshold=2.4,
-            logprob_threshold=-1.0,
-            no_speech_threshold=0.6,
-            condition_on_previous_text=False,
-        )
+            result = _run(chosen)
 
         # Same guards as the CPU path, in addition to the Silero VAD pass above.
         kept = []
@@ -487,6 +555,14 @@ class WhisperASRService:
                     continue
                 allowed = 1 if len(cue) <= 5 else 2
                 if _within_edits(candidate, cue, allowed):
+                    return True
+
+        # Structural pass, for words mangled past any edit allowance
+        # ("kinijiwa" for こんにちは). Held back when the sentence reads as
+        # real English, on the same reasoning as the fuzzy ending check.
+        if english_markers < 2:
+            for candidate in words + [squashed]:
+                if _looks_like_kana_syllables(candidate):
                     return True
 
         return False

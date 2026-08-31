@@ -1,26 +1,28 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, Volume2, FileText, Square, Pause, Play, MicOff, X, Copy, Download, ArrowLeftRight, Clock, Calendar, ArrowLeft, ArrowRight, Folder, ChevronDown, Plus } from "lucide-react";
+import { Mic, Volume2, FileText, Square, Pause, Play, MicOff, X, Copy, Download, ArrowLeftRight, Clock, Calendar, ArrowLeft, ArrowRight, Folder, ChevronDown, Plus, Send, LoaderCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { useLiveInterpretation } from "@/hooks/useLiveInterpretation";
+import { speakWithQuickVoice, translateWithQuickVoice, type QuickVoiceLanguage } from "@/lib/quickvoice-api";
+import { loadFolders, saveSession } from "@/lib/session-store";
 
-const LANGUAGES = [
-    "English (US)",
-    "Japanese",
-    "Spanish",
-    "French",
-    "German",
-    "Mandarin",
-    "Korean",
-];
+const LANGUAGES = ["English (US)", "Japanese"];
+const LANGUAGE_CODE: Record<string, QuickVoiceLanguage> = {
+    "English (US)": "en",
+    Japanese: "ja",
+};
 
 export default function InterpreterPage() {
     const [inputLang, setInputLang] = useState("English (US)");
     const [outputLang, setOutputLang] = useState("Japanese");
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
+    const [typedText, setTypedText] = useState("");
+    const [manualEntries, setManualEntries] = useState<Array<{ id: string; original: string; translation: string }>>([]);
+    const [isTranslating, setIsTranslating] = useState(false);
+    const [actionError, setActionError] = useState<string | null>(null);
     const [isTwoWay, setIsTwoWay] = useState(() =>
         typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search).get('mode') !== 'oneway'
@@ -35,7 +37,8 @@ export default function InterpreterPage() {
         }
         return null;
     });
-    const MOCK_FOLDERS = ["ok", "ik", "IL", "Po"];
+    const sessionStartedAtRef = useRef(Date.now());
+    const folders = typeof window === "undefined" ? [] : loadFolders().map((folder) => folder.name);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
 
     const {
@@ -47,28 +50,88 @@ export default function InterpreterPage() {
         start,
         stop,
     } = useLiveInterpretation(inputLang, outputLang);
+    const allEntries = [...entries, ...manualEntries];
+    const lastOutput = liveTranslation || allEntries.at(-1)?.translation || "";
 
     useEffect(() => {
         transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [entries, showTranscript]);
+    }, [allEntries.length, showTranscript]);
+
+    const chooseInputLanguage = (language: string) => {
+        setInputLang(language);
+        if (language === outputLang) setOutputLang(language === "Japanese" ? "English (US)" : "Japanese");
+    };
+
+    const chooseOutputLanguage = (language: string) => {
+        setOutputLang(language);
+        if (language === inputLang) setInputLang(language === "Japanese" ? "English (US)" : "Japanese");
+    };
+
+    const handleTypedTranslation = async () => {
+        const text = typedText.trim();
+        if (!text || isTranslating) return;
+        setIsTranslating(true);
+        setActionError(null);
+        try {
+            const translation = await translateWithQuickVoice(
+                text,
+                LANGUAGE_CODE[inputLang],
+                LANGUAGE_CODE[outputLang],
+            );
+            setManualEntries((current) => [...current, { id: `typed-${Date.now()}`, original: text, translation }]);
+            setTypedText("");
+            if (!isMuted) await speakWithQuickVoice(translation, LANGUAGE_CODE[outputLang]);
+        } catch (reason) {
+            setActionError(reason instanceof Error ? reason.message : "QuickVoice could not translate that text.");
+        } finally {
+            setIsTranslating(false);
+        }
+    };
+
+    const handleSpeak = async () => {
+        if (!lastOutput) return;
+        setActionError(null);
+        try {
+            await speakWithQuickVoice(lastOutput, LANGUAGE_CODE[outputLang]);
+        } catch (reason) {
+            setActionError(reason instanceof Error ? reason.message : "QuickVoice could not generate speech.");
+        }
+    };
 
     const handleSaveSession = () => {
         if (isListening) stop();
         setSaveModalState('loading');
-        setTimeout(() => {
-            setSaveModalState('saved');
-        }, 2000);
+        const createdAt = new Date(sessionStartedAtRef.current).toISOString();
+        const endedAt = new Date().toISOString();
+        saveSession({
+            id: crypto.randomUUID(),
+            title: `${inputLang.replace(" (US)", "")} ↔ ${outputLang.replace(" (US)", "")} Session`,
+            mode: isTwoWay ? "two-way" : "one-way",
+            sourceLang: LANGUAGE_CODE[inputLang],
+            targetLang: LANGUAGE_CODE[outputLang],
+            folder: selectedFolder,
+            utterances: allEntries.map((entry) => ({
+                ...entry,
+                sourceLang: LANGUAGE_CODE[inputLang],
+                targetLang: LANGUAGE_CODE[outputLang],
+                createdAt: new Date().toISOString(),
+            })),
+            createdAt,
+            endedAt,
+            durationSeconds: Math.max(1, Math.round((Date.now() - sessionStartedAtRef.current) / 1000)),
+            deletedAt: null,
+        });
+        setSaveModalState('saved');
     };
 
     const handleTogglePause = () => {
-        if (isListening) {
-            if (!isPaused) {
-                stop();
-            } else {
-                start();
-            }
+        if (isPaused) {
+            void start();
+            setIsPaused(false);
+        } else if (isListening) {
+            stop();
+            setIsPaused(true);
         }
-        setIsPaused((p) => !p);
     };
 
     return (
@@ -106,8 +169,9 @@ export default function InterpreterPage() {
                                 <div className="flex items-center gap-2 text-[rgba(var(--text-secondary),1)]">
                                     <Mic size={14} />
                                     <select
+                                        aria-label="Input language"
                                         value={inputLang}
-                                        onChange={(e) => setInputLang(e.target.value)}
+                                        onChange={(e) => chooseInputLanguage(e.target.value)}
                                         className="bg-transparent text-[13px] font-medium text-[rgba(var(--text),0.9)] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded cursor-pointer"
                                     >
                                         {LANGUAGES.map((l) => (
@@ -128,12 +192,35 @@ export default function InterpreterPage() {
                                     </span>
                                 </div>
                             </div>
-                            <TranscriptCard entries={entries} langKey="original" />
+                            <TranscriptCard entries={allEntries} langKey="original" />
                             {interimText && isListening && (
                                 <div className="mt-3 text-[14px] text-[rgba(var(--text-secondary),0.7)] italic pl-6 border-l-2 border-[rgb(var(--primary))]/40">
                                     {interimText}
                                 </div>
                             )}
+                            <div className="mt-4 flex items-end gap-3 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-3 focus-within:border-[rgb(var(--primary))]/60">
+                                <textarea
+                                    value={typedText}
+                                    onChange={(event) => setTypedText(event.target.value)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter" && !event.shiftKey) {
+                                            event.preventDefault();
+                                            void handleTypedTranslation();
+                                        }
+                                    }}
+                                    placeholder={`Type in ${inputLang}…`}
+                                    rows={2}
+                                    className="min-h-12 flex-1 resize-none bg-transparent text-sm text-[rgb(var(--text))] outline-none placeholder:text-[rgba(var(--muted),0.8)]"
+                                />
+                                <button
+                                    onClick={() => void handleTypedTranslation()}
+                                    disabled={!typedText.trim() || isTranslating}
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--primary))] text-white transition disabled:cursor-not-allowed disabled:opacity-35"
+                                    aria-label="Translate typed text with QuickVoice"
+                                >
+                                    {isTranslating ? <LoaderCircle size={18} className="animate-spin" /> : <Send size={18} />}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Output side */}
@@ -141,8 +228,9 @@ export default function InterpreterPage() {
                             <div className="flex flex-col gap-2 mb-6 items-end flex-shrink-0">
                                 <div className="flex items-center justify-end gap-2 text-[rgba(var(--text-secondary),1)]">
                                     <select
+                                        aria-label="Output language"
                                         value={outputLang}
-                                        onChange={(e) => setOutputLang(e.target.value)}
+                                        onChange={(e) => chooseOutputLanguage(e.target.value)}
                                         className="bg-transparent text-[13px] font-medium text-[rgba(var(--text),0.9)] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded cursor-pointer text-right"
                                     >
                                         {LANGUAGES.map((l) => (
@@ -151,7 +239,9 @@ export default function InterpreterPage() {
                                             </option>
                                         ))}
                                     </select>
-                                    <Volume2 size={14} />
+                                    <button onClick={() => void handleSpeak()} disabled={!lastOutput} className="rounded-full p-1.5 transition hover:bg-[rgba(var(--text),0.08)] disabled:opacity-30" aria-label="Play translation using QuickVoice voice">
+                                        <Volume2 size={16} />
+                                    </button>
                                 </div>
                                 <div className="flex items-center justify-end gap-2 pr-6">
                                     <span className="text-[11px] font-medium text-[rgb(var(--primary))]/80 tracking-wide">
@@ -160,7 +250,7 @@ export default function InterpreterPage() {
                                     <Waveform active={isListening && !isPaused && !isMuted} />
                                 </div>
                             </div>
-                            <TranscriptCard entries={entries} langKey="translation" align="right" />
+                            <TranscriptCard entries={allEntries} langKey="translation" align="right" />
                             {liveTranslation && isListening && (
                                 <div className="mt-3 text-[14px] text-right text-[rgba(var(--text-secondary),0.7)] italic pr-6 border-r-2 border-[rgb(var(--primary))]/40">
                                     {liveTranslation}
@@ -176,20 +266,21 @@ export default function InterpreterPage() {
                                 if (isListening) {
                                     stop();
                                 } else {
-                                    start();
+                                    setIsPaused(false);
+                                    void start();
                                 }
                             }}
-                            className="h-16 w-16 rounded-full bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))] transition-colors flex items-center justify-center shadow-[0_0_30px_rgba(var(--primary),0.3)]"
+                            className={`relative h-16 w-16 rounded-full transition-colors flex items-center justify-center text-white ${isListening ? "bg-red-500 shadow-[0_0_30px_rgba(239,68,68,0.35)] before:absolute before:inset-0 before:rounded-full before:border-2 before:border-red-400 before:animate-ping" : "bg-[rgb(var(--primary))] shadow-[0_0_30px_rgba(var(--primary),0.3)]"}`}
                             aria-label={isListening ? "Stop session" : "Start session"}
                         >
-                            {isListening ? <Mic size={26} /> : <MicOff size={26} />}
+                            {isListening ? <Square size={20} className="relative z-10 fill-current" /> : <Mic size={26} />}
                         </button>
-                        {error && (
+                        {(error || actionError) && (
                             <div className="mt-3 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] text-red-400 text-center max-w-sm">
-                                {error}
+                                {error || actionError}
                             </div>
                         )}
-                        {!error && (
+                        {!error && !actionError && (
                             <div className="flex items-center gap-2 mt-4 text-xs font-medium text-[rgb(var(--emerald))]">
                                 <span
                                     className={`h-2 w-2 rounded-full ${isListening && !isPaused
@@ -245,7 +336,7 @@ export default function InterpreterPage() {
 
                         {/* List */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(var(--text),0.1)] [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(var(--text),0.2)]">
-                            {entries.map((entry) => (
+                            {allEntries.map((entry) => (
                                 <div key={entry.id} className="flex flex-col gap-5 border-b border-[rgb(var(--border))] pb-8 last:border-0 last:pb-0">
                                     <div className="flex flex-col gap-2 relative group">
                                         <div className="flex items-center justify-between">
@@ -337,7 +428,7 @@ export default function InterpreterPage() {
                                     {isFolderPickerOpen && (
                                         <div className="absolute top-full left-0 right-0 mt-2 bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl overflow-hidden z-10 shadow-xl">
                                             <div className="flex flex-col max-h-[200px] overflow-y-auto">
-                                                {MOCK_FOLDERS.map((folder) => (
+                                                {folders.map((folder) => (
                                                     <button
                                                         key={folder}
                                                         onClick={() => {

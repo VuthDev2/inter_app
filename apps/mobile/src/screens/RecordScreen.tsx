@@ -3,6 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
+  Clipboard,
   Modal,
   Pressable,
   ScrollView,
@@ -24,6 +26,7 @@ import { colors, spacing } from "../theme/theme";
 import { useLiveInterpretation } from "../hooks/useLiveInterpretation";
 import { usePreferences } from "../features/preferences/context";
 import { useTranslation } from "../i18n/I18nContext";
+import TTSService from "../features/live-interpreter/services/tts/TTSService";
 
 const RECORD_CATEGORIES = [
   {
@@ -347,12 +350,19 @@ function RecordingSessionScreen({
   const [targetLang, setTargetLang] = useState<LanguageCode>(preferred_target_lang);
   const interp = useLiveInterpretation(sourceLang, targetLang);
   const [elapsed, setElapsed] = useState(0);
+  const [copiedCard, setCopiedCard] = useState<"source" | "target" | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingPulse = useRef(new Animated.Value(0)).current;
   const sourceLabel = t(sourceLang === "ja" ? "common.japanese" : "common.english");
   const targetLabel = t(targetLang === "ja" ? "common.japanese" : "common.english");
   const dropdownIconColor = dark ? "#A6AEBA" : "#66707D";
   const speechCardHeight = screenHeight >= 880 ? 224 : screenHeight >= 760 ? 208 : 188;
   const translationCardHeight = screenHeight >= 880 ? 204 : screenHeight >= 760 ? 190 : 172;
+  const latestEntry = interp.entries[interp.entries.length - 1];
+  const originalText = interp.interimText || latestEntry?.original || "";
+  const translationText = interp.liveTranslation || latestEntry?.translation || "";
+  const languageFlag = (language: LanguageCode) => language === "ja" ? "🇯🇵" : "🇺🇸";
 
   const selectLanguage = (side: "source" | "target", code: LanguageCode) => {
     if (side === "source") {
@@ -382,6 +392,31 @@ function RecordingSessionScreen({
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [interp.isListening]);
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (!interp.isListening) {
+      recordingPulse.stopAnimation();
+      recordingPulse.setValue(0);
+      return;
+    }
+
+    const pulse = Animated.loop(
+      Animated.timing(recordingPulse, {
+        duration: 1_350,
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    );
+    pulse.start();
+    return () => {
+      pulse.stop();
+      recordingPulse.setValue(0);
+    };
+  }, [interp.isListening, recordingPulse]);
 
   const formatTime = (secs: number) => {
     const m = String(Math.floor(secs / 60)).padStart(2, "0");
@@ -422,6 +457,22 @@ function RecordingSessionScreen({
     }
   }, [interp]);
 
+  const copyOutput = useCallback(async (side: "source" | "target", text: string) => {
+    if (!text.trim()) return;
+    Clipboard.setString(text);
+    setCopiedCard(side);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => {
+      copiedTimerRef.current = null;
+      setCopiedCard(null);
+    }, 1_400);
+  }, []);
+
+  const speakOutput = useCallback((text: string, language: LanguageCode) => {
+    if (!text.trim()) return;
+    void TTSService.speak(text, language === "ja" ? "ja" : "en");
+  }, []);
+
   return (
     <>
       <ScrollView scrollEnabled={false} style={[atoms.bgBackground, dark && rs.sessionBackgroundDark]} contentContainerStyle={rs.sessionContent} showsVerticalScrollIndicator={false}>
@@ -433,9 +484,22 @@ function RecordingSessionScreen({
         {interp.error ? <View style={[rs.errorCard, dark && rs.errorCardDark]}><Ionicons name="alert-circle-outline" size={19} color={dark ? "#FF8A82" : "#C63B32"} /><Text style={[rs.errorText, dark && rs.errorTextDark]}>{interp.error}</Text></View> : null}
 
         <View style={[rs.speechCard, dark && rs.speechCardDark, { minHeight: speechCardHeight }]}>
-          <Text style={[rs.cardLabel, dark && rs.cardLabelDark]}>{sourceLabel}</Text>
+          <View style={rs.cardHeader}>
+            <View style={rs.cardLanguage}>
+              <Text accessibilityLabel={sourceLabel} style={rs.languageFlag}>{languageFlag(sourceLang)}</Text>
+              <Text style={[rs.cardLabel, rs.cardLabelInHeader, dark && rs.cardLabelDark]}>{sourceLabel}</Text>
+            </View>
+            <View style={rs.outputActions}>
+              <Pressable accessibilityLabel={`Play ${sourceLabel} transcript`} accessibilityRole="button" disabled={!originalText} hitSlop={8} onPress={() => speakOutput(originalText, sourceLang)} style={({ pressed }) => [rs.outputAction, !originalText && rs.outputActionDisabled, pressed && rs.outputActionPressed]}>
+                <Ionicons name="volume-medium-outline" size={20} color={dark ? "#B8C0CC" : "#66707D"} />
+              </Pressable>
+              <Pressable accessibilityLabel="Copy transcript" accessibilityRole="button" disabled={!originalText} hitSlop={8} onPress={() => void copyOutput("source", originalText)} style={({ pressed }) => [rs.outputAction, !originalText && rs.outputActionDisabled, pressed && rs.outputActionPressed]}>
+                <Ionicons name={copiedCard === "source" ? "checkmark" : "copy-outline"} size={19} color={copiedCard === "source" ? "#34C759" : dark ? "#B8C0CC" : "#66707D"} />
+              </Pressable>
+            </View>
+          </View>
           <Text style={[rs.speechText, dark && rs.speechTextDark, !interp.interimText && interp.entries.length === 0 && rs.placeholderText, !interp.interimText && interp.entries.length === 0 && dark && rs.placeholderTextDark]}>
-            {interp.interimText || interp.entries[interp.entries.length - 1]?.original || (interp.isListening ? t("record.listening") : t("record.originalPlaceholder"))}
+            {originalText || (interp.isListening ? t("record.listening") : t("record.originalPlaceholder"))}
           </Text>
         </View>
 
@@ -445,15 +509,38 @@ function RecordingSessionScreen({
             items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({ key: language.code, label: t(language.code === "ja" ? "common.japanese" : "common.english"), selected: language.code === sourceLang, onPress: () => selectLanguage("source", language.code) }))}
             width={180}
           >
-            {(open) => <Pressable disabled={interp.isListening} onPress={open} style={[rs.languagePill, dark && rs.languagePillDark]}><Text numberOfLines={1} style={[rs.languageText, dark && rs.languageTextDark]}>{sourceLabel}</Text><Ionicons name="chevron-down" size={13} color={dropdownIconColor} /></Pressable>}
+            {(open) => <Pressable disabled={interp.isListening} onPress={open} style={[rs.languagePill, dark && rs.languagePillDark]}><Text style={rs.pillFlag}>{languageFlag(sourceLang)}</Text><Text numberOfLines={1} style={[rs.languageText, dark && rs.languageTextDark]}>{sourceLabel}</Text><Ionicons name="chevron-down" size={13} color={dropdownIconColor} /></Pressable>}
           </AnchoredMenu>
           {interp.isListening ? (
-            <View style={rs.waveform}>
-              {Array.from({ length: 15 }, (_, i) => {
-                const levels = [12, 24, 17, 33, 20, 40, 27, 44, 25, 37, 18, 31, 15, 26, 11];
-                const volume = Math.max(0.32, Math.min(1, (interp.volume + 50) / 50));
-                return <View key={i} style={[rs.waveBar, { height: Math.max(5, levels[i] * volume) }]} />;
-              })}
+            <View style={rs.activeRecordingControl}>
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  rs.recordingPulseRing,
+                  {
+                    opacity: recordingPulse.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0.5, 0.42, 0] }),
+                    transform: [{ scale: recordingPulse.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1.42] }) }],
+                  },
+                ]}
+              />
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  rs.recordingPulseRing,
+                  rs.recordingPulseRingSoft,
+                  {
+                    opacity: recordingPulse.interpolate({ inputRange: [0, 0.45, 1], outputRange: [0, 0.3, 0] }),
+                    transform: [{ scale: recordingPulse.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1.24] }) }],
+                  },
+                ]}
+              />
+              <Pressable accessibilityLabel={t("record.listeningStop")} accessibilityRole="button" onPress={handleStop} style={({ pressed }) => [rs.pauseButtonOuter, pressed && rs.pressed]}>
+                <View style={rs.pauseButtonMiddle}>
+                  <View style={rs.pauseButtonInner}>
+                    <View style={rs.pauseSquare} />
+                  </View>
+                </View>
+              </Pressable>
             </View>
           ) : (
             <Pressable onPress={toggleMic} style={({ pressed }) => [rs.micButton, interp.entries.length > 0 && rs.micButtonSmall, pressed && rs.pressed]} accessibilityLabel={t("record.startListening")}><Ionicons name="mic" size={interp.entries.length > 0 ? 22 : 29} color="#FFFFFF" /></Pressable>
@@ -463,15 +550,27 @@ function RecordingSessionScreen({
             items={languages.filter((language) => language.code === "en" || language.code === "ja").map((language) => ({ key: language.code, label: t(language.code === "ja" ? "common.japanese" : "common.english"), selected: language.code === targetLang, onPress: () => selectLanguage("target", language.code) }))}
             width={180}
           >
-            {(open) => <Pressable disabled={interp.isListening} onPress={open} style={[rs.languagePill, dark && rs.languagePillDark]}><Text numberOfLines={1} style={[rs.languageText, dark && rs.languageTextDark]}>{targetLabel}</Text><Ionicons name="chevron-down" size={13} color={dropdownIconColor} /></Pressable>}
+            {(open) => <Pressable disabled={interp.isListening} onPress={open} style={[rs.languagePill, dark && rs.languagePillDark]}><Text style={rs.pillFlag}>{languageFlag(targetLang)}</Text><Text numberOfLines={1} style={[rs.languageText, dark && rs.languageTextDark]}>{targetLabel}</Text><Ionicons name="chevron-down" size={13} color={dropdownIconColor} /></Pressable>}
           </AnchoredMenu>
         </View>
-        {interp.isListening ? <Pressable onPress={handleStop} style={rs.stopListening}><View style={rs.stopSquare} /><Text style={[rs.stopText, dark && rs.stopTextDark]}>{t("record.listeningStop")}</Text></Pressable> : null}
 
         <View style={[rs.translationCard, dark && rs.translationCardDark, { minHeight: translationCardHeight }]}>
-          <Text style={[rs.cardLabel, dark && rs.cardLabelDark]}>{targetLabel}</Text>
+          <View style={rs.cardHeader}>
+            <View style={rs.cardLanguage}>
+              <Text accessibilityLabel={targetLabel} style={rs.languageFlag}>{languageFlag(targetLang)}</Text>
+              <Text style={[rs.cardLabel, rs.cardLabelInHeader, dark && rs.cardLabelDark]}>{targetLabel}</Text>
+            </View>
+            <View style={rs.outputActions}>
+              <Pressable accessibilityLabel={`Play ${targetLabel} translation`} accessibilityRole="button" disabled={!translationText} hitSlop={8} onPress={() => speakOutput(translationText, targetLang)} style={({ pressed }) => [rs.outputAction, !translationText && rs.outputActionDisabled, pressed && rs.outputActionPressed]}>
+                <Ionicons name="volume-medium-outline" size={20} color={dark ? "#B8C0CC" : "#66707D"} />
+              </Pressable>
+              <Pressable accessibilityLabel="Copy translation" accessibilityRole="button" disabled={!translationText} hitSlop={8} onPress={() => void copyOutput("target", translationText)} style={({ pressed }) => [rs.outputAction, !translationText && rs.outputActionDisabled, pressed && rs.outputActionPressed]}>
+                <Ionicons name={copiedCard === "target" ? "checkmark" : "copy-outline"} size={19} color={copiedCard === "target" ? "#34C759" : dark ? "#B8C0CC" : "#66707D"} />
+              </Pressable>
+            </View>
+          </View>
           <Text style={[rs.translationText, dark && rs.translationTextDark, !interp.liveTranslation && interp.entries.length === 0 && rs.placeholderText, !interp.liveTranslation && interp.entries.length === 0 && dark && rs.placeholderTextDark]}>
-            {interp.liveTranslation || interp.entries[interp.entries.length - 1]?.translation || t("record.translationPlaceholder")}
+            {translationText || t("record.translationPlaceholder")}
           </Text>
         </View>
 
@@ -486,7 +585,11 @@ function RecordingSessionScreen({
 }
 
 const rs = StyleSheet.create({
+  activeRecordingControl: { alignItems: "center", height: 86, justifyContent: "center", width: 86 },
+  cardHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 14 },
+  cardLanguage: { alignItems: "center", flexDirection: "row", gap: 8 },
   cardLabel: { color: "#69727F", fontSize: 12, fontWeight: "700", letterSpacing: 0.7, marginBottom: 14, textTransform: "uppercase" },
+  cardLabelInHeader: { marginBottom: 0 },
   cardLabelDark: { color: "#9CA4B0" },
   categoryCard: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 18, flexDirection: "row", gap: 14, minHeight: 76, paddingHorizontal: 16, paddingVertical: 13, shadowColor: "#162034", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.06, shadowRadius: 15, elevation: 2 },
   categoryCardDark: { backgroundColor: "#25292F", borderColor: "#3A4049", borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0 },
@@ -524,12 +627,17 @@ const rs = StyleSheet.create({
   eyebrow: { color: "#007AFF", fontSize: 11, fontWeight: "700", letterSpacing: 1.3 },
   languageBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 },
   languageMenuAnchor: { width: "30%" },
+  languageFlag: { fontSize: 20, lineHeight: 24 },
   languagePill: { alignItems: "center", backgroundColor: "#FFFFFF", borderColor: "#D7DBE1", borderRadius: 17, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 5, height: 48, justifyContent: "center", paddingHorizontal: 10, shadowColor: "#1B2638", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, width: "100%" },
   languagePillDark: { backgroundColor: "#25292F", borderColor: "#3A4049", shadowOpacity: 0 },
   languageText: { color: "#20242B", flexShrink: 1, fontSize: 13, fontWeight: "600", textAlign: "center" },
   languageTextDark: { color: "#E8EDF5" },
   micButton: { alignItems: "center", backgroundColor: "#007AFF", borderRadius: 999, height: 66, justifyContent: "center", shadowColor: "#007AFF", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.26, shadowRadius: 16, width: 66 },
   micButtonSmall: { height: 50, width: 50 },
+  outputAction: { alignItems: "center", height: 32, justifyContent: "center", width: 32 },
+  outputActionDisabled: { opacity: 0.32 },
+  outputActionPressed: { opacity: 0.55, transform: [{ scale: 0.92 }] },
+  outputActions: { alignItems: "center", flexDirection: "row", gap: 8 },
   page: { paddingBottom: 12 },
   pageDark: { backgroundColor: "#0E1013" },
   pageHeading: { gap: 6, paddingTop: 8 },
@@ -537,6 +645,11 @@ const rs = StyleSheet.create({
   pageTitle: { color: "#0E1117", fontSize: 34, fontWeight: "700", letterSpacing: -0.8 },
   placeholderText: { color: "#A0A7B2", fontWeight: "500" },
   placeholderTextDark: { color: "#8F98A5" },
+  pillFlag: { fontSize: 16, lineHeight: 20 },
+  pauseButtonInner: { alignItems: "center", backgroundColor: "#FF2435", borderRadius: 999, height: 52, justifyContent: "center", shadowColor: "#FF2435", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.35, shadowRadius: 12, width: 52 },
+  pauseButtonMiddle: { alignItems: "center", backgroundColor: "rgba(255,45,55,0.22)", borderRadius: 999, height: 64, justifyContent: "center", width: 64 },
+  pauseButtonOuter: { alignItems: "center", backgroundColor: "rgba(255,45,55,0.12)", borderColor: "rgba(255,45,55,0.28)", borderRadius: 999, borderWidth: 1, height: 76, justifyContent: "center", width: 76 },
+  pauseSquare: { backgroundColor: "#FFFFFF", borderRadius: 3, height: 17, width: 17 },
   pressed: { opacity: 0.65, transform: [{ scale: 0.985 }] },
   recentBorder: { borderBottomColor: "#EBEDF1", borderBottomWidth: 1 },
   recentBorderDark: { borderBottomColor: "#3A4049" },
@@ -549,6 +662,8 @@ const rs = StyleSheet.create({
   recentRow: { alignItems: "center", flexDirection: "row", gap: 11, minHeight: 68, paddingVertical: 10 },
   recentTitle: { color: "#171A20", fontSize: 14, fontWeight: "600" },
   recentTitleDark: { color: "#F5F7FA" },
+  recordingPulseRing: { borderColor: "rgba(255,59,48,0.9)", borderRadius: 999, borderWidth: 2, height: 76, position: "absolute", width: 76 },
+  recordingPulseRingSoft: { backgroundColor: "rgba(255,45,55,0.12)", borderColor: "rgba(255,100,92,0.55)", borderWidth: 1 },
   saveButton: { alignItems: "center", backgroundColor: "#007AFF", borderRadius: 16, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 54 },
   saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   sectionHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 12, marginTop: 14 },

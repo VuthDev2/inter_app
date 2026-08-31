@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState, type ComponentProps, type ReactNode } from "react";
-import { Alert, Image, Modal, Pressable, StyleSheet, Switch, Text, useColorScheme, View } from "react-native";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { Alert, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, useColorScheme, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { Tab } from "../../App";
 import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
 import { useTranslation } from "../i18n/I18nContext";
+import { loadProtectedNames, saveProtectedNames } from "../services/api";
 import { colors } from "../theme/theme";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -21,12 +22,14 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
     auto_speak: autoSpeak,
     preferred_source_lang: preferredSource,
     session_alerts: sessionAlerts,
+    cloud_sync: cloudSync,
     text_size: textSize,
     update,
   } = usePreferences();
   const systemScheme = useColorScheme();
   const dark = appearanceMode === "dark" || (appearanceMode === "system" && systemScheme === "dark");
   const [detail, setDetail] = useState<SettingsDetail | null>(null);
+  const [namesOpen, setNamesOpen] = useState(false);
 
   const email = user?.email ?? "quickvoice@example.com";
   const displayName = String(
@@ -121,6 +124,16 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
         />
       </SettingsGroup>
 
+      <SettingsGroup dark={dark} label={t("settings.namesGroup")}>
+        <SettingRow
+          dark={dark}
+          icon="pricetag-outline"
+          title={t("settings.names")}
+          subtitle={t("settings.namesSubtitle")}
+          onPress={() => setNamesOpen(true)}
+        />
+      </SettingsGroup>
+
       <SettingsGroup dark={dark} label={t("settings.notifications")}>
         <SettingRow
           dark={dark}
@@ -134,6 +147,33 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
               trackColor={{ false: "#D8DCE2", true: "#8AB9F6" }}
               thumbColor={sessionAlerts ? "#007AFF" : "#FFFFFF"}
               value={sessionAlerts}
+            />
+          }
+        />
+      </SettingsGroup>
+
+      <SettingsGroup dark={dark} label={t("settings.dataSharing")}>
+        <SettingRow
+          dark={dark}
+          icon="cloud-upload-outline"
+          title={t("settings.cloudSync")}
+          subtitle={t("settings.cloudSyncSubtitle")}
+          trailing={
+            <Switch
+              ios_backgroundColor="#D8DCE2"
+              onValueChange={(value) => {
+                update({ cloud_sync: value });
+                // Say plainly what the switch just changed, and that it only
+                // applies from now on — neither direction touches what is
+                // already stored.
+                Alert.alert(
+                  t("settings.cloudSync"),
+                  value ? t("settings.cloudSyncOnMessage") : t("settings.cloudSyncOffMessage"),
+                );
+              }}
+              trackColor={{ false: "#D8DCE2", true: "#8AB9F6" }}
+              thumbColor={cloudSync ? "#007AFF" : "#FFFFFF"}
+              value={cloudSync}
             />
           }
         />
@@ -172,9 +212,150 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
           onTextSizeChange={(value) => update({ text_size: value })}
         />
       </Modal>
+
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setNamesOpen(false)}
+        presentationStyle="fullScreen"
+        visible={namesOpen}
+      >
+        <ProtectedNamesScreen dark={dark} onBack={() => setNamesOpen(false)} />
+      </Modal>
     </View>
   );
 }
+
+/** Free-text list editor. The shared detail screen is a radio picker, which
+ *  cannot express "add and remove arbitrary words", so this stands alone. */
+function ProtectedNamesScreen({ dark, onBack }: { dark?: boolean; onBack: () => void }) {
+  const { t } = useTranslation();
+  const [names, setNames] = useState<string[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void loadProtectedNames().then((terms) => {
+      if (!active) return;
+      setNames(terms);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const persist = async (next: string[]) => {
+    const previous = names;
+    setNames(next);
+    setMessage("");
+    const stored = await saveProtectedNames(next);
+    if (stored === null) {
+      setNames(previous);
+      setMessage(t("settings.namesError"));
+      return;
+    }
+    setNames(stored);
+  };
+
+  const add = () => {
+    const value = draft.trim();
+    if (!value) return;
+    setDraft("");
+    if (names.some((n) => n.toLowerCase() === value.toLowerCase())) return;
+    void persist([...names, value]);
+  };
+
+  return (
+    <SafeAreaView style={[styles.detailPage, dark && styles.detailPageDark]}>
+      <View style={styles.detailHeader}>
+        <Pressable accessibilityRole="button" hitSlop={12} onPress={onBack}>
+          <Ionicons name="chevron-back" size={26} color={dark ? "#F2F5F9" : "#101828"} />
+        </Pressable>
+        <Text style={[styles.detailTitle, dark && styles.textDark]}>{t("settings.names")}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <View style={styles.detailContent}>
+        <Text style={[styles.detailBody, dark && styles.secondaryTextDark]}>
+          {t("settings.namesBody")}
+        </Text>
+
+        <View style={namesStyles.addRow}>
+          <TextInput
+            autoCapitalize="words"
+            onChangeText={setDraft}
+            onSubmitEditing={add}
+            placeholder={t("settings.namesPlaceholder")}
+            placeholderTextColor={dark ? "#78818D" : "#98A2B3"}
+            returnKeyType="done"
+            style={[namesStyles.input, dark && namesStyles.inputDark]}
+            value={draft}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={!draft.trim()}
+            onPress={add}
+            style={({ pressed }) => [
+              namesStyles.addButton,
+              !draft.trim() && namesStyles.addButtonDisabled,
+              pressed && namesStyles.addButtonPressed,
+            ]}
+          >
+            <Ionicons name="add" size={22} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
+        {loading ? null : names.length === 0 ? (
+          <Text style={[namesStyles.empty, dark && styles.secondaryTextDark]}>
+            {t("settings.namesEmpty")}
+          </Text>
+        ) : (
+          <View style={namesStyles.chips}>
+            {names.map((name) => (
+              <View key={name} style={[namesStyles.chip, dark && namesStyles.chipDark]}>
+                <Text style={[namesStyles.chipText, dark && styles.textDark]}>{name}</Text>
+                <Pressable
+                  accessibilityLabel={`Remove ${name}`}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => void persist(names.filter((n) => n !== name))}
+                >
+                  <Ionicons name="close" size={16} color={dark ? "#A9B2BD" : "#68717D"} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {message ? <Text style={namesStyles.error}>{message}</Text> : null}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const namesStyles = StyleSheet.create({
+  addRow: { flexDirection: "row", gap: 10, marginTop: 18 },
+  input: {
+    backgroundColor: "#F1F3F6", borderRadius: 14, color: "#101828", flex: 1,
+    fontSize: 16, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  inputDark: { backgroundColor: "#1C2430", color: "#F2F5F9" },
+  addButton: {
+    alignItems: "center", backgroundColor: "#007AFF", borderRadius: 14,
+    justifyContent: "center", width: 48,
+  },
+  addButtonDisabled: { opacity: 0.4 },
+  addButtonPressed: { opacity: 0.75 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 18 },
+  chip: {
+    alignItems: "center", backgroundColor: "#F1F3F6", borderRadius: 999,
+    flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingVertical: 8,
+  },
+  chipDark: { backgroundColor: "#1C2430" },
+  chipText: { color: "#101828", fontSize: 14, fontWeight: "600" },
+  empty: { color: "#68717D", fontSize: 14, fontStyle: "italic", marginTop: 18 },
+  error: { color: "#D33A3A", fontSize: 13, marginTop: 14 },
+});
 
 function SettingsGroup({ label, children, dark }: { label: string; children: ReactNode; dark?: boolean }) {
   return (

@@ -6,17 +6,17 @@ import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
+import { formatDuration, loadSessions, subscribeStorage, type WebSession } from "@/lib/session-store";
 
 function DashboardContent() {
     const { user } = useAuth();
     const displayName = user?.user_metadata?.display_name || user?.email?.split("@")[0] || "User";
-    const [loading, setLoading] = useState(false);
-
-    // Placeholder state ready to be replaced with Supabase fetch
-    const [recentSessions, setRecentSessions] = useState([
-        { id: "1", title: "US → JP Business Meeting", time: "Yesterday • 1h 15m duration", icon: MessageSquare, link: "/insiderecord-twoway" },
-        { id: "2", title: "JP → US Restaurant", time: "Today • 45m duration", icon: MessageSquare, link: "/insiderecord" }
-    ]);
+    const [recentSessions, setRecentSessions] = useState<WebSession[]>([]);
+    useEffect(() => {
+        const refresh = () => setRecentSessions(loadSessions().filter((item) => !item.deletedAt).slice(0, 3));
+        refresh();
+        return subscribeStorage(refresh);
+    }, []);
 
     return <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
             <Navbar />
@@ -116,21 +116,21 @@ function DashboardContent() {
                                 </div>
                             ) : (
                                 recentSessions.map((session, index) => {
-                                    const Icon = session.icon;
+                                    const Icon = MessageSquare;
                                     const isFirst = index === 0;
                                     const isLast = index === recentSessions.length - 1;
                                     const roundedClass = isFirst && isLast ? 'rounded-2xl' : isFirst ? 'rounded-t-2xl' : isLast ? 'rounded-b-2xl' : '';
                                     const borderClass = !isLast ? 'border-b border-[rgb(var(--border))]' : '';
 
                                     return (
-                                        <Link key={session.id} href={session.link} className={`flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group ${roundedClass} ${borderClass}`}>
+                                        <Link key={session.id} href={`/insiderecord${session.mode === "two-way" ? "-twoway" : ""}?id=${session.id}`} className={`flex items-center justify-between p-5 hover:bg-[rgba(var(--text),0.05)] transition-colors group ${roundedClass} ${borderClass}`}>
                                             <div className="flex items-center gap-4">
                                                 <div className="h-10 w-10 rounded-full bg-[rgb(var(--surface-muted))] flex items-center justify-center text-[rgba(var(--text-secondary),1)]">
                                                     <Icon size={16} />
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">{session.title}</span>
-                                                    <span className="text-[13px] text-[rgba(var(--muted),1)]">{session.time}</span>
+                                                    <span className="text-[13px] text-[rgba(var(--muted),1)]">{new Date(session.createdAt).toLocaleString()} • {formatDuration(session.durationSeconds)}</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3 text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)] transition-colors">

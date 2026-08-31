@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import type { LanguageCode } from "../../constants/data";
 import { appStorage } from "../../services/nativeStorage";
+import { setCloudSyncEnabled } from "../../services/storage";
 import { supabase } from "../../services/supabase";
 import { useAuth } from "../auth/auth";
 
@@ -21,6 +22,9 @@ export type UserPreferences = {
   haptics_enabled: boolean;
   session_mode: "one-way" | "two-way";
   tts_speed: number;
+  /** Copy conversations to Supabase so they can be opened on the web app or
+   *  another device. Off by default: it moves recorded speech off this phone. */
+  cloud_sync: boolean;
 };
 
 const DEFAULTS: UserPreferences = {
@@ -37,6 +41,7 @@ const DEFAULTS: UserPreferences = {
   haptics_enabled: false,
   session_mode: "one-way",
   tts_speed: 1.0,
+  cloud_sync: false,
 };
 
 type PreferencesContextValue = UserPreferences & {
@@ -82,6 +87,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
             ui_language: cached.ui_language ?? DEFAULTS.ui_language,
             appearance_mode: cached.appearance_mode ?? DEFAULTS.appearance_mode,
             text_size: cached.text_size ?? DEFAULTS.text_size,
+            // Device-level, like the three above: it is not stored in
+            // user_preferences, so it comes from this device's cache.
+            cloud_sync: cached.cloud_sync ?? DEFAULTS.cloud_sync,
             preferred_source_lang: (data.preferred_source_lang ?? DEFAULTS.preferred_source_lang) as LanguageCode,
             preferred_target_lang: (data.preferred_target_lang ?? DEFAULTS.preferred_target_lang) as LanguageCode,
             auto_speak: data.auto_speak ?? DEFAULTS.auto_speak,
@@ -105,6 +113,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     loadFromDb();
   }, [user?.id]);
 
+  // The storage helpers are plain functions, not components, so they cannot read
+  // this context. Mirror the switch down to them whenever it changes — including
+  // on first load, so a preference restored from cache or the database applies
+  // before anything gets a chance to sync.
+  useEffect(() => {
+    setCloudSyncEnabled(prefs.cloud_sync);
+  }, [prefs.cloud_sync]);
+
   const update = useCallback(
     (partial: Partial<UserPreferences>) => {
       setPrefs((prev) => {
@@ -114,7 +130,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
           if (supabase && user) {
-            const { appearance_mode: _appearanceMode, text_size: _textSize, ui_language: _uiLanguage, ...syncedPreferences } = next;
+            const {
+              appearance_mode: _appearanceMode,
+              text_size: _textSize,
+              ui_language: _uiLanguage,
+              // Device-level switch, and there is no column for it: including
+              // it would make the whole upsert fail.
+              cloud_sync: _cloudSync,
+              ...syncedPreferences
+            } = next;
             supabase
               .from("user_preferences")
               .upsert({ user_id: user.id, ...syncedPreferences, updated_at: new Date().toISOString() })

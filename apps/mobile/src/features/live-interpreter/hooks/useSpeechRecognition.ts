@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
-import SpeechService from "../services/speech/StreamingSpeechService";
+// HybridSpeechService streams the platform recognizer's words to the screen as
+// they are spoken, then replaces that preview with Whisper's confirmed text and
+// detected language once the sentence ends. Both run off one microphone
+// session, so the preview costs no extra capture.
+import SpeechService from "../services/speech/HybridSpeechService";
 import type {
   SpeechLanguage,
   SpeechRecognitionError,
@@ -14,7 +18,11 @@ export type SpeechRecognitionState = {
   finalLanguage?: "en" | "ja";
   finalResultId: number;
   error: SpeechRecognitionError | null;
-  startListening: (language: SpeechLanguage, expectedLanguage?: "en" | "ja") => Promise<void>;
+  startListening: (
+    language: SpeechLanguage,
+    expectedLanguage?: "en" | "ja",
+    previewLanguage?: "en" | "ja",
+  ) => Promise<void>;
   stopListening: () => Promise<void>;
 };
 
@@ -43,6 +51,15 @@ export function useSpeechRecognition(): SpeechRecognitionState {
     const errorSubscription = SpeechService.onError((recognitionError) => {
       setError(recognitionError);
       setIsListening(false);
+      // A turn that errored produced no usable transcript, so the live
+      // preview it left behind is not "in progress" — it is stale. Only the
+      // final-result and start paths cleared it, so an errored turn (the
+      // no_speech HybridSpeechService now reports when Whisper cannot
+      // confirm a turn) stranded the preview on screen permanently, and the
+      // status line read "TRANSLATING…" forever because that state is
+      // derived from a non-empty preview with listening already stopped.
+      setPartialTranscript("");
+      setPartialLanguage(undefined);
     });
 
     return () => {
@@ -56,6 +73,7 @@ export function useSpeechRecognition(): SpeechRecognitionState {
   const startListening = useCallback(async (
     language: SpeechLanguage,
     expectedLanguage?: "en" | "ja",
+    previewLanguage?: "en" | "ja",
   ) => {
     setError(null);
     setPartialTranscript("");
@@ -64,7 +82,7 @@ export function useSpeechRecognition(): SpeechRecognitionState {
     setFinalLanguage(undefined);
 
     try {
-      await SpeechService.startListening(language, expectedLanguage);
+      await SpeechService.startListening(language, expectedLanguage, previewLanguage);
       setIsListening(true);
     } catch (reason) {
       setIsListening(false);

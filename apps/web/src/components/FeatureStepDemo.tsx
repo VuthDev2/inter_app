@@ -12,6 +12,10 @@ type FeatureStepDemoProps = {
 const SPOKEN_TEXT = "Where is the train station?";
 const SPOKEN_WORDS = SPOKEN_TEXT.split(" ");
 const JAPANESE_TEXT = "駅はどこですか？";
+// Each carousel card stays active for 6.5 seconds. Keep one complete demo cycle
+// aligned with that window so the action finishes once instead of restarting
+// before the carousel advances to the next step.
+const DEMO_TIME_SCALE = 0.92;
 
 function Waveform({ active, small = false }: { active: boolean; small?: boolean }) {
   const maximumHeight = small ? 32 : 48;
@@ -44,8 +48,10 @@ export function FeatureStepDemo({ feature, active = true }: FeatureStepDemoProps
 
   useEffect(() => {
     const timers: Array<ReturnType<typeof setTimeout>> = [];
+    const schedule = (callback: () => void, delay: number) =>
+      setTimeout(callback, delay * DEMO_TIME_SCALE);
 
-    timers.push(setTimeout(() => {
+    timers.push(schedule(() => {
       setStage(0);
       setTranscript("");
       setJapaneseText("");
@@ -55,21 +61,21 @@ export function FeatureStepDemo({ feature, active = true }: FeatureStepDemoProps
       return () => timers.forEach(clearTimeout);
     }
 
-    timers.push(setTimeout(
+    timers.push(schedule(
       () => setStage(1),
       feature === "understand" ? 50 : feature === "speak" ? 1250 : 1450,
     ));
-    timers.push(setTimeout(() => setStage(2), feature === "understand" ? 3500 : 2450));
+    timers.push(schedule(() => setStage(2), feature === "understand" ? 3500 : 2450));
 
     if (feature === "speak") {
       SPOKEN_WORDS.forEach((_, index) => {
-        timers.push(setTimeout(() => {
+        timers.push(schedule(() => {
           setTranscript(SPOKEN_WORDS.slice(0, index + 1).join(" "));
         }, 2750 + index * 365));
       });
-      timers.push(setTimeout(() => setStage(3), 4600));
+      timers.push(schedule(() => setStage(3), 4600));
     } else {
-      timers.push(setTimeout(
+      timers.push(schedule(
         () => setStage(3),
         feature === "translate" ? 4250 : feature === "understand" ? 5100 : 3900,
       ));
@@ -77,14 +83,14 @@ export function FeatureStepDemo({ feature, active = true }: FeatureStepDemoProps
 
     if (feature === "translate") {
       JAPANESE_TEXT.split("").forEach((_, index) => {
-        timers.push(setTimeout(() => {
+        timers.push(schedule(() => {
           setJapaneseText(JAPANESE_TEXT.slice(0, index + 1));
         }, 4300 + index * 105));
       });
     }
 
-    timers.push(setTimeout(() => setStage(4), feature === "understand" ? 6500 : 5700));
-    timers.push(setTimeout(() => setCycle((value) => value + 1), feature === "understand" ? 8000 : 7100));
+    timers.push(schedule(() => setStage(4), feature === "understand" ? 6500 : 5700));
+    timers.push(schedule(() => setCycle((value) => value + 1), feature === "understand" ? 8000 : 7100));
 
     return () => timers.forEach(clearTimeout);
   }, [active, cycle, feature]);
