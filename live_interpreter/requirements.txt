@@ -1,0 +1,12 @@
+torch
+torchaudio
+transformers
+accelerate
+huggingface_hub
+silero-vad
+sounddevice
+soundfile
+numpy
+fastapi
+uvicorn
+websockets
