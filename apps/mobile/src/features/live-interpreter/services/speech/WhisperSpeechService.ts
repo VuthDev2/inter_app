@@ -67,7 +67,11 @@ const MIN_THRESHOLD_DB = -55;
 const MAX_THRESHOLD_DB = -28;
 // Clips shorter than this are not worth a round trip; Whisper needs a moment
 // of audio to work with.
-const MIN_TURN_MS = 600;
+// Measured against real speech: "hello" is 446ms, "yes" 442ms, はい 287ms.
+// At 600ms every one-word reply was discarded silently, with no transcript and
+// no error. Whisper transcribes all of them correctly at this length, and the
+// peak-dB check alongside this is what actually keeps room noise out.
+const MIN_TURN_MS = 250;
 const POLL_INTERVAL_MS = 100;
 // Silence after speech that ends the turn. This is dead time on every single
 // turn — nothing is computed during it — so it is the cheapest latency to buy

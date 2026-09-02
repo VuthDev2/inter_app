@@ -1,8 +1,6 @@
 import { File } from "expo-file-system";
 import { NativeModules, Platform } from "react-native";
 
-import { supabase } from "./supabase";
-
 export type TranslateResult = {
   ok: boolean;
   translation: string;
@@ -224,23 +222,70 @@ function baseUrl(): Promise<string> {
   return serverBaseUrl("EXPO_PUBLIC_AI_BASE_URL", 8000);
 }
 
-/** Base URL for the Node backend (auth, signup, etc.), port 8000. */
+/** Base URL for the Node backend (auth, signup, etc.), port 5001 — where it
+ *  actually runs (backend/.env PORT=5001); this default previously pointed
+ *  at 8000, the AI server's port, so any caller relying on it silently hit
+ *  the wrong service. */
 export function apiBaseUrl(): Promise<string> {
-  return serverBaseUrl("EXPO_PUBLIC_API_BASE_URL", 8000);
+  return serverBaseUrl("EXPO_PUBLIC_API_BASE_URL", 5001);
 }
 
 /** WebSocket URL for the live interpretation endpoint. */
 export async function liveWsUrl(): Promise<string> {
+  // Token first: minting it is what confirms the model server is reachable
+  // and authenticated before opening the socket.
+  const token = await quickVoiceToken();
   const url = (await baseUrl()).replace(/^http/, "ws") + "/ws/live";
-  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
-  const token = data.session?.access_token;
-  return token ? `${url}?token=${encodeURIComponent(token)}` : url;
+  // A native WebSocket cannot set custom headers either, so the token rides
+  // the query string — `key`, matching the server (see app/main.py's
+  // /ws/live: it reads query_params["key"], not a "token" parameter, and
+  // checks it against the same short-lived credential as every REST call,
+  // never a Supabase session token).
+  return token ? `${url}?key=${encodeURIComponent(token)}` : url;
+}
+
+/**
+ * Short-lived token for the AI model server, minted server-side and cached
+ * until near expiry — the same scheme apps/web/src/lib/quickvoice-api.ts
+ * already uses. This used to send the caller's own Supabase session token as
+ * the model server's credential instead, which the model server was never
+ * checking: it verifies this token, not a Supabase JWT. That mismatch was
+ * silent while QUICKVOICE_API_KEY was unset (the server skips the check
+ * entirely), and became a hard 401 on every transcribe/translate/tts/glossary
+ * call — and the live-interpreter WebSocket — the moment a key was
+ * configured, because nothing sent had ever been the right kind of secret.
+ * The mobile app cannot hold the master key itself (same reasoning as the
+ * comment on the backend route this calls: anything shipped in an app bundle
+ * is extractable, same as anything in a browser bundle), so it asks the Node
+ * backend to trade the master key for a token on its behalf.
+ */
+let qvTokenCache: { token: string; expiresAt: number } | null = null;
+let qvTokenInFlight: Promise<string> | null = null;
+
+async function fetchQvToken(): Promise<string> {
+  const res = await fetch(`${await apiBaseUrl()}/api/qv-token`, { method: "POST" });
+  if (!res.ok) throw new Error(`Could not authenticate with the QuickVoice server (HTTP ${res.status}).`);
+  const body = await res.json();
+  if (!body?.token) {
+    // Server runs without authentication (local development).
+    qvTokenCache = { token: "", expiresAt: Number.MAX_SAFE_INTEGER };
+    return "";
+  }
+  qvTokenCache = { token: body.token, expiresAt: (body.expiresAt ?? 0) * 1000 };
+  return body.token;
+}
+
+async function quickVoiceToken(): Promise<string> {
+  if (qvTokenCache && Date.now() < qvTokenCache.expiresAt - 60_000) return qvTokenCache.token;
+  if (!qvTokenInFlight) {
+    qvTokenInFlight = fetchQvToken().finally(() => { qvTokenInFlight = null; });
+  }
+  return qvTokenInFlight;
 }
 
 async function authHeaders(base: Record<string, string> = {}): Promise<Record<string, string>> {
-  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
-  const token = data.session?.access_token;
-  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
+  const token = await quickVoiceToken();
+  return token ? { ...base, "x-api-key": token } : base;
 }
 
 
@@ -430,7 +475,7 @@ export async function synthesizeSpeechViaApi(
 
   const response = await fetchWithTimeout(`${await baseUrl()}/tts`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ text: normalizedText, language, speed }),
   }, 20_000);
 
