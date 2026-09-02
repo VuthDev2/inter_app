@@ -38,6 +38,12 @@ async function fetchWithTimeout(
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } catch (error) {
+      // The address was resolved once and then remembered. If it stops
+      // answering, the usual reason is that the Mac moved to another network
+      // and has a different IP now, so the remembered address is simply wrong.
+      // Forget it here, or the app keeps calling a dead address and shows
+      // "translation failed" forever until it is force-quit and reopened.
+      forgetResolvedServers();
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`${input} did not respond within ${Math.round(timeoutMs / 1000)}s`);
     }
@@ -263,7 +269,13 @@ let qvTokenCache: { token: string; expiresAt: number } | null = null;
 let qvTokenInFlight: Promise<string> | null = null;
 
 async function fetchQvToken(): Promise<string> {
-  const res = await fetch(`${await apiBaseUrl()}/api/qv-token`, { method: "POST" });
+  let res: Response;
+  try {
+    res = await fetch(`${await apiBaseUrl()}/api/qv-token`, { method: "POST" });
+  } catch (error) {
+    forgetResolvedServers();
+    throw error;
+  }
   if (!res.ok) throw new Error(`Could not authenticate with the QuickVoice server (HTTP ${res.status}).`);
   const body = await res.json();
   if (!body?.token) {

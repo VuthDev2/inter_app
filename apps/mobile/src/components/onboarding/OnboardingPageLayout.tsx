@@ -161,7 +161,14 @@ export function OnboardingPageLayout({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} {...panHandlers}>
+    // react-native and react-native-safe-area-context declare gesture handlers
+    // with different signatures (one returns void, the other boolean | void),
+    // so spreading PanResponder handlers here fails to typecheck even though it
+    // works correctly at runtime. Cast rather than restructure the layout.
+    <SafeAreaView
+      style={styles.safeArea}
+      {...(panHandlers as Partial<React.ComponentProps<typeof SafeAreaView>>)}
+    >
       {pageContent}
       <View style={[styles.fixedActions, { maxWidth: contentWidth }]}>
         <View
