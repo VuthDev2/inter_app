@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Mic, Volume2, FileText, Square, Pause, Play, MicOff, X, Copy, Download, ArrowLeftRight, Clock, Calendar, ArrowLeft, ArrowRight, Folder, ChevronDown, Plus, Send, LoaderCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Mic, MessageSquare, Volume2, FileText, Square, Pause, Play, MicOff, X, Copy, Download, ArrowLeftRight, Clock, Calendar, ArrowLeft, ArrowRight, Folder, ChevronDown, Plus, Send, LoaderCircle, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { useLiveInterpretation } from "@/hooks/useLiveInterpretation";
@@ -14,7 +15,16 @@ const LANGUAGE_CODE: Record<string, QuickVoiceLanguage> = {
     Japanese: "ja",
 };
 
+type InterpreterMode = "oneway" | "twoway";
+
+function readModeFromUrl(): InterpreterMode | null {
+    if (typeof window === "undefined") return null;
+    const param = new URLSearchParams(window.location.search).get("mode");
+    return param === "oneway" || param === "twoway" ? param : null;
+}
+
 export default function InterpreterPage() {
+    const router = useRouter();
     const [inputLang, setInputLang] = useState("English (US)");
     const [outputLang, setOutputLang] = useState("Japanese");
     const [isPaused, setIsPaused] = useState(false);
@@ -27,11 +37,16 @@ export default function InterpreterPage() {
     const [isTranslating, setIsTranslating] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
-    const [isTwoWay, setIsTwoWay] = useState(() =>
-        typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('mode') !== 'oneway'
-            : true
-    );
+    // The mode is chosen once (on the Home page, or on the gate below) and
+    // carried in the URL. It is never toggled from inside the interpreter.
+    // Starts null on both server and first client render (avoids a
+    // hydration mismatch from reading the URL before mount) and is filled
+    // in immediately after mount.
+    const [mode, setMode] = useState<InterpreterMode | null>(null);
+    useEffect(() => {
+        setMode(readModeFromUrl());
+    }, []);
+    const isTwoWay = mode === "twoway";
     const [saveModalState, setSaveModalState] = useState<'hidden' | 'loading' | 'saved'>('hidden');
     const [showTranscript, setShowTranscript] = useState(false);
     const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
@@ -213,6 +228,63 @@ export default function InterpreterPage() {
         }
     };
 
+    const chooseMode = (chosen: InterpreterMode) => {
+        setMode(chosen);
+        const params = new URLSearchParams(window.location.search);
+        params.set("mode", chosen);
+        router.replace(`/interpreter?${params.toString()}`);
+    };
+
+    // No mode was passed in from the Home page (e.g. the navbar's "Live
+    // Interpreter" link, or an old bookmark) — ask once, up front, instead of
+    // defaulting silently. This keeps mode selection a single pre-entry step
+    // for every path into the interpreter, not just the dashboard cards.
+    if (mode === null) {
+        return (
+            <div className="h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col overflow-hidden">
+                <Navbar />
+                <div className="flex-1 flex flex-col items-center justify-center px-6">
+                    <h1 className="text-2xl font-semibold tracking-tight">Choose Interpreter Mode</h1>
+                    <p className="text-[rgba(var(--muted),1)] mt-1 text-sm mb-8 text-center max-w-sm">
+                        Select how you&apos;d like to interpret. You won&apos;t need to switch modes once you start.
+                    </p>
+                    <div className="w-full max-w-[680px] grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <button
+                            onClick={() => chooseMode("oneway")}
+                            className="flex flex-col items-center text-center gap-4 p-8 bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl hover:border-[rgb(var(--primary))]/50 hover:bg-[rgba(var(--text),0.03)] transition-colors group"
+                        >
+                            <div className="h-14 w-14 rounded-full bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))] flex items-center justify-center">
+                                <Mic size={24} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[16px] font-semibold text-[rgba(var(--text),0.9)]">One-Way Interpreter</span>
+                                <span className="text-[13px] text-[rgba(var(--muted),1)]">Speeches and uninterrupted listening</span>
+                            </div>
+                            <span className="flex items-center gap-1 text-[13px] font-medium text-[rgb(var(--primary))] opacity-0 group-hover:opacity-100 transition-opacity">
+                                Select <ChevronRight size={14} />
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => chooseMode("twoway")}
+                            className="flex flex-col items-center text-center gap-4 p-8 bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl hover:border-[rgb(var(--emerald))]/50 hover:bg-[rgba(var(--text),0.03)] transition-colors group"
+                        >
+                            <div className="h-14 w-14 rounded-full bg-[rgb(var(--emerald))]/10 text-[rgb(var(--emerald))] flex items-center justify-center">
+                                <MessageSquare size={24} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[16px] font-semibold text-[rgba(var(--text),0.9)]">Two-Way Conversation</span>
+                                <span className="text-[13px] text-[rgba(var(--muted),1)]">Real-time bilingual conversation</span>
+                            </div>
+                            <span className="flex items-center gap-1 text-[13px] font-medium text-[rgb(var(--emerald))] opacity-0 group-hover:opacity-100 transition-opacity">
+                                Select <ChevronRight size={14} />
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col overflow-hidden">
             <Navbar />
@@ -222,22 +294,19 @@ export default function InterpreterPage() {
                     <div className="text-center mb-2 flex flex-col items-center flex-shrink-0">
                         <h1 className="text-2xl font-semibold tracking-tight">Start Interpreting</h1>
                         <p className="text-[rgba(var(--muted),1)] mt-1 text-sm mb-3">
-                            Instantly get live interpreter
+                            {isTwoWay ? "Real-time bilingual conversation" : "Speeches and uninterrupted listening"}
                         </p>
 
-                        {/* Two-way toggle */}
-                        <button
-                            onClick={() => setIsTwoWay(!isTwoWay)}
-                            className="flex items-center gap-3 cursor-pointer focus:outline-none group"
-                            aria-label="Toggle two way conversation"
+                        {/* Mode indicator — set on the Home page, fixed for this session */}
+                        <div
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${isTwoWay
+                                ? "border-[rgb(var(--emerald))]/30 bg-[rgb(var(--emerald))]/10 text-[rgb(var(--emerald))]"
+                                : "border-[rgb(var(--primary))]/30 bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))]"
+                                }`}
                         >
-                            <div className="w-11 h-6 rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface-muted))] flex items-center px-1 transition-all relative">
-                                <div className={`w-4 h-4 rounded-full bg-[rgb(var(--primary))] shadow-sm transition-transform duration-200 ease-in-out absolute left-1 ${isTwoWay ? 'translate-x-5' : 'translate-x-0'}`} />
-                            </div>
-                            <span className={`text-sm font-medium transition-colors ${isTwoWay ? 'text-[rgb(var(--primary))]' : 'text-[rgba(var(--muted),1)] group-hover:text-[rgba(var(--text-secondary),1)]'}`}>
-                                Two way Conversation
-                            </span>
-                        </button>
+                            {isTwoWay ? <MessageSquare size={14} /> : <Mic size={14} />}
+                            {isTwoWay ? "Two-Way Conversation" : "One-Way Interpreter"}
+                        </div>
                     </div>
 
                     {/* Language rows / Panels */}
@@ -271,11 +340,21 @@ export default function InterpreterPage() {
                                     </span>
                                 </div>
                             </div>
-                            <TranscriptCard entries={allEntries} langKey="original" />
-                            {interimText && isListening && (
-                                <div className="mt-3 text-[14px] text-[rgba(var(--text-secondary),0.7)] italic pl-6 border-l-2 border-[rgb(var(--primary))]/40">
-                                    {interimText}
+                            {isTwoWay ? (
+                                <div className="flex-1 min-h-0 flex items-center justify-center">
+                                    <p className="text-[13px] text-[rgba(var(--muted),0.6)] italic text-center px-6">
+                                        Only the translated conversation is shown
+                                    </p>
                                 </div>
+                            ) : (
+                                <>
+                                    <TranscriptCard entries={allEntries} langKey="original" />
+                                    {interimText && isListening && (
+                                        <div className="mt-3 text-[14px] text-[rgba(var(--text-secondary),0.7)] italic pl-6 border-l-2 border-[rgb(var(--primary))]/40">
+                                            {interimText}
+                                        </div>
+                                    )}
+                                </>
                             )}
                             <div className="mt-4 flex items-end gap-3 rounded-2xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-3 focus-within:border-[rgb(var(--primary))]/60">
                                 <textarea
@@ -422,13 +501,15 @@ export default function InterpreterPage() {
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[rgba(var(--text),0.1)] [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[rgba(var(--text),0.2)]">
                             {allEntries.map((entry) => (
                                 <div key={entry.id} className="flex flex-col gap-5 border-b border-[rgb(var(--border))] pb-8 last:border-0 last:pb-0">
-                                    <div className="flex flex-col gap-2 relative group">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-bold tracking-wider text-[rgb(var(--primary))] uppercase">{inputLang}</span>
-                                            <span className="text-[10px] text-[rgba(var(--muted),0.8)]">10:42:01</span>
+                                    {!isTwoWay && (
+                                        <div className="flex flex-col gap-2 relative group">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-bold tracking-wider text-[rgb(var(--primary))] uppercase">{inputLang}</span>
+                                                <span className="text-[10px] text-[rgba(var(--muted),0.8)]">10:42:01</span>
+                                            </div>
+                                            <p className="text-[14px] text-[rgba(var(--text),0.8)] leading-relaxed pr-4">{entry.original}</p>
                                         </div>
-                                        <p className="text-[14px] text-[rgba(var(--text),0.8)] leading-relaxed pr-4">{entry.original}</p>
-                                    </div>
+                                    )}
                                     <div className="flex flex-col gap-2 relative group">
                                         <div className="flex items-center justify-between">
                                             <span className="text-[10px] font-bold tracking-wider text-[rgba(var(--muted),1)] uppercase">{outputLang}</span>
