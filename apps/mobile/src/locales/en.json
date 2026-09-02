@@ -49,7 +49,11 @@
     "waitingEnglish": "Waiting…",
     "waitingJapanese": "待機中…",
     "clearConversation": "Clear Conversation",
-    "clearConversationConfirm": "This removes everything shown on this screen. It cannot be undone."
+    "clearConversationConfirm": "This removes everything shown on this screen. It cannot be undone.",
+    "recoverTitle": "Unfinished conversation",
+    "recoverBody": "{count} lines from a session that was never finished. Restore them?",
+    "recoverRestore": "Restore",
+    "recoverDiscard": "Discard"
   },
   "record": {
     "actions": "Record actions",

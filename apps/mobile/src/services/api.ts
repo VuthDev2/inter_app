@@ -390,7 +390,7 @@ export async function transcribeAudioResult(
 }
 
 
-// ─── Translation (backend preferred, MyMemory fallback) ──────────────────────
+// ─── Translation (local model server only) ───────────────────────────────────
 
 /**
  * Result of a backend translation attempt. On failure it carries why it failed
@@ -495,7 +495,7 @@ export async function synthesizeSpeechViaApi(
 
 
 /**
- * Translate text — tries the backend first, falls back to MyMemory.
+ * Translate text using the local model server. No network fallback: see below.
  */
 export async function translateText(
   text: string,
@@ -509,19 +509,11 @@ export async function translateText(
   const backend = await translateViaBackend(text, sourceLang, targetLang);
   if (backend.ok) return backend.text;
 
-  // ── MyMemory fallback (free, no key needed) ──
-  try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.trim())}&langpair=${sourceLang}|${targetLang}`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const json = await res.json();
-      let t = json?.responseData?.translatedText as string | undefined;
-      if (!t && json?.matches && Array.isArray(json.matches)) {
-        const validMatch = json.matches.find((m: any) => m.translation && m.translation.trim().length > 0);
-        if (validMatch) t = validMatch.translation;
-      }
-      if (t && !t.toLowerCase().includes("mymemory warning")) return t;
-    }
-  } catch { /* ignore */ }
-  return `[${sourceLang}→${targetLang}] ${text}`;
+  // There used to be a fallback here that posted the text to MyMemory, a public
+  // translation API, whenever the local server was unreachable. QuickVoice is
+  // sold as on-device interpretation, so quietly sending someone's speech to a
+  // third party when the Mac happened to be asleep was the wrong trade. Failing
+  // visibly is better: the caller surfaces `reason`, and the transcript is
+  // already saved locally either way.
+  throw new Error(backend.reason || "The translation server is unreachable.");
 }

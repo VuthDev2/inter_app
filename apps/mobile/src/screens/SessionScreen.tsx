@@ -25,7 +25,8 @@ import { AnchoredMenu } from "../components/AnchoredMenu";
 import { atoms } from "../theme/atoms";
 import { languages, type LanguageCode } from "../constants/data";
 import { translateTextViaApi } from "../services/api";
-import { saveLiveSession, saveLiveSessionLocally } from "../services/storage";
+import { saveLiveSession, saveLiveSessionLocally, loadLiveSessions } from "../services/storage";
+import { useKeepAwake } from "expo-keep-awake";
 
 /**
  * Typed text carries no audio for Whisper to listen to, so unlike voice
@@ -265,6 +266,68 @@ export function SessionScreen({
 
   const sessionId = useRef(`live-${Date.now()}`);
   const sessionStart = useRef(new Date().toISOString());
+
+  // A phone screen sleeps in well under a minute. That suspends the microphone
+  // mid-recording, which looked like the app randomly stopping listening.
+  useKeepAwake();
+
+  // Offer back a session that was interrupted before it finished. Every
+  // utterance is already written to local storage as it happens; without this
+  // the app simply never looked at it again, so a crash or a force-quit lost
+  // the conversation even though it was safely on disk.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const sessions = await loadLiveSessions();
+        const unfinished = sessions.find(
+          (item) => !item.endedAt && (item.utterances?.length ?? 0) > 0,
+        );
+        if (!unfinished || cancelled) return;
+        Alert.alert(
+          t("live.recoverTitle"),
+          t("live.recoverBody").replace("{count}", String(unfinished.utterances.length)),
+          [
+            {
+              text: t("live.recoverDiscard"),
+              style: "destructive",
+              // Close it out rather than deleting: the transcript stays in
+              // history, it just stops being offered on every launch.
+              onPress: () => {
+                void saveLiveSessionLocally({
+                  ...unfinished,
+                  endedAt: new Date().toISOString(),
+                });
+              },
+            },
+            {
+              text: t("live.recoverRestore"),
+              onPress: () => {
+                // Storage does not keep `lane`, so rebuild it the same way the
+                // live path does: a turn spoken in the session's target
+                // language belongs on the right.
+                setUtterances(
+                  unfinished.utterances.map((u) => ({
+                    ...u,
+                    lane: (u.sourceLang === unfinished.targetLang
+                      ? "right"
+                      : "left") as "left" | "right",
+                  })),
+                );
+                sessionId.current = unfinished.id;
+                sessionStart.current = unfinished.createdAt;
+              },
+            },
+          ],
+        );
+      } catch {
+        // Recovery is a convenience; never block the screen from opening.
+      }
+    })();
+    return () => { cancelled = true; };
+    // Runs once when the screen mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const controlTransition = useRef(new Animated.Value(live.isListening ? 1 : 0)).current;
 
   useEffect(() => {

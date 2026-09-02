@@ -49,7 +49,11 @@
     "waitingEnglish": "待機中…",
     "waitingJapanese": "待機中…",
     "clearConversation": "会話をクリア",
-    "clearConversationConfirm": "この画面に表示されている内容がすべて削除されます。元に戻すことはできません。"
+    "clearConversationConfirm": "この画面に表示されている内容がすべて削除されます。元に戻すことはできません。",
+    "recoverTitle": "未完了の会話",
+    "recoverBody": "終了していないセッションの{count}件の記録があります。復元しますか？",
+    "recoverRestore": "復元する",
+    "recoverDiscard": "破棄する"
   },
   "record": {
     "actions": "録音メニュー",
