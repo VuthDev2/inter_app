@@ -409,7 +409,7 @@ export async function translateTextViaApi(
   if (cached) return cached;
 
   const result = await translateViaBackend(normalizedText, sourceLang, targetLang);
-  if (!result.ok) {
+  if (result.ok === false) {
     throw new Error(`Translation unavailable: ${result.reason}`);
   }
   return remember(translationCache, cacheKey, result.text);

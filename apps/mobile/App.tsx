@@ -406,6 +406,7 @@ function UnauthenticatedFlow() {
 
   return (
     <UnauthenticatedStack.Navigator
+      id="Unauthenticated"
       screenOptions={{
         animation: reduceMotion ? "fade" : "simple_push",
         animationDuration: reduceMotion ? 180 : 360,

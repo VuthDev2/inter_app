@@ -101,14 +101,33 @@ async function signIn(email, password) {
 }
 
 async function signUp(email, password, displayName) {
-  const res = await fetch(`${cfg.apiBaseUrl}/api/signup`, {
+  const res = await fetch(`${cfg.supabaseUrl}/auth/v1/signup`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, displayName })
+    headers: {
+      apikey: cfg.supabaseAnonKey,
+      Authorization: `Bearer ${cfg.supabaseAnonKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      data: { display_name: displayName || email.split("@")[0] }
+    })
   });
   const data = await res.json();
-  if (!res.ok || !data.ok) throw new Error(data.error || "Failed to create account");
-  await signIn(email, password);
+  if (!res.ok) {
+    throw new Error(data.error_description || data.msg || data.error || "Failed to create account");
+  }
+  if (data.access_token && data.refresh_token) {
+    await saveSession({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
+      user: data.user
+    });
+    return true;
+  }
+  return false;
 }
 
 function encodeSessionHandoff(session) {
@@ -161,9 +180,17 @@ els.authSubmit.addEventListener("click", async () => {
   els.authSubmit.disabled = true;
   setStatus(els.authStatus, mode === "signup" ? "Creating account..." : "Signing in...");
   try {
-    if (mode === "signup") await signUp(email, password, displayName);
-    else await signIn(email, password);
-    setStatus(els.authStatus, "Signed in.", "ok");
+    if (mode === "signup") {
+      const signedIn = await signUp(email, password, displayName);
+      setStatus(
+        els.authStatus,
+        signedIn ? "Account created and signed in." : "Account created. Check your email to confirm it.",
+        "ok"
+      );
+    } else {
+      await signIn(email, password);
+      setStatus(els.authStatus, "Signed in.", "ok");
+    }
   } catch (err) {
     setStatus(els.authStatus, err.message || "Authentication failed.", "error");
   } finally {
