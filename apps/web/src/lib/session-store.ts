@@ -27,6 +27,10 @@ export type WebFolder = { id: string; name: string; createdAt: string };
 
 const SESSION_KEY = "quickvoice.web.sessions.v1";
 const FOLDER_KEY = "quickvoice.web.folders.v1";
+// A recording can run for half an hour before anyone presses Save. Until it is
+// saved, the whole session lives only in React state, so a reload, a crash or a
+// closed tab loses all of it. The live screen writes a draft here as it goes.
+const DRAFT_KEY = "quickvoice.web.draft.v1";
 const CHANGE_EVENT = "quickvoice-storage-change";
 
 function read<T>(key: string, fallback: T): T {
@@ -110,4 +114,27 @@ export function formatDuration(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
+}
+
+export type WebDraft = {
+  startedAt: number;
+  savedAt: string;
+  utterances: Array<{ id: string; original: string; translation: string }>;
+};
+
+/** Persist the in-progress session so a crash or reload cannot erase it. */
+export function saveDraft(draft: WebDraft) {
+  write(DRAFT_KEY, draft);
+}
+
+/** The unsaved session from a previous visit, if one was interrupted. */
+export function loadDraft(): WebDraft | null {
+  const draft = read<WebDraft | null>(DRAFT_KEY, null);
+  return draft && draft.utterances?.length ? draft : null;
+}
+
+export function clearDraft() {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(DRAFT_KEY);
+  window.dispatchEvent(new Event(CHANGE_EVENT));
 }

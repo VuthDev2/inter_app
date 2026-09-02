@@ -1,4 +1,5 @@
 import os
+import re
 
 
 def _edit_distance(a: str, b: str) -> int:
@@ -63,6 +64,61 @@ class TextCorrectionService:
             self._model, self._tokenizer = load(self.model_repo)
         return self._model, self._tokenizer
 
+    def restore_kanji(self, text: str) -> str:
+        """Rewrite all-hiragana Japanese in its normal kanji/kana spelling.
+
+        Independent of TEXT_CORRECTION_ENABLED: that switch turns off ASR
+        clean-up, which is optional polish, whereas this is what stops NLLB
+        inventing a sentence from kana-only input. Returns the original text
+        unchanged if anything goes wrong, so a translation is never lost.
+        """
+        original = text.strip()
+        if not original or not is_kana_only_japanese(original):
+            return original
+
+        try:
+            from mlx_lm import generate
+
+            model, tokenizer = self._load()
+            messages = [
+                {
+                    "role": "system",
+                    # "Reply in Japanese" is load-bearing: without it the model
+                    # answers a bare word like "ねこ" with the English "cat".
+                    "content": (
+                        "Rewrite Japanese written only in hiragana using the kanji a "
+                        "native writer would use. Reply in Japanese with the rewritten "
+                        "text only, no explanation, no translation."
+                    ),
+                },
+                {"role": "user", "content": original},
+            ]
+            prompt = tokenizer.apply_chat_template(messages, add_generation_prompt=True)
+            restored = generate(
+                model, tokenizer, prompt=prompt, max_tokens=self.max_tokens, verbose=False
+            ).strip()
+        except Exception:
+            return original
+
+        # Guard against the model answering in English or padding with commentary.
+        if not restored or not _KANA.search(restored) and not _KANJI.search(restored):
+            return original
+        # The whole job of this function is to introduce kanji. Output with no
+        # kanji restored nothing, so it is either a no-op or an invention --
+        # 0.5B turned えきはどこですか into どこかにいてください。 and that
+        # slipped past every other guard here. Keep the ASR text instead.
+        if not _KANJI.search(restored):
+            return original
+        if len(restored) > len(original) * 3:
+            return original
+        # ...and against it dropping a clause. Writing kana as kanji shortens
+        # text (ねこ -> 猫) but particles and okurigana stay kana, so a real
+        # rewrite keeps most of its length. あしたのあさ、しりょうをおくってください
+        # came back as しりょうをおくってください with the time phrase silently gone.
+        if len(restored) < len(original) * 0.7:
+            return original
+        return restored
+
     def correct(self, text: str, language: str) -> str:
         original = text.strip()
         if not self.enabled or not original:
@@ -96,3 +152,26 @@ class TextCorrectionService:
             return original
 
         return corrected
+
+
+# ─── Kana-only Japanese ──────────────────────────────────────────────────────
+# NLLB is trained on Japanese as it is normally written — a mix of kanji and
+# kana. Text spelled entirely in hiragana is rare in that data, and the model
+# does not fall back gracefully: it invents a sentence. Measured against
+# nllb-200-distilled-600M:
+#
+#   猫が好きです      -> "I like cats."              (correct)
+#   ねこがすきです    -> "They're cute."             (invented)
+#   ねこ              -> "I'm not going to lie."     (invented)
+#
+# Restoring the usual orthography first makes the same model behave. This runs
+# only when the text has no kanji at all, so ordinary input — including every
+# Whisper transcript, which already contains kanji — pays nothing.
+
+_KANJI = re.compile(r"[一-鿿]")
+_KANA = re.compile(r"[぀-ゟ゠-ヿ]")
+
+
+def is_kana_only_japanese(text: str) -> bool:
+    """True for Japanese written without a single kanji."""
+    return bool(_KANA.search(text)) and not _KANJI.search(text)

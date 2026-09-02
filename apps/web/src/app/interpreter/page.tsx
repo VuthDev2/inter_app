@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Link from "next/link";
 import { useLiveInterpretation } from "@/hooks/useLiveInterpretation";
 import { speakWithQuickVoice, translateWithQuickVoice, type QuickVoiceLanguage } from "@/lib/quickvoice-api";
-import { loadFolders, saveSession } from "@/lib/session-store";
+import { clearDraft, loadDraft, loadFolders, saveDraft, saveSession } from "@/lib/session-store";
 
 const LANGUAGES = ["English (US)", "Japanese"];
 const LANGUAGE_CODE: Record<string, QuickVoiceLanguage> = {
@@ -21,7 +21,11 @@ export default function InterpreterPage() {
     const [isMuted, setIsMuted] = useState(false);
     const [typedText, setTypedText] = useState("");
     const [manualEntries, setManualEntries] = useState<Array<{ id: string; original: string; translation: string }>>([]);
+    // Anything recovered from a recording that was cut short before it was saved.
+    const [recoveredEntries, setRecoveredEntries] = useState<Array<{ id: string; original: string; translation: string }>>([]);
+    const [showRecoveryNotice, setShowRecoveryNotice] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
     const [isTwoWay, setIsTwoWay] = useState(() =>
         typeof window !== 'undefined'
@@ -49,13 +53,72 @@ export default function InterpreterPage() {
         error,
         start,
         stop,
+        reset,
     } = useLiveInterpretation(inputLang, outputLang);
-    const allEntries = [...entries, ...manualEntries];
+    const allEntries = [...recoveredEntries, ...entries, ...manualEntries];
+    // Mirrors the mobile SessionScreen status line: same wording, same order of
+    // precedence. The web build used to show only "AI Live Sync Enabled" /
+    // "Sync Paused", which described the microphone but read as data sync.
+    const statusLabel = isSpeaking
+        ? "SPEAKING…"
+        : isTranslating || (!isListening && interimText.trim())
+            ? "TRANSLATING…"
+            : isListening && !isPaused
+                ? "LISTENING…"
+                : isListening && isPaused
+                    ? "PAUSED"
+                    : "TAP ● TO SPEAK";
     const lastOutput = liveTranslation || allEntries.at(-1)?.translation || "";
 
     useEffect(() => {
         transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [allEntries.length, showTranscript]);
+
+    // Offer back a recording that ended without being saved. A session can run
+    // for half an hour, and until now a reload threw all of it away.
+    useEffect(() => {
+        const draft = loadDraft();
+        if (!draft) return;
+        setRecoveredEntries(draft.utterances);
+        sessionStartedAtRef.current = draft.startedAt;
+        setShowRecoveryNotice(true);
+    }, []);
+
+    // Write the running session to storage as it grows, so a crash, a reload or
+    // a closed tab costs at most the last utterance instead of the whole hour.
+    useEffect(() => {
+        if (!allEntries.length) return;
+        saveDraft({
+            startedAt: sessionStartedAtRef.current,
+            savedAt: new Date().toISOString(),
+            utterances: allEntries.map(({ id, original, translation }) => ({ id, original, translation })),
+        });
+    }, [allEntries.length]);
+
+    // A long recording dies when the screen sleeps, which suspends the mic.
+    useEffect(() => {
+        if (!isListening) return;
+        let lock: WakeLockSentinel | null = null;
+        let released = false;
+        const acquire = async () => {
+            try {
+                lock = await navigator.wakeLock?.request("screen");
+            } catch {
+                // Unsupported or refused; the recording still works, the screen
+                // is just free to sleep. Not worth interrupting the user over.
+            }
+        };
+        const reacquire = () => {
+            if (document.visibilityState === "visible" && !released) void acquire();
+        };
+        void acquire();
+        document.addEventListener("visibilitychange", reacquire);
+        return () => {
+            released = true;
+            document.removeEventListener("visibilitychange", reacquire);
+            void lock?.release().catch(() => {});
+        };
+    }, [isListening]);
 
     const chooseInputLanguage = (language: string) => {
         setInputLang(language);
@@ -80,7 +143,14 @@ export default function InterpreterPage() {
             );
             setManualEntries((current) => [...current, { id: `typed-${Date.now()}`, original: text, translation }]);
             setTypedText("");
-            if (!isMuted) await speakWithQuickVoice(translation, LANGUAGE_CODE[outputLang]);
+            if (!isMuted) {
+                setIsSpeaking(true);
+                try {
+                    await speakWithQuickVoice(translation, LANGUAGE_CODE[outputLang]);
+                } finally {
+                    setIsSpeaking(false);
+                }
+            }
         } catch (reason) {
             setActionError(reason instanceof Error ? reason.message : "QuickVoice could not translate that text.");
         } finally {
@@ -92,9 +162,12 @@ export default function InterpreterPage() {
         if (!lastOutput) return;
         setActionError(null);
         try {
+            setIsSpeaking(true);
             await speakWithQuickVoice(lastOutput, LANGUAGE_CODE[outputLang]);
         } catch (reason) {
             setActionError(reason instanceof Error ? reason.message : "QuickVoice could not generate speech.");
+        } finally {
+            setIsSpeaking(false);
         }
     };
 
@@ -121,6 +194,12 @@ export default function InterpreterPage() {
             durationSeconds: Math.max(1, Math.round((Date.now() - sessionStartedAtRef.current) / 1000)),
             deletedAt: null,
         });
+        clearDraft();
+        setRecoveredEntries([]);
+        setManualEntries([]);
+        setShowRecoveryNotice(false);
+        reset();
+        sessionStartedAtRef.current = Date.now();
         setSaveModalState('saved');
     };
 
@@ -138,11 +217,11 @@ export default function InterpreterPage() {
         <div className="h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col overflow-hidden">
             <Navbar />
             <div className="flex-1 flex overflow-hidden relative">
-                <div className="flex-1 flex flex-col px-6 py-8 min-h-0">
-                    <div className="w-full max-w-[1600px] mx-auto flex flex-col h-full gap-8 flex-1 min-h-0">
-                    <div className="text-center mb-6 flex flex-col items-center flex-shrink-0">
-                        <h1 className="text-3xl font-semibold tracking-tight">Start Interpreting</h1>
-                        <p className="text-[rgba(var(--muted),1)] mt-2 text-sm mb-6">
+                <div className="flex-1 flex flex-col px-6 py-4 min-h-0">
+                    <div className="w-full max-w-[1600px] mx-auto flex flex-col h-full gap-4 flex-1 min-h-0">
+                    <div className="text-center mb-2 flex flex-col items-center flex-shrink-0">
+                        <h1 className="text-2xl font-semibold tracking-tight">Start Interpreting</h1>
+                        <p className="text-[rgba(var(--muted),1)] mt-1 text-sm mb-3">
                             Instantly get live interpreter
                         </p>
 
@@ -275,20 +354,25 @@ export default function InterpreterPage() {
                         >
                             {isListening ? <Square size={20} className="relative z-10 fill-current" /> : <Mic size={26} />}
                         </button>
+                        {showRecoveryNotice && (
+                            <div className="mt-3 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[13px] text-amber-500 text-center max-w-sm">
+                                Recovered {recoveredEntries.length} line{recoveredEntries.length === 1 ? "" : "s"} from a session that was never saved. Press Save Session to keep them.
+                                <button
+                                    onClick={() => { clearDraft(); setRecoveredEntries([]); setShowRecoveryNotice(false); }}
+                                    className="ml-2 underline underline-offset-2 hover:opacity-80"
+                                >
+                                    Discard
+                                </button>
+                            </div>
+                        )}
                         {(error || actionError) && (
                             <div className="mt-3 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] text-red-400 text-center max-w-sm">
                                 {error || actionError}
                             </div>
                         )}
                         {!error && !actionError && (
-                            <div className="flex items-center gap-2 mt-4 text-xs font-medium text-[rgb(var(--emerald))]">
-                                <span
-                                    className={`h-2 w-2 rounded-full ${isListening && !isPaused
-                                        ? "bg-[rgb(var(--emerald))] animate-pulse"
-                                        : "bg-[rgba(var(--text),0.2)]"
-                                        }`}
-                                />
-                                {isListening && !isPaused ? "AI Live Sync Enabled" : "Sync Paused"}
+                            <div className="mt-4 text-[12px] font-semibold tracking-[0.08em] text-[#6E7785] dark:text-[rgba(var(--text),0.55)]">
+                                {statusLabel}
                             </div>
                         )}
                     </div>

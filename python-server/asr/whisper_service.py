@@ -173,7 +173,11 @@ class WhisperASRService:
         # device) puts two transcriptions in the model simultaneously and
         # takes the whole server down. Kokoro already serialises its own
         # inference for the same reason; this is the ASR equivalent.
-        self._inference_lock = threading.Lock()
+        # Reentrant: the file path takes this lock and then delegates to the
+        # shared samples path, which takes it again. A plain Lock deadlocks on
+        # that second acquire; the PCM path must stay guarded too, so the fix is
+        # a reentrant lock rather than dropping one of them.
+        self._inference_lock = threading.RLock()
         # faster-whisper's vad_filter already runs Silero VAD internally; the
         # mlx path has no such thing built in (see _strip_silence), so it
         # needs its own copy. Disable with WHISPER_VAD_ENABLED=0.
@@ -186,6 +190,55 @@ class WhisperASRService:
         # can be traced back to the audio that produced it.
         self.debug_audio_dir = os.getenv("WHISPER_DEBUG_AUDIO_DIR", "")
         self._model = None
+
+    def transcribe_pcm16(
+        self,
+        pcm: bytes,
+        sample_rate: int,
+        language_hint: str = "en-ja",
+        expected_language: str | None = None,
+    ) -> TranscriptionResult:
+        """Transcribe raw PCM16 without a file round-trip.
+
+        The websocket clients already hold decoded samples. Wrapping them in a
+        WAV container, writing that to a temp file and decoding it back costs
+        ~40ms of pure ceremony per turn, and more when the machine is busy.
+        Resampling to Whisper's 16kHz still has to happen — browsers hand over
+        whatever the hardware runs at, usually 48kHz.
+        """
+        if not pcm:
+            return TranscriptionResult(text="", language="unknown")
+
+        samples = numpy.frombuffer(pcm, dtype=numpy.int16).astype(numpy.float32) / 32768.0
+        if sample_rate != 16_000:
+            try:
+                import soxr
+
+                samples = soxr.resample(samples, sample_rate, 16_000)
+            except Exception:
+                # Without a resampler the audio would be read at the wrong
+                # speed, which decodes as confident nonsense. Refuse instead.
+                return TranscriptionResult(text="", language="unknown")
+
+        audio = numpy.asarray(samples, dtype="float32")
+
+        # Same hint resolution and romaji guard as the file path — the caller
+        # passes a hint like "en-ja", not a decoder language code.
+        forced = self._forced_language(language_hint)
+        if forced is not None:
+            return self._transcribe_samples(audio, forced)
+
+        result = self._transcribe_samples(audio, None, expected_language)
+        if (
+            language_hint.strip().lower() in {"auto", "en-ja"}
+            and result.language == "en"
+            and self._looks_like_japanese_romaji(result.text)
+        ):
+            japanese_result = self._transcribe_samples(audio, "ja")
+            if self._contains_japanese(japanese_result.text):
+                return japanese_result
+            return TranscriptionResult(text=result.text, language="ja")
+        return result
 
     def transcribe(
         self,
@@ -303,12 +356,33 @@ class WhisperASRService:
     ) -> TranscriptionResult:
         """Apple GPU path. Measured 4.2x faster than the CPU backend (508ms ->
         121ms per clip) with identical transcripts."""
-        import mlx_whisper
         from faster_whisper.audio import decode_audio
 
         # mlx-whisper shells out to ffmpeg to read files, which is not
         # installed here — hand it samples directly instead.
         audio = numpy.asarray(decode_audio(str(audio_path), sampling_rate=16000), dtype="float32")
+        return self._transcribe_samples(audio, language, expected_language)
+
+    def _transcribe_samples(
+        self,
+        audio,
+        language: str | None,
+        expected_language: str | None = None,
+    ) -> TranscriptionResult:
+        """Shared body for both entry points: 16kHz mono float32 samples in."""
+        import mlx_whisper
+
+        # One turn through the model at a time. See _inference_lock above.
+        with self._inference_lock:
+            return self._run_mlx(audio, language, expected_language)
+
+    def _run_mlx(
+        self,
+        audio,
+        language: str | None,
+        expected_language: str | None = None,
+    ):
+        import mlx_whisper
 
         if self.vad_enabled:
             audio = self._strip_silence(audio)

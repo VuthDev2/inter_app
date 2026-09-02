@@ -13,15 +13,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+import numpy
 import torch
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-from app import glossary
+from app import glossary, security
 from asr import TextCorrectionService, WhisperASRService
 from tts import KokoroTTSService, TTSServiceError
 
@@ -29,6 +30,18 @@ from tts import KokoroTTSService, TTSServiceError
 SERVER_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(SERVER_ROOT / ".env")
 
+# QuickVoice interprets between English and Japanese only, so a 200-language
+# model is 2.3GB of capacity the product never uses. fugumt is a pair of
+# Japanese-specialised models — 121MB each, ~5x faster, and better Japanese
+# (it keeps "駅はどこですか。" where NLLB dropped the polite ですか). NLLB stays
+# selectable for anyone who needs the other 198 languages.
+TRANSLATION_BACKEND = os.getenv("TRANSLATION_BACKEND", "fugumt").strip().lower()
+FUGUMT_EN_JA = os.getenv("FUGUMT_EN_JA", "staka/fugumt-en-ja")
+FUGUMT_JA_EN = os.getenv("FUGUMT_JA_EN", "staka/fugumt-ja-en")
+# "ct2" is the same fugumt weights quantised to int8 with CTranslate2:
+# 59MB per direction instead of 233MB, and roughly twice as fast on CPU.
+# This is what ships in the downloadable English/Japanese pack.
+CT2_DIR = Path(os.getenv("CT2_DIR", str(Path(__file__).resolve().parent.parent / "models" / "ct2")))
 MODEL_NAME = os.getenv("NLLB_MODEL", "facebook/nllb-200-distilled-600M")
 LANGUAGE_CODES = {
     "en": "eng_Latn",
@@ -90,6 +103,68 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("NLLB_DEVICE=mps was requested, but Apple MPS is unavailable.")
 
     app.state.device = torch.device(device_name)
+
+    if TRANSLATION_BACKEND in {"ct2", "fugumt"}:
+        # Both light backends share the warm-up and the early return below.
+        # Keep them in one branch: when "ct2" was a sibling branch it fell
+        # through to the NLLB load underneath and re-downloaded 2.3GB on every
+        # start, silently, while appearing to work.
+        if TRANSLATION_BACKEND == "ct2":
+            import ctranslate2
+
+            app.state.ct2 = {}
+            for key, repo in (("en-ja", FUGUMT_EN_JA), ("ja-en", FUGUMT_JA_EN)):
+                app.state.ct2[key] = (
+                    AutoTokenizer.from_pretrained(repo),
+                    ctranslate2.Translator(
+                        str(CT2_DIR / f"fugumt-{key}"), device="cpu", compute_type="int8"
+                    ),
+                )
+        else:
+            # Small enough to sit on the CPU comfortably; the GPU is better spent
+            # on Whisper, which is the slower half of a turn.
+            app.state.fugumt = {}
+            for key, repo in (("en-ja", FUGUMT_EN_JA), ("ja-en", FUGUMT_JA_EN)):
+                tok = AutoTokenizer.from_pretrained(repo)
+                mdl = AutoModelForSeq2SeqLM.from_pretrained(repo)
+                mdl.eval()
+                app.state.fugumt[key] = (tok, mdl)
+        await asyncio.to_thread(warm_translation_model)
+        keepalive_seconds = float(os.getenv("QUICKVOICE_KEEPALIVE_SECONDS", "20"))
+        keepalive_audio = None
+        warm_audio_path = SERVER_ROOT / "tts" / "kokoro_models" / "sample-en.wav"
+        if warm_audio_path.exists():
+            asr_started = time.perf_counter()
+            await asyncio.get_running_loop().run_in_executor(
+                _asr_executor, asr_service.transcribe,
+                warm_audio_path.read_bytes(), ".wav", "en-ja", "en",
+            )
+            print(f"[asr-warmup] ready in {time.perf_counter() - asr_started:.2f}s", flush=True)
+            keepalive_audio = warm_audio_path.read_bytes()
+
+        async def keep_resident() -> None:
+            while True:
+                try:
+                    await asyncio.sleep(keepalive_seconds)
+                    if keepalive_audio is None:
+                        continue
+                    await asyncio.get_running_loop().run_in_executor(
+                        _asr_executor, asr_service.transcribe,
+                        keepalive_audio, ".wav", "en-ja", "en",
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    pass
+
+        task = asyncio.create_task(keep_resident()) if keepalive_seconds > 0 else None
+        try:
+            yield
+        finally:
+            if task:
+                task.cancel()
+        return
+
     app.state.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     # The checkpoint publishes PyTorch weights. Explicitly select them to avoid
     # Transformers starting an unnecessary background safetensors conversion.
@@ -117,7 +192,45 @@ async def lifespan(app: FastAPI):
     # PyTorch/MPS pays a large graph-compilation cost the first time it sees a
     # new tensor shape. Warm the fixed live-translation shape last, after MLX.
     await asyncio.to_thread(warm_translation_model)
-    yield
+
+    # Under memory pressure macOS pages an idle model out, and the next turn
+    # pays to fault it back in: measured 1.8-3.8s against a 0.47s steady state.
+    # That shows up as the app randomly "taking 3-4 seconds", which is the
+    # thing users notice most. A tiny inference on a timer keeps the pages
+    # resident. It runs on the same single ASR worker behind the same lock, so
+    # it can never overlap a real turn — at worst a turn waits ~100ms.
+    keepalive_seconds = float(os.getenv("QUICKVOICE_KEEPALIVE_SECONDS", "20"))
+    # Real speech, not silence: the VAD strips a silent buffer and returns
+    # before the model is ever touched, which made the first version of this
+    # keepalive a no-op that still left a 1.9s spike after idle.
+    keepalive_audio = warm_audio_path.read_bytes() if warm_audio_path.exists() else None
+
+    async def keep_models_resident() -> None:
+        while True:
+            try:
+                await asyncio.sleep(keepalive_seconds)
+                if keepalive_audio is None:
+                    continue
+                await asyncio.get_running_loop().run_in_executor(
+                    _asr_executor,
+                    asr_service.transcribe,
+                    keepalive_audio,
+                    ".wav",
+                    "en-ja",
+                    "en",
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Never let the keepalive take the server down.
+                pass
+
+    keepalive = asyncio.create_task(keep_models_resident()) if keepalive_seconds > 0 else None
+    try:
+        yield
+    finally:
+        if keepalive:
+            keepalive.cancel()
 
 
 app = FastAPI(title="QuickVoice Translation API", version="1.0.0", lifespan=lifespan)
@@ -139,6 +252,43 @@ _cors_origin_regex = os.getenv(
     "QUICKVOICE_CORS_ORIGIN_REGEX",
     r"chrome-extension://.*",
 )
+
+@app.middleware("http")
+async def guard(request: Request, call_next):
+    """Rate limit every authenticated route, and harden every response."""
+    if API_KEY and request.url.path not in {"/health", "/auth/token"}:
+        # Key the bucket on the credential when there is one so a whole office
+        # behind one NAT address is not treated as a single caller.
+        supplied = _credential(request)
+        client = supplied[-24:] if supplied else (request.client.host if request.client else "anon")
+        if not _rate_limiter.allow(client):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please slow down."},
+                headers={"Retry-After": "5", **security.SECURITY_HEADERS},
+            )
+    response = await call_next(request)
+    for header, value in security.SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    return response
+
+
+@app.post("/auth/token")
+async def issue_token(request: Request) -> dict[str, object]:
+    """Trade the master key for a short-lived token.
+
+    The website calls this from its own server so the master key never reaches
+    a browser; the page only ever holds a token that expires.
+    """
+    if not API_KEY:
+        raise HTTPException(status_code=404, detail="This server is not using authentication.")
+    supplied = _credential(request)
+    if not supplied or not secrets.compare_digest(supplied, API_KEY):
+        print(f"[auth] token request rejected from {request.client.host if request.client else '?'}", flush=True)
+        raise HTTPException(status_code=401, detail="Missing or invalid API key.")
+    token, expires_at = security.mint_token(API_KEY)
+    return {"token": token, "expiresAt": expires_at}
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -167,15 +317,42 @@ def normalize_language(language: str) -> str:
 API_KEY = os.getenv("QUICKVOICE_API_KEY", "").strip()
 
 
-async def require_api_key(request: Request) -> None:
-    if not API_KEY:
-        return
+# Requests per minute per caller, and how big a burst is tolerated. One GPU
+# serves everybody, so this is what stops a single client starving the rest.
+RATE_LIMIT_PER_MINUTE = int(os.getenv("QUICKVOICE_RATE_LIMIT_PER_MINUTE", "120"))
+RATE_LIMIT_BURST = int(os.getenv("QUICKVOICE_RATE_LIMIT_BURST", "30"))
+_rate_limiter = security.RateLimiter(RATE_LIMIT_PER_MINUTE, RATE_LIMIT_BURST)
+
+# Longest upload /transcribe will read. Whisper works on short turns; anything
+# past this is a mistake or an attempt to exhaust memory. 25MB is ~25 minutes
+# of the 16kHz mono PCM the apps send.
+MAX_UPLOAD_BYTES = int(os.getenv("QUICKVOICE_MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+
+
+def _credential(request: Request) -> str:
     supplied = request.headers.get("x-api-key", "").strip()
     if not supplied:
         auth = request.headers.get("authorization", "")
         if auth.lower().startswith("bearer "):
             supplied = auth[7:].strip()
-    if not secrets.compare_digest(supplied, API_KEY):
+    return supplied
+
+
+def _credential_ok(supplied: str) -> bool:
+    """A caller may present the master key, or a token minted from it."""
+    if not supplied:
+        return False
+    if secrets.compare_digest(supplied, API_KEY):
+        return True
+    return security.verify_token(API_KEY, supplied)
+
+
+async def require_api_key(request: Request) -> None:
+    if not API_KEY:
+        return
+    if not _credential_ok(_credential(request)):
+        # Logged so a burst of these is visible while the server is shared.
+        print(f"[auth] rejected {request.client.host if request.client else '?'} {request.url.path}", flush=True)
         raise HTTPException(status_code=401, detail="Missing or invalid API key.")
 
 
@@ -184,7 +361,15 @@ async def health() -> dict[str, object]:
     return {
         "ok": True,
         "service": "quickvoice-translation",
-        "model": MODEL_NAME,
+        # Report the backend actually in use. This said "nllb-200" while ct2
+        # was serving every request, from a model no longer even on disk.
+        "backend": TRANSLATION_BACKEND,
+        "model": (
+            f"{FUGUMT_EN_JA} + {FUGUMT_JA_EN}"
+            if TRANSLATION_BACKEND in {"ct2", "fugumt"}
+            else MODEL_NAME
+        ),
+        "asr": asr_service.model_name,
         "device": str(app.state.device),
     }
 
@@ -220,6 +405,17 @@ async def live_interpretation(websocket: WebSocket) -> None:
     same multilingual Whisper service as mobile, translated by the same local
     NLLB model, and returned as one utterance. No Gemini/OpenAI service is used.
     """
+    # Browsers cannot set headers on a WebSocket, so the key rides in the query
+    # string. Without this the live path -- the one that actually runs Whisper --
+    # was the single unauthenticated route on an otherwise keyed server.
+    if API_KEY:
+        supplied = websocket.query_params.get("key", "").strip()
+        if not _credential_ok(supplied):
+            await websocket.close(code=1008)
+            return
+        if not _rate_limiter.allow(f"ws:{supplied[-24:]}"):
+            await websocket.close(code=1013)
+            return
     await websocket.accept()
     configured_source = "en"
     configured_target = "ja"
@@ -278,15 +474,30 @@ async def live_interpretation(websocket: WebSocket) -> None:
                 await websocket.send_json({"type": "error", "text": "Invalid audio data."})
                 continue
 
+            # Guard is in bytes, so it has to follow the rate: 3,200 bytes is
+            # 100ms at 16kHz but only 33ms at 48kHz.
             if len(pcm) < 3_200:  # Less than 100ms at 16kHz PCM16.
                 continue
 
-            wav_audio = pcm16_to_wav(pcm)
+            # Use the rate the client actually captured at. Browsers may
+            # ignore the requested rate — Safari returns hardware rate — and
+            # wrapping 48kHz samples in a 16kHz header makes Whisper hear the
+            # audio three times too slow, which decodes as confident nonsense
+            # rather than an error.
+            try:
+                client_rate = int(message.get("sampleRate") or 16_000)
+            except (TypeError, ValueError):
+                client_rate = 16_000
+            if not 8_000 <= client_rate <= 192_000:
+                client_rate = 16_000
+            # Straight from PCM: wrapping these samples in a WAV, writing a
+            # temp file and decoding it back cost ~40-90ms per turn for
+            # nothing, since the client already sends decoded audio.
             result = await asyncio.get_running_loop().run_in_executor(
                 _asr_executor,
-                asr_service.transcribe,
-                wav_audio,
-                ".wav",
+                asr_service.transcribe_pcm16,
+                pcm,
+                client_rate,
                 "en-ja",
                 # Break ja/en ties toward the language the speaker selected.
                 # Without this the web client had no tie-breaker at all, so
@@ -378,6 +589,10 @@ def run_protected_translation(text: str, source: str, target: str) -> str:
 
 @lru_cache(maxsize=256)
 def run_translation(text: str, source: str, target: str) -> str:
+    if TRANSLATION_BACKEND in {"fugumt", "ct2"}:
+        # Marian has no forced-BOS token and no MPS graph to keep stable, so
+        # the NLLB pad-length bucketing below does not apply to it.
+        return _generate_translation(text, source, target, 0)
     tokenizer = app.state.tokenizer
     with inference_lock:
         tokenizer.src_lang = source
@@ -389,6 +604,29 @@ def run_translation(text: str, source: str, target: str) -> str:
 
 
 def _generate_translation(text: str, source: str, target: str, pad_length: int) -> str:
+    if TRANSLATION_BACKEND == "ct2":
+        tokenizer, translator = app.state.ct2[
+            "en-ja" if source == "eng_Latn" else "ja-en"
+        ]
+        with inference_lock:
+            tokens = tokenizer.convert_ids_to_tokens(tokenizer.encode(text))
+            result = translator.translate_batch(
+                [tokens], max_decoding_length=64, beam_size=1
+            )
+            return tokenizer.decode(
+                tokenizer.convert_tokens_to_ids(result[0].hypotheses[0]),
+                skip_special_tokens=True,
+            ).strip()
+
+    if TRANSLATION_BACKEND == "fugumt":
+        # One model per direction: a Marian model translates one way only.
+        pair = app.state.fugumt["en-ja" if source == "eng_Latn" else "ja-en"]
+        tokenizer, model = pair
+        with inference_lock, torch.inference_mode():
+            inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+            generated = model.generate(**inputs, max_new_tokens=64, num_beams=1, do_sample=False)
+            return tokenizer.batch_decode(generated, skip_special_tokens=True)[0].strip()
+
     tokenizer = app.state.tokenizer
     model = app.state.model
     device = app.state.device
@@ -441,9 +679,17 @@ async def translate(payload: TranslationRequest) -> TranslationResponse:
             target=payload.target,
         )
 
+    # Kana-only Japanese makes NLLB invent a sentence rather than translate one
+    # ("ねこがすきです" came back as "They're cute"). Restoring the normal kanji
+    # spelling first fixes it. Skipped entirely for anything containing kanji,
+    # so ordinary text — including every Whisper transcript — is untouched.
+    if source == "jpn_Jpan":
+        text = await asyncio.to_thread(correction_service.restore_kanji, text)
+
     try:
         translated = await asyncio.to_thread(run_protected_translation, text, source, target)
     except Exception as error:
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail="The local translation model could not translate this text.",
@@ -466,7 +712,19 @@ async def transcribe(
     language: str = Form(default="auto"),
     expected: str = Form(default=""),
 ) -> TranscriptionResponse:
-    audio = await file.read()
+    # Read with a ceiling rather than await file.read(): an unbounded read is
+    # how a single request turns into an out-of-memory kill.
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(1 << 20):
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Audio file is too large (limit {MAX_UPLOAD_BYTES // (1024 * 1024)}MB).",
+            )
+        chunks.append(chunk)
+    audio = b"".join(chunks)
     if not audio:
         raise HTTPException(status_code=422, detail="Audio file cannot be blank.")
 

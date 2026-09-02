@@ -75,14 +75,15 @@ const POLL_INTERVAL_MS = 100;
 // clause breaks run ~300-400ms, so this sits just above them: low enough to
 // feel immediate, high enough that a mid-sentence pause does not cut the turn
 // short. Raise it back toward 600 if sentences start getting chopped in half.
-const TRAILING_SILENCE_MS = 420;
-// A short reply is over the moment it stops — nobody pauses in the middle of
-// "hello". Waiting the full window on those makes a one-word answer feel
-// sluggish for no benefit, so anything this brief ends on a much shorter
-// silence. Longer sentences keep the full window, because a speaker really
-// can pause mid-clause.
-const SHORT_UTTERANCE_MS = 1_200;
-const SHORT_TRAILING_SILENCE_MS = 240;
+// A speaker pausing to think mid sentence can go quiet for 400-500ms, so this
+// has to clear that comfortably or one sentence arrives as several fragments.
+//
+// There used to be a shorter exit (240ms) for utterances under 1.2s, on the
+// theory that short replies finish when they stop. It cut people off midway:
+// spokenMs measures speech *so far*, so the first word of a long sentence and
+// a complete one-word reply are indistinguishable at that moment. Every
+// sentence got cut at its first breath. One threshold, wide enough for both.
+const TRAILING_SILENCE_MS = 700;
 // Give up (and report an empty turn) if nobody starts speaking.
 const NO_SPEECH_TIMEOUT_MS = 6_000;
 // Hard ceiling so a noisy room cannot record forever.
@@ -232,8 +233,7 @@ class WhisperSpeechService implements SpeechServiceInterface {
 
     if (this.heardSpeech) {
       const spokenMs = this.speechStartedAt ? now - this.speechStartedAt : 0;
-      const requiredSilence =
-        spokenMs <= SHORT_UTTERANCE_MS ? SHORT_TRAILING_SILENCE_MS : TRAILING_SILENCE_MS;
+      const requiredSilence = TRAILING_SILENCE_MS;
       if (this.lastLoudAt && now - this.lastLoudAt >= requiredSilence) {
         void this.finishTurn(turnId);
         return;
