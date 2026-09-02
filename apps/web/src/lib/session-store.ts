@@ -7,6 +7,7 @@ export type WebUtterance = {
   sourceLang: "en" | "ja";
   targetLang: "en" | "ja";
   createdAt: string;
+  nuances?: { text: string; color: string }[];
 };
 
 export type WebSession = {

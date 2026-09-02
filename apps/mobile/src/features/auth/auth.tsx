@@ -1,5 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import * as Crypto from 'expo-crypto';
 
 import { supabase } from "../../services/supabase";
 
@@ -9,6 +11,7 @@ type AuthContextValue = {
   user: User | null;
   authReady: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signInWithGoogle: () => Promise<{ error?: string }>;
   signUp: (email: string, password: string, displayName: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   sendOTP: (email: string) => Promise<{ error?: string }>;
@@ -55,6 +58,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return error ? { error: error.message } : {};
+      },
+      signInWithGoogle: async () => {
+        if (!supabase) return { error: "Supabase mobile environment is not configured." };
+        try {
+          // Configure Google Sign-In
+          GoogleSignin.configure({
+            scopes: ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+            webClientId: "827497311574-enhqj6mclo70mnc8gmosadsrvno19hfa.apps.googleusercontent.com",
+            iosClientId: "827497311574-b27csvqgvc22sam3jfg21ien8ug2vd3v.apps.googleusercontent.com",
+          });
+
+          await GoogleSignin.hasPlayServices();
+          try {
+            await GoogleSignin.signOut(); // Wipes cached tokens
+          } catch (e) {
+            // Ignore
+          }
+          const response = await GoogleSignin.signIn();
+          const idToken = response.data?.idToken || (response as any).idToken;
+          
+          if (idToken) {
+            const { error } = await supabase.auth.signInWithIdToken({
+              provider: "google",
+              token: idToken,
+            });
+            return error ? { error: error.message } : {};
+          } else {
+            return { error: "No ID token present!" };
+          }
+        } catch (error: any) {
+          if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+            return { error: "User cancelled the login flow" };
+          } else if (error.code === statusCodes.IN_PROGRESS) {
+            return { error: "Sign in is in progress already" };
+          } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+            return { error: "Play services not available or outdated" };
+          } else {
+            return { error: error.message || "An unknown error occurred" };
+          }
+        }
       },
       signUp: async (email, password, displayName) => {
         if (!supabase) return { error: "Supabase mobile environment is not configured." };

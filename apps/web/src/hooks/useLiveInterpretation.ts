@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { quickVoiceWsUrl } from "@/lib/quickvoice-api";
+import { useAuth } from "@/context/AuthContext";
 
 // Requested rate. Browsers are free to ignore it — Safari in particular hands
 // back the hardware rate (typically 48kHz) no matter what is asked for. Every
@@ -72,7 +73,34 @@ export type InterpretationEntry = {
   id: string;
   original: string;
   translation: string;
+  nuances?: { text: string; color: string }[];
 };
+
+// Mock AI Nuance Generator for feature visualization
+function analyzeNuance(text: string): { text: string; color: string }[] {
+  const nuances: { text: string; color: string }[] = [];
+  const lowerText = text.toLowerCase();
+  
+  if (lowerText.includes("please") || lowerText.includes("sir") || lowerText.includes("ma'am") || lowerText.includes("thank you")) {
+    nuances.push({ text: "Polite (Keigo)", color: "bg-blue-500/10 text-blue-500 border-blue-500/20" });
+  }
+  if (lowerText.includes("no") || lowerText.includes("can't") || lowerText.includes("won't") || lowerText.includes("impossible")) {
+    nuances.push({ text: "Direct / Firm", color: "bg-orange-500/10 text-orange-500 border-orange-500/20" });
+  }
+  if (lowerText.includes("urgent") || lowerText.includes("now") || lowerText.includes("asap") || lowerText.includes("quickly")) {
+    nuances.push({ text: "High Urgency", color: "bg-red-500/10 text-red-500 border-red-500/20" });
+  }
+  if (lowerText.includes("maybe") || lowerText.includes("perhaps") || lowerText.includes("think") || lowerText.includes("might")) {
+    nuances.push({ text: "Hesitant", color: "bg-gray-500/10 text-gray-500 border-gray-500/20" });
+  }
+  
+  // Randomly add a cultural context tag occasionally for demo purposes if no keywords match
+  if (nuances.length === 0 && text.length > 10 && Math.random() > 0.7) {
+    nuances.push({ text: "Casual / Informal", color: "bg-green-500/10 text-green-500 border-green-500/20" });
+  }
+  
+  return nuances;
+}
 
 function float32ToPcm16(float32: Float32Array): ArrayBuffer {
   const buffer = new ArrayBuffer(float32.length * 2);
@@ -125,6 +153,12 @@ export function useLiveInterpretation(
   sourceLangLabel: string,
   targetLangLabel: string
 ) {
+  const { session } = useAuth();
+  const tokenRef = useRef(session?.access_token);
+  useEffect(() => {
+    tokenRef.current = session?.access_token;
+  }, [session?.access_token]);
+
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState("");
   const [liveTranslation, setLiveTranslation] = useState("");
@@ -477,7 +511,9 @@ export function useLiveInterpretation(
 
     // Awaited before the socket opens: the URL now carries a short-lived token
     // fetched from this site's server, so the key is never in the page.
-    const ws = new WebSocket(await quickVoiceWsUrl());
+    const url = await quickVoiceWsUrl();
+    const protocols = tokenRef.current ? ["access_token", tokenRef.current] : [];
+    const ws = new WebSocket(url, protocols);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -515,6 +551,7 @@ export function useLiveInterpretation(
                 id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                 original: msg.original || "",
                 translation: msg.translation || "",
+                nuances: analyzeNuance(msg.translation || msg.original || ""),
               },
             ]);
           }

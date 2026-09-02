@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../features/auth/auth";
 
 export const authColors = {
   border: "#D9D9D9",
@@ -166,13 +167,22 @@ export function AuthTextField({
 }
 
 export function SocialAuthButtons() {
+  const { signInWithGoogle } = useAuth();
+
+  const handleGoogleSignIn = async () => {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      Alert.alert("Google Sign-In Error", error);
+    }
+  };
+
   return (
     <View style={styles.socialRow}>
       <SocialButton
         icon="logo-google"
         iconColor="#4285F4"
         label="Google"
-        onPress={() => Alert.alert("Google sign-in", "Google OAuth will open here.")}
+        onPress={handleGoogleSignIn}
       />
       <SocialButton
         icon="logo-facebook"

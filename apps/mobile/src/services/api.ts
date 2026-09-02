@@ -222,12 +222,9 @@ function baseUrl(): Promise<string> {
   return serverBaseUrl("EXPO_PUBLIC_AI_BASE_URL", 8000);
 }
 
-/** Base URL for the Node backend (auth, signup, etc.), port 5001 — where it
- *  actually runs (backend/.env PORT=5001); this default previously pointed
- *  at 8000, the AI server's port, so any caller relying on it silently hit
- *  the wrong service. */
+/** Base URL for the Node backend (auth, signup, etc.), port 4000. */
 export function apiBaseUrl(): Promise<string> {
-  return serverBaseUrl("EXPO_PUBLIC_API_BASE_URL", 5001);
+  return serverBaseUrl("EXPO_PUBLIC_API_BASE_URL", 4000);
 }
 
 /** WebSocket URL for the live interpretation endpoint. */

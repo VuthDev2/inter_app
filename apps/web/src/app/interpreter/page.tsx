@@ -20,9 +20,9 @@ export default function InterpreterPage() {
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [typedText, setTypedText] = useState("");
-    const [manualEntries, setManualEntries] = useState<Array<{ id: string; original: string; translation: string }>>([]);
+    const [manualEntries, setManualEntries] = useState<Array<{ id: string; original: string; translation: string; nuances?: { text: string; color: string }[] }>>([]);
     // Anything recovered from a recording that was cut short before it was saved.
-    const [recoveredEntries, setRecoveredEntries] = useState<Array<{ id: string; original: string; translation: string }>>([]);
+    const [recoveredEntries, setRecoveredEntries] = useState<Array<{ id: string; original: string; translation: string; nuances?: { text: string; color: string }[] }>>([]);
     const [showRecoveryNotice, setShowRecoveryNotice] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
@@ -435,6 +435,15 @@ export default function InterpreterPage() {
                                             <span className="text-[10px] text-[rgba(var(--muted),0.8)]">10:42:03</span>
                                         </div>
                                         <p className="text-[14px] text-[rgba(var(--text),0.8)] leading-relaxed pr-4">{entry.translation}</p>
+                                        {entry.nuances && entry.nuances.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-1">
+                                                {entry.nuances.map((nuance, i) => (
+                                                    <span key={i} className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${nuance.color}`}>
+                                                        {nuance.text}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -582,7 +591,7 @@ export default function InterpreterPage() {
                 langKey,
                 align = "left",
 }: {
-                entries: { id: string; original: string; translation: string }[];
+                entries: { id: string; original: string; translation: string; nuances?: { text: string; color: string }[] }[];
             langKey: "original" | "translation";
             align?: "left" | "right";
 }) {
@@ -605,13 +614,23 @@ export default function InterpreterPage() {
                     <div className="flex-1 flex flex-col justify-end">
                         <div className="flex flex-col space-y-5 pt-10">
                             {entries.map((entry) => (
-                                <p
-                                    key={entry.id}
-                                    className={`text-[15px] leading-relaxed tracking-wide ${align === "right" ? "text-right text-[rgba(var(--text-secondary),1)]" : "text-[rgba(var(--text),0.9)]"
-                                        }`}
-                                >
-                                    {entry[langKey]}
-                                </p>
+                                <div key={entry.id} className="flex flex-col gap-1">
+                                    <p
+                                        className={`text-[15px] leading-relaxed tracking-wide ${align === "right" ? "text-right text-[rgba(var(--text-secondary),1)]" : "text-[rgba(var(--text),0.9)]"
+                                            }`}
+                                    >
+                                        {entry[langKey]}
+                                    </p>
+                                    {langKey === "translation" && entry.nuances && entry.nuances.length > 0 && (
+                                        <div className={`mt-1 flex flex-wrap gap-2 ${align === "right" ? "justify-end" : "justify-start"}`}>
+                                            {entry.nuances.map((nuance, i) => (
+                                                <span key={i} className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${nuance.color}`}>
+                                                    {nuance.text}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </div>

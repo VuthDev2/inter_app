@@ -12,7 +12,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.quickvoicemobile"
+      "bundleIdentifier": "com.anonymous.quickvoicemobile",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.827497311574-b27csvqgvc22sam3jfg21ien8ug2vd3v"
+            ]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -31,6 +40,12 @@
       "bundler": "metro"
     },
     "plugins": [
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.827497311574-b27csvqgvc22sam3jfg21ien8ug2vd3v"
+        }
+      ],
       [
         "expo-audio",
         {
