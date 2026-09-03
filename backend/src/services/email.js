@@ -18,7 +18,9 @@ if (SMTP_USER && SMTP_PASS) {
 }
 
 function devLog(label, details) {
-  console.log(`[DEV] ${label}:`, JSON.stringify(details));
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[DEV] ${label}:`, JSON.stringify(details));
+  }
 }
 
 async function trySend({ to, subject, html, label, logPayload }) {

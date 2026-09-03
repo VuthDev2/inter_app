@@ -4,6 +4,10 @@ import { WebSocketServer } from "ws";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config.js";
 import { handleLiveConnection } from "./live.js";
 
+// Rate limiting state
+const ipConnections = new Map();
+setInterval(() => ipConnections.clear(), 60_000);
+
 const supabase =
   SUPABASE_URL && SUPABASE_ANON_KEY
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -61,14 +65,38 @@ async function verifyToken(token) {
 }
 
 export function setupWebSocket(server) {
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({
+    server,
+    handleProtocols: (protocols) => {
+      if (protocols.has("access_token")) return "access_token";
+      return Array.from(protocols)[0] || false;
+    }
+  });
 
   wss.on("connection", async (ws, req) => {
+    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    if (ip) {
+      const count = ipConnections.get(ip) || 0;
+      if (count > 30) {
+        ws.close(4029, "Too many connections");
+        return;
+      }
+      ipConnections.set(ip, count + 1);
+    }
+
     const url = new URL(req.url, `http://${req.headers.host}`);
 
-    const token = url.searchParams.get("token");
+    let token = null;
+    if (req.headers["sec-websocket-protocol"]) {
+      const protocols = req.headers["sec-websocket-protocol"].split(",").map(p => p.trim());
+      const tokenIdx = protocols.indexOf("access_token");
+      if (tokenIdx !== -1 && protocols.length > tokenIdx + 1) {
+        token = protocols[tokenIdx + 1];
+      }
+    }
+
     if (!token) {
-      sendJson(ws, { type: "error", text: "Authentication required. Provide a token query parameter." });
+      sendJson(ws, { type: "error", text: "Authentication required. Provide a token." });
       ws.close(4001, "Authentication required");
       return;
     }

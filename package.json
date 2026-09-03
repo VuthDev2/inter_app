@@ -1,7 +1,7 @@
 {
   "name": "quickvoice",
   "private": true,
-  "description": "QuickVoice \u2014 real-time voice interpretation for mobile and web",
+  "description": "QuickVoice — real-time voice interpretation for mobile and web",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -21,6 +21,10 @@
   },
   "dependencies": {
     "@react-navigation/stack": "^7.10.17",
-    "lightningcss": "^1.33.0"
-  }
+    "lightningcss": "^1.33.0",
+    "expo": "~57.0.18",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "version": "1.0.0"
 }

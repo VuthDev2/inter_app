@@ -2,9 +2,25 @@ import type { SavedRecordingSession } from "../constants/data";
 import { appStorage } from "./nativeStorage";
 import { supabase } from "./supabase";
 
-const RECORDING_KEY        = "quickvoice.recordingSessions";
-const LIVE_SESSION_KEY     = "quickvoice.liveSessions";
-const AUDIO_RECORDING_KEY  = "quickvoice.audioRecordings";
+// Storage is per signed-in account.
+//
+// These keys used to be global, so everything below belonged to whoever used
+// the device last: sign out, sign in as someone else, and History showed the
+// previous account's conversations. The keys now carry the account id, which
+// separates each person's data without deleting it -- sign back in and your own
+// history is still there.
+let currentUserScope = "anon";
+
+/** Point storage at one account. Call on sign-in, sign-out and session restore. */
+export function setStorageUser(userId: string | null | undefined) {
+  currentUserScope = userId ? `u:${userId}` : "anon";
+}
+
+const scoped = (base: string) => `${base}::${currentUserScope}`;
+
+const RECORDING_KEY_BASE       = "quickvoice.recordingSessions";
+const LIVE_SESSION_KEY_BASE    = "quickvoice.liveSessions";
+const AUDIO_RECORDING_KEY_BASE = "quickvoice.audioRecordings";
 
 // ─── Cloud sync switch ───────────────────────────────────────────────────────
 // Conversations are always kept on the device. Copying them to Supabase — which
@@ -35,7 +51,7 @@ function uuid4(): string {
 // ─── Recording sessions ───────────────────────────────────────────────────────
 export async function loadSavedRecordingSessions(): Promise<SavedRecordingSession[]> {
   try {
-    const raw = await appStorage.getItem(RECORDING_KEY);
+    const raw = await appStorage.getItem(scoped(RECORDING_KEY_BASE));
     const parsed = JSON.parse(raw ?? "[]");
     return Array.isArray(parsed) ? (parsed as SavedRecordingSession[]) : [];
   } catch {
@@ -48,7 +64,7 @@ export async function saveRecordingSession(session: SavedRecordingSession): Prom
   const existing = await loadSavedRecordingSessions();
   const idx = existing.findIndex((s) => s.id === session.id);
   if (idx >= 0) existing[idx] = session; else existing.unshift(session);
-  await appStorage.setItem(RECORDING_KEY, JSON.stringify(existing.slice(0, 100)));
+  await appStorage.setItem(scoped(RECORDING_KEY_BASE), JSON.stringify(existing.slice(0, 100)));
 
   // 2. Try cloud sync in the background — never throw
   if (!supabase || !cloudSyncEnabled) return;
@@ -91,7 +107,7 @@ export type LiveSession = {
 
 export async function loadLiveSessions(): Promise<LiveSession[]> {
   try {
-    const raw = await appStorage.getItem(LIVE_SESSION_KEY);
+    const raw = await appStorage.getItem(scoped(LIVE_SESSION_KEY_BASE));
     const parsed = JSON.parse(raw ?? "[]");
     return Array.isArray(parsed) ? (parsed as LiveSession[]) : [];
   } catch {
@@ -103,7 +119,7 @@ export async function saveLiveSessionLocally(session: LiveSession): Promise<void
   const existing = await loadLiveSessions();
   const idx = existing.findIndex((s) => s.id === session.id);
   if (idx >= 0) existing[idx] = session; else existing.unshift(session);
-  await appStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(existing.slice(0, 50)));
+  await appStorage.setItem(scoped(LIVE_SESSION_KEY_BASE), JSON.stringify(existing.slice(0, 50)));
 }
 
 export async function saveLiveSession(session: LiveSession): Promise<void> {
@@ -167,7 +183,7 @@ export type LocalAudioRecording = {
 
 export async function loadAudioRecordings(): Promise<LocalAudioRecording[]> {
   try {
-    const raw = await appStorage.getItem(AUDIO_RECORDING_KEY);
+    const raw = await appStorage.getItem(scoped(AUDIO_RECORDING_KEY_BASE));
     const parsed = JSON.parse(raw ?? "[]");
     return Array.isArray(parsed) ? (parsed as LocalAudioRecording[]) : [];
   } catch {
@@ -176,7 +192,7 @@ export async function loadAudioRecordings(): Promise<LocalAudioRecording[]> {
 }
 
 async function saveAudioRecordingsIndex(list: LocalAudioRecording[]): Promise<void> {
-  await appStorage.setItem(AUDIO_RECORDING_KEY, JSON.stringify(list));
+  await appStorage.setItem(scoped(AUDIO_RECORDING_KEY_BASE), JSON.stringify(list));
 }
 
 export async function addAudioRecording(rec: LocalAudioRecording): Promise<void> {
