@@ -41,3 +41,7 @@ live_interpreter/models/
 #   ct2-transformers-converter --model staka/fugumt-en-ja --quantization int8 \
 #     --output_dir python-server/models/ct2/fugumt-en-ja
 python-server/models/
+
+# Timestamped copies of .env made by the start script. The plain `.env` rule
+# above does not match them, so they would otherwise be committed.
+.env.backup-*

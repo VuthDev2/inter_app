@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --bg: 247, 248, 251;
   --surface: 255, 255, 255;
   --surface-muted: 241, 243, 248;
@@ -22,13 +23,14 @@
 }
 
 :root.dark {
-  --bg: 10, 14, 26;
-  --surface: 16, 22, 37;
-  --surface-muted: 20, 27, 46;
+  color-scheme: dark;
+  --bg: 15, 16, 18;
+  --surface: 37, 40, 46;
+  --surface-muted: 32, 36, 43;
   --text: 241, 243, 248;
-  --text-secondary: 176, 184, 204;
+  --text-secondary: 176, 182, 191;
   --muted: 123, 130, 153;
-  --border: 42, 45, 62;
+  --border: 49, 54, 62;
   --primary: 96, 165, 250;
   --primary-pressed: 59, 130, 246;
   --primary-soft: rgba(96, 165, 250, 0.15);
@@ -43,5 +45,42 @@
 }
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Reserve the scrollbar's width on every page.
+   The live and record screens lock to the viewport (h-screen, overflow-hidden)
+   so they have no scrollbar, while every other page scrolls and does. Moving
+   between them changed the usable width by ~15px, which shifted the header and
+   re-centred the content -- it read as the whole top bar resizing. */
+html {
+  scrollbar-gutter: stable;
+}
+
+@keyframes conversation-turn-from-left {
+  from { opacity: 0; transform: translate3d(-18px, 8px, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes conversation-turn-from-right {
+  from { opacity: 0; transform: translate3d(18px, 8px, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.conversation-turn-left,
+.conversation-turn-right {
+  will-change: transform, opacity;
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+
+.conversation-turn-left { animation-name: conversation-turn-from-left; }
+.conversation-turn-right { animation-name: conversation-turn-from-right; }
+
+@media (prefers-reduced-motion: reduce) {
+  .conversation-turn-left,
+  .conversation-turn-right {
+    animation: none;
+  }
 }

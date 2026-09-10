@@ -14,6 +14,7 @@ import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { OTPScreen } from "./src/screens/OTPScreen";
 import { PreferencesProvider, usePreferences } from "./src/features/preferences/context";
 import { I18nProvider, useTranslation } from "./src/i18n/I18nContext";
+import { type LiveSession } from "./src/services/storage";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { HistoryScreen, type HistoryKind } from "./src/screens/HistoryScreen";
 import { LiveScreen } from "./src/screens/LiveScreen";
@@ -90,6 +91,9 @@ function AppFrame() {
     ? { background: "#0E1013", border: "#383D45", surface: "#25292F", text: "#F5F7FA", muted: "#A4ABB5", indicator: "#163A62" }
     : { background: colors.background, border: "#E3E6EB", surface: "#FFFFFF", text: "#111318", muted: "#5F6670", indicator: "#EAF3FF" };
   const [activeTab, setActiveTab] = useState<Tab>("live");
+  // A conversation handed over from History to be carried on in the Live
+  // Interpreter. Held here because the two live in different tabs.
+  const [resumeSession, setResumeSession] = useState<LiveSession | null>(null);
   const [historyInitialKind, setHistoryInitialKind] = useState<HistoryKind>("conversations");
   // The tab bar follows `activeTab` immediately so a tap feels instant, while
   // the content keeps showing `renderedTab` until the outgoing page has faded.
@@ -325,7 +329,11 @@ function AppFrame() {
       >
         {/* `activeTab`, not `renderedTab`: the microphone should stop the
             instant another tab is tapped, not after the fade finishes. */}
-        <LiveScreen active={activeTab === "live"} />
+        <LiveScreen
+          active={activeTab === "live"}
+          resume={resumeSession}
+          onResumed={() => setResumeSession(null)}
+        />
       </Animated.View>
       {renderedTab !== "live" ? <Animated.ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: TAB_HEIGHT + tabBarBottom + spacing.lg, paddingTop: pageHeaderHeight + spacing.sm }}
@@ -338,7 +346,15 @@ function AppFrame() {
       >
         {renderedTab === "home"     && <DashboardScreen setActiveTab={setActiveTab} />}
         {renderedTab === "record"   && <RecordScreen setActiveTab={(tab) => { setHistoryInitialKind("recordings"); setActiveTab(tab); }} onSessionChange={setRecordSessionActive} backRequest={recordBackRequest} />}
-        {renderedTab === "history"  && <HistoryScreen initialKind={historyInitialKind} />}
+        {renderedTab === "history"  && (
+          <HistoryScreen
+            initialKind={historyInitialKind}
+            onContinue={(session) => {
+              setResumeSession(session as LiveSession);
+              setActiveTab("live");
+            }}
+          />
+        )}
         {renderedTab === "settings" && <SettingsScreen setActiveTab={setActiveTab} onPrivacySecurity={() => setAccountScreen("privacy")} />}
         {renderedTab === "profile"  && <ProfileScreen />}
       </Animated.ScrollView> : null}

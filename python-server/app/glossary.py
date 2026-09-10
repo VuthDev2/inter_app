@@ -9,12 +9,18 @@ is a name here".
 
 The mechanism is a placeholder swap. Each protected term is replaced with a
 bare token before translation and put back afterwards. The token shape
-matters and was measured against this NLLB build:
+matters, and it is model-specific: NAME0 survived NLLB but fugumt reads it as
+the English word "name" and translates it, which silently broke protection
+when the model changed. Re-measured against the fugumt/CT2 build in use:
 
-    "Hello, NAME0"       ->  こんにちは,NAME0     (survives)
-    "Hello, __NAME0__"   ->  こんにちは,名字      (translated!)
+    "Hello, XQ0X"        ->  こんにちは、XQ0X     (survives)
+    "Hello, Zyx0"        ->  こんにちは、Zyx0     (survives)
+    "Hello, NAME0"       ->  こんにちは、お名前   (translated!)
+    "Hello, Qz0"         ->  こんにちは、Q20      (mangled)
+    "Hello, @0@"         ->  こんにちは、@08      (mangled)
 
-Underscores get treated as text, so the bare form is the one to use.
+So: letters around the digits, and nothing that reads as a word. Re-measure
+this table whenever the translation model changes.
 """
 
 from __future__ import annotations
@@ -27,11 +33,15 @@ from pathlib import Path
 # Terms live next to the server so they survive a restart without a database.
 STORE_PATH = Path(__file__).resolve().parent.parent / "protected_terms.json"
 
-# Bare alphanumeric token; see the module docstring for why not __NAME0__.
-_PLACEHOLDER = "NAME{}"
-# The model occasionally re-spaces or re-cases a placeholder ("NAME 0",
-# "name0"), so restoration is deliberately more tolerant than emission.
-_PLACEHOLDER_RE = "NAME\\s*{}"
+# Bare alphanumeric token; see the module docstring for why not NAME0.
+_PLACEHOLDER = "XQ{}X"
+# The model occasionally re-spaces or re-cases a placeholder ("XQ 0 X",
+# "xq0x"), so restoration is deliberately more tolerant than emission.
+_PLACEHOLDER_RE = "XQ\\s*{}\\s*X"
+# Derived from the format above rather than written out again: the index used
+# to be read with a hard-coded token[len("NAME"):], which silently returned an
+# empty string the moment the token shape changed, and nothing was restored.
+_PREFIX, _, _SUFFIX = _PLACEHOLDER.partition("{}")
 
 _MAX_TERMS = 200
 _MAX_TERM_LENGTH = 60
@@ -113,7 +123,7 @@ def restore(text: str, mapping: dict[str, str]) -> str:
         return text
     restored = text
     for token, original in mapping.items():
-        index = token[len("NAME"):]
+        index = token[len(_PREFIX): len(token) - len(_SUFFIX) or None]
         restored = re.sub(
             _PLACEHOLDER_RE.format(re.escape(index)),
             original.replace("\\", r"\\"),

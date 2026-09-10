@@ -1,6 +1,8 @@
 import { File } from "expo-file-system";
 import { NativeModules, Platform } from "react-native";
 
+import { loadManualServerUrl, manualServerUrlSync } from "./serverAddress";
+
 export type TranslateResult = {
   ok: boolean;
   translation: string;
@@ -111,6 +113,12 @@ function candidateBaseUrls(
 ): string[] {
   const candidates: string[] = [];
 
+  // An address typed into Settings beats every guess below it. It is the only
+  // one a person chose on purpose, and it is how someone recovers when the
+  // laptop's IP changes or the tunnel is re-issued.
+  const manual = manualServerUrlSync();
+  if (manual && port === 8000) candidates.push(manual.replace(/\/+$/, ""));
+
   const devHost = devHostFromMetro();
   if (devHost && devHost !== "localhost" && devHost !== "127.0.0.1") {
     candidates.push(`http://${devHost}:${port}`);
@@ -177,15 +185,19 @@ function firstReachable(candidates: string[]): Promise<string> {
  * another: a wrong guess had no fallback. Probing every candidate at once
  * costs one round trip on first use and then nothing.
  */
-function serverBaseUrl(
+async function serverBaseUrl(
   variable: "EXPO_PUBLIC_AI_BASE_URL" | "EXPO_PUBLIC_API_BASE_URL",
   port: number,
 ): Promise<string> {
   const cached = resolvedBases.get(port);
-  if (cached) return Promise.resolve(cached);
+  if (cached) return cached;
 
   const running = probesInFlight.get(port);
   if (running) return running;
+
+  // Reads storage on the first call only; after that it answers from memory,
+  // so the address the user typed is in hand before the candidates are built.
+  await loadManualServerUrl();
 
   const candidates = candidateBaseUrls(variable, port);
   const probe = firstReachable(candidates)
@@ -210,6 +222,25 @@ function serverBaseUrl(
  */
 export function forgetResolvedServers(): void {
   resolvedBases.clear();
+  probesInFlight.clear();
+}
+
+/** The address currently in use for the model server, if one has been found.
+ *  Settings shows it so there is something concrete to compare against. */
+export function resolvedServerUrl(): string | null {
+  return resolvedBases.get(8000) ?? null;
+}
+
+/** Ask one specific address whether it is a QuickVoice server. Used by the
+ *  Test button in Settings, which has to report on the address just typed --
+ *  not on whatever the app settled for earlier. */
+export async function checkServerUrl(base: string): Promise<{ ok: boolean; detail: string }> {
+  try {
+    const winner = await probeHealth(base.replace(/\/+$/, ""));
+    return { ok: true, detail: winner };
+  } catch (reason) {
+    return { ok: false, detail: reason instanceof Error ? reason.message : String(reason) };
+  }
 }
 
 /**
@@ -350,6 +381,61 @@ export async function transcribeAudio(
 ): Promise<string> {
   const result = await transcribeAudioResult(audioUri, language);
   return result.text;
+}
+
+/**
+ * One turn, one round trip: upload the clip and get back both what was heard
+ * and what it means.
+ *
+ * The screen used to call transcribeAudioResult and then translateTextViaApi.
+ * Each is fast on its own, but the translation could not start until the
+ * transcript had crossed the network twice, so every turn on the phone paid a
+ * whole extra round trip that the web app never pays -- it streams over the
+ * websocket and gets both halves together. Measured against the local server,
+ * the pair took 0.87-1.16s and this takes 0.62s, and the gap widens over Wi-Fi.
+ *
+ * Falls back to the two-call path when the server is older than this endpoint,
+ * so a phone on a new build still works against a server on an old one.
+ */
+export async function interpretAudioResult(
+  audioUri: string,
+  language: string,
+  expectedLanguage: "en" | "ja" | undefined,
+  source: "en" | "ja",
+  target: "en" | "ja",
+): Promise<{ text: string; language: "en" | "ja" | "unknown"; translation: string; target: "en" | "ja" | "" } | null> {
+  try {
+    const ext = audioUri.split(".").pop()?.toLowerCase() ?? "wav";
+    const audioFile = new File(audioUri);
+    const form = new FormData();
+    form.append("file", audioFile as unknown as Blob, `recording.${ext}`);
+    form.append("language", language);
+    if (expectedLanguage) form.append("expected", expectedLanguage);
+    form.append("source", source);
+    form.append("target", target);
+
+    const res = await fetchWithTimeout(`${await baseUrl()}/interpret`, {
+      method: "POST",
+      headers: await authHeaders(),
+      body: form,
+    }, 20_000);
+
+    // 404 means this server predates /interpret; the caller then does it the
+    // long way rather than losing the turn.
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    if (!json?.ok) return null;
+    return {
+      text: typeof json.text === "string" ? json.text : "",
+      language: json.language === "ja" || json.language === "en" ? json.language : "unknown",
+      translation: typeof json.translation === "string" ? json.translation : "",
+      target: json.target === "ja" || json.target === "en" ? json.target : "",
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function transcribeAudioResult(

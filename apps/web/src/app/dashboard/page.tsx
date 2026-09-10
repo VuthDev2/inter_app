@@ -1,6 +1,6 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
+import { PageShell, PageHeader, PrimaryAction, SectionHeading } from "@/components/PageShell";
 import { Mic, MessageSquare, Play, ExternalLink, Globe, Download, ChevronRight, Speech } from "lucide-react";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
@@ -18,18 +18,15 @@ function DashboardContent() {
         return subscribeStorage(refresh);
     }, []);
 
-    return <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
-            <Navbar />
-            
-            <div className="flex-1 flex flex-col items-center px-6 pt-16 pb-24">
-                <h1 className="text-3xl font-semibold tracking-wide mb-2 text-[rgba(var(--text),0.9)]">
-                    Welcome Back, {displayName}
-                </h1>
-                <p className="text-[rgba(var(--muted),1)] text-[14px] mb-12 text-center max-w-md">
-                    Choose a session type to begin real-time interpretation.
-                </p>
+    return <div className="flex-1 bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
+                        
+            <PageShell>
+                <PageHeader
+                    title={`Welcome Back, ${displayName}`}
+                    subtitle="Choose a session type to begin real-time interpretation."
+                />
 
-                <div className="w-full max-w-[800px] flex flex-col gap-10">
+                <div className="flex flex-col gap-10">
                     {/* Session Type Section */}
                     <div className="flex flex-col gap-3">
                         <h2 className="text-lg font-semibold text-[rgba(var(--text),0.9)] tracking-wide">
@@ -143,7 +140,7 @@ function DashboardContent() {
                         </div>
                     </div>
                 </div>
-            </div>
+            </PageShell>
         </div>;
 }
 

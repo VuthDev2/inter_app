@@ -25,8 +25,9 @@ import { AnchoredMenu } from "../components/AnchoredMenu";
 import { atoms } from "../theme/atoms";
 import { languages, type LanguageCode } from "../constants/data";
 import { translateTextViaApi } from "../services/api";
-import { saveLiveSession, saveLiveSessionLocally, loadLiveSessions } from "../services/storage";
+import { saveLiveSession, saveLiveSessionLocally, loadLiveSessions, type LiveSession } from "../services/storage";
 import { useKeepAwake } from "expo-keep-awake";
+import { useHaptics } from "../features/feedback/haptics";
 
 /**
  * Typed text carries no audio for Whisper to listen to, so unlike voice
@@ -81,8 +82,21 @@ const inputPrompt = (code: LanguageCode) => INPUT_PROMPTS[code] ?? `${getLabel(c
 // Pure pauses, not work — they only ever made a turn feel longer. Kept just
 // long enough that the transcript card is on screen before audio starts.
 const AUTO_SPEAK_START_DELAY_MS = 0;
-const MIC_RESUME_AFTER_SPEECH_MS = 80;
-const AUTO_SPEAK_SAFETY_TIMEOUT_MS = 25_000;
+// Long enough for the speaker to stop ringing, short enough to feel immediate.
+// At 80ms the microphone opened while the tail of the translation was still in
+// the air and recorded it, so the app answered its own voice.
+// The speaker keeps ringing after playback reports finishing, and on this iPad
+// 80ms then 350ms both let the tail back into the microphone. Six hundred is a
+// pause you can hear, but it is the difference between a conversation and the
+// app answering itself.
+const MIC_RESUME_AFTER_SPEECH_MS = 600;
+// The microphone is closed while a translation plays, and this is the deadline
+// that reopens it if playback never reports finishing. At 25 seconds a single
+// hung playback locked the conversation for nearly half a minute -- which is
+// what "stuck, cannot speak again" was. A spoken sentence is a few seconds; if
+// it has not finished in eight, something is wrong and the microphone is worth
+// more than the rest of the audio.
+const AUTO_SPEAK_SAFETY_TIMEOUT_MS = 8_000;
 
 // ─── Waveform ─────────────────────────────────────────────────────────────────
 const WAVE_H = 42;
@@ -214,12 +228,18 @@ export function SessionScreen({
   onBack,
   embedded = false,
   active = true,
+  resume,
+  onResumed,
 }: {
   initialSource: LanguageCode;
   initialTarget: LanguageCode;
   onBack?: () => void;
   embedded?: boolean;
   active?: boolean;
+  /** A saved conversation to carry on with, handed over from History. */
+  resume?: LiveSession | null;
+  /** Called once the resume has been dealt with, so it is not offered twice. */
+  onResumed?: () => void;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -253,6 +273,7 @@ export function SessionScreen({
   const speakRef = useRef(autoSpeak); useEffect(() => { speakRef.current = autoSpeak; }, [autoSpeak]);
   const speedRef = useRef(tts_speed); useEffect(() => { speedRef.current = tts_speed; }, [tts_speed]);
   const handledEntryIdRef = useRef<string | null>(null);
+  const haptics = useHaptics();
   const shouldFollowLatestRef = useRef(true);
   const ttsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const continuousModeRef = useRef(continuousMode);
@@ -349,6 +370,7 @@ export function SessionScreen({
   useEffect(() => {
     if (live.error) {
       setStatus(live.error);
+      haptics.error();
     } else if (interpreterSpeaking) {
       setStatus(t("live.speaking"));
     } else if (!live.isListening && live.interimText.trim()) {
@@ -358,7 +380,7 @@ export function SessionScreen({
     } else {
       setStatus(t("live.start"));
     }
-  }, [interpreterSpeaking, live.error, live.interimText, live.isListening, t]);
+  }, [haptics, interpreterSpeaking, live.error, live.interimText, live.isListening, t]);
 
   // Shared by spoken turns and typed messages so both land in the transcript
   // the same way, on the side of whichever language they were composed in.
@@ -455,6 +477,7 @@ export function SessionScreen({
     const latest = live.entries[live.entries.length - 1];
     if (!latest || handledEntryIdRef.current === latest.id) return;
     handledEntryIdRef.current = latest.id;
+    haptics.turn();
 
     const s = latest.sourceLang;
     const t = latest.targetLang;
@@ -489,6 +512,12 @@ export function SessionScreen({
             }, MIC_RESUME_AFTER_SPEECH_MS);
           });
       }, AUTO_SPEAK_START_DELAY_MS);
+    } else if (continuousModeRef.current) {
+      // Nothing to speak, so nothing will report finishing -- and the hook has
+      // already closed the microphone for playback that is not coming. Reopen
+      // it now, otherwise a turn with no translation ends the conversation:
+      // the app still looks alive, but speaking does nothing at all.
+      live.resumeAfterSpeech();
     }
 
   }, [live.entries, live.pauseForSpeech, live.resumeAfterSpeech]);
@@ -499,6 +528,9 @@ export function SessionScreen({
 
   // ─── Toggle record ──────────────────────────────────────────────────────────
   const toggle = () => {
+    // Felt through a pocket: during a long recording the phone is often not
+    // being looked at, and this is the confirmation that it heard the press.
+    haptics.tap();
     if (live.isListening) {
       live.stop();
     } else {
@@ -536,6 +568,83 @@ export function SessionScreen({
     ]);
   };
 
+  // ─── Continue a conversation from History ───────────────────────────────────
+  const loadSession = (session: LiveSession) => {
+    // Storage does not keep `lane`, so rebuild it the way the live path does:
+    // a turn spoken in the session's target language belongs on the right.
+    setUtterances(
+      session.utterances.map((u) => ({
+        ...u,
+        lane: (u.sourceLang === session.targetLang ? "right" : "left") as "left" | "right",
+      })),
+    );
+    setSrc(session.sourceLang as LanguageCode);
+    setTgt(session.targetLang as LanguageCode);
+    sessionId.current = session.id;
+    sessionStart.current = session.createdAt;
+    live.clearEntries();
+    handledEntryIdRef.current = null;
+  };
+
+  useEffect(() => {
+    if (!resume) return;
+    if (live.isListening) live.stop();
+
+    // Carrying on with an old conversation replaces whatever is on screen, and
+    // what is on screen may be a conversation nobody has saved. Ask before
+    // throwing it away rather than after.
+    if (utterances.length > 0 && utterances[0]?.id !== resume.utterances[0]?.id) {
+      Alert.alert(
+        t("live.replaceTitle"),
+        t("live.replaceMessage"),
+        [
+          { text: t("common.cancel"), style: "cancel", onPress: () => onResumed?.() },
+          {
+            text: t("live.replaceDiscard"),
+            style: "destructive",
+            onPress: () => { loadSession(resume); onResumed?.(); },
+          },
+          {
+            text: t("live.replaceSave"),
+            onPress: () => {
+              void saveLiveSession({
+                id: sessionId.current, sourceLang: src, targetLang: tgt,
+                mode: sessionMode, utterances, createdAt: sessionStart.current,
+                endedAt: new Date().toISOString(),
+              }).catch(() => undefined).then(() => {
+                loadSession(resume);
+                onResumed?.();
+              });
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    loadSession(resume);
+    onResumed?.();
+  }, [resume]);
+
+  // ─── Save without leaving ───────────────────────────────────────────────────
+  const [saving, setSaving] = useState(false);
+  const saveToHistory = async () => {
+    if (saving || utterances.length === 0) return;
+    setSaving(true);
+    try {
+      await saveLiveSession({
+        id: sessionId.current, sourceLang: src, targetLang: tgt,
+        mode: sessionMode, utterances, createdAt: sessionStart.current,
+        endedAt: new Date().toISOString(),
+      });
+      Alert.alert(t("live.savedTitle"), t("live.savedMessage"));
+    } catch {
+      Alert.alert(t("live.saveFailedTitle"), t("live.saveFailedMessage"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ─── Back ───────────────────────────────────────────────────────────────────
   const handleBack = async () => {
     if (live.isListening) live.stop();
@@ -554,7 +663,7 @@ export function SessionScreen({
   };
 
   const busy = live.isListening;
-  const hasTranscriptPreview = Boolean(live.interimText.trim());
+  const hasTranscriptPreview = Boolean(live.interimText.trim() || live.liveTranslation.trim());
   // While the mic is open with nothing transcribed yet, the app genuinely does
   // not know which language is coming — it alternates the recognizer's locale
   // behind the scenes, including on every empty window. Surfacing that guess
@@ -616,6 +725,13 @@ export function SessionScreen({
               onPress: swap,
             },
             {
+              key: "save",
+              label: t("live.saveToHistory"),
+              icon: "bookmark-outline",
+              disabled: saving || utterances.length === 0,
+              onPress: () => void saveToHistory(),
+            },
+            {
               key: "clear",
               label: t("live.clearConversation"),
               icon: "trash-outline",
@@ -665,7 +781,7 @@ export function SessionScreen({
         {utterances.map((u) => (
           <View key={`solid-card-${u.id}`} style={[ss.card, dark && ss.cardDark, laneStyle(u.lane)]}>
             <View style={[ss.cardHeader, u.lane === "right" && ss.cardHeaderRight]}>
-              <Text style={[ss.cardLanguage, u.lane === "right" && ss.cardLanguageRight, dark && ss.secondaryTextDark]}>{getLabel(u.sourceLang)}</Text>
+              <Text numberOfLines={1} style={[ss.cardLanguage, u.lane === "right" && ss.cardLanguageRight, dark && ss.secondaryTextDark]}>{getLabel(u.sourceLang)}</Text>
               <Pressable
                 onPress={() => {
                   void TTSService.speak(
@@ -729,7 +845,7 @@ export function SessionScreen({
                 >
                   {targetIsListening
                     ? live.interimText || t(tgt === "ja" ? "live.listeningJapanese" : "live.listeningEnglish")
-                    : t(tgt === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
+                    : live.liveTranslation || t(tgt === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
                 </Animated.Text>
               )}
             </View>
@@ -773,7 +889,7 @@ export function SessionScreen({
                 >
                   {sourceIsListening
                     ? live.interimText || t(src === "ja" ? "live.listeningJapanese" : "live.listeningEnglish")
-                    : t(src === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
+                    : live.liveTranslation || t(src === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
                 </Animated.Text>
               )}
               </View>
@@ -825,8 +941,11 @@ export function SessionScreen({
 }
 
 const ss = StyleSheet.create({
-  card: { backgroundColor: SURFACE, borderRadius: 20, marginBottom: 10, maxWidth: "88%", opacity: 1, padding: 16, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18, elevation: 3 },
-  cardHeader: { alignItems: "center", flexDirection: "row", marginBottom: 10 },
+  // minWidth keeps a short utterance ("today.") from shrinking the card down
+  // to the text and clipping the header — the language label and Play button
+  // must always fit on the top row.
+  card: { backgroundColor: SURFACE, borderRadius: 20, marginBottom: 10, maxWidth: "88%", minWidth: 232, opacity: 1, padding: 16, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18, elevation: 3 },
+  cardHeader: { alignItems: "center", flexDirection: "row", gap: 10, marginBottom: 10 },
   cardHeaderRight: { flexDirection: "row-reverse" },
   cardDark: { backgroundColor: "#25292F", shadowColor: "#000000" },
   cardLanguage: { color: "#69717E", flex: 1, fontSize: 12, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase" },
@@ -877,7 +996,9 @@ const ss = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
   },
-  translationLabel: { color: "#8A929E", fontSize: 10, fontWeight: "700", letterSpacing: 0.6, marginBottom: 4, textTransform: "uppercase" },
+  // Matches cardLanguage so the source label above the divider and the target
+  // label below it read as one consistent system, not two different styles.
+  translationLabel: { color: "#69717E", fontSize: 12, fontWeight: "700", letterSpacing: 0.4, marginBottom: 6, textTransform: "uppercase" },
   waitingCard: { backgroundColor: WHITE, borderRadius: 20, marginVertical: 6, maxWidth: "76%", minWidth: "54%", padding: 14, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 18 },
   waitingLanguage: { color: "#68717D", fontSize: 12, fontWeight: "700", marginBottom: 8 },
   transitionText: { left: 0, position: "absolute", right: 0, top: 0 },

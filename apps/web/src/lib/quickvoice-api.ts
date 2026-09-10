@@ -1,3 +1,5 @@
+import { routeToSelectedSpeaker } from "@/lib/audio-devices";
+
 export type QuickVoiceLanguage = "en" | "ja";
 
 function configuredBaseUrl(): string | null {
@@ -147,5 +149,6 @@ export async function speakWithQuickVoice(
   const audio = new Audio(url);
   audio.addEventListener("ended", () => URL.revokeObjectURL(url), { once: true });
   audio.addEventListener("error", () => URL.revokeObjectURL(url), { once: true });
+  await routeToSelectedSpeaker(audio);
   await audio.play();
 }

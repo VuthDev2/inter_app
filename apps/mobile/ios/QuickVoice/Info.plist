@@ -54,8 +54,13 @@
 	<array>
 		<string>_expo._tcp</string>
 	</array>
+	<!-- Our own wording, deliberately: expo-dev-launcher's Release build phase
+	     deletes this key when the text mentions "Expo Dev Launcher", and iOS 14+
+	     refuses connections to a LAN address without it. A Release build with
+	     the key stripped could not reach the model server on 192.168.x.x at all,
+	     and failed silently -- no prompt, no error, just "no server reachable". -->
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Expo Dev Launcher uses the local network to discover and connect to development servers running on your computer.</string>
+	<string>QuickVoice connects to the interpretation server running on your computer over your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Allow QuickVoice to access the microphone for real-time interpretation.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

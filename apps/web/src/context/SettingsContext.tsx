@@ -5,7 +5,6 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 type SettingsState = {
     sessionAlerts: boolean;
     soundEffects: boolean;
-    hapticFeedback: boolean;
     darkMode: boolean;
     compactView: boolean;
     language: string;
@@ -21,12 +20,11 @@ type SettingsContextType = SettingsState & {
 const defaultSettings: SettingsState = {
     sessionAlerts: true,
     soundEffects: true,
-    hapticFeedback: false,
-    darkMode: false, // Default to light mode (matching mobile)
+    darkMode: false,
     compactView: false,
     language: "English",
-    micInput: "Default",
-    speakerOutput: "Default",
+    micInput: "default",
+    speakerOutput: "default",
     noiseCancellation: true,
 };
 
@@ -41,17 +39,39 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const storedSettings = localStorage.getItem("app_settings");
         if (storedSettings) {
             try {
-                setSettings({ ...defaultSettings, ...JSON.parse(storedSettings) });
+                const { darkMode: _oldManualTheme, ...stored } = JSON.parse(storedSettings);
+                setSettings({
+                    ...defaultSettings,
+                    ...stored,
+                    darkMode: window.matchMedia("(prefers-color-scheme: dark)").matches,
+                });
             } catch (e) {
                 console.error("Failed to parse settings from localStorage", e);
             }
+        } else {
+            setSettings(prev => ({
+                ...prev,
+                darkMode: window.matchMedia("(prefers-color-scheme: dark)").matches,
+            }));
         }
+    }, []);
+
+    useEffect(() => {
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+        const followSystemTheme = (event: MediaQueryListEvent | MediaQueryList) => {
+            setSettings(prev => ({ ...prev, darkMode: event.matches }));
+        };
+
+        followSystemTheme(systemTheme);
+        systemTheme.addEventListener("change", followSystemTheme);
+        return () => systemTheme.removeEventListener("change", followSystemTheme);
     }, []);
 
     useEffect(() => {
         if (!isMounted) return;
 
-        localStorage.setItem("app_settings", JSON.stringify(settings));
+        const { darkMode: _systemTheme, ...persistedSettings } = settings;
+        localStorage.setItem("app_settings", JSON.stringify(persistedSettings));
         
         // Apply side effects to DOM for global CSS targeting
         if (settings.darkMode) {

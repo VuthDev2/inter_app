@@ -1,4 +1,5 @@
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
+import { routeThroughEarpiece } from "../../../../services/audioSettings";
 import { File, Paths } from "expo-file-system";
 import * as Speech from "expo-speech";
 import { Platform } from "react-native";
@@ -50,9 +51,11 @@ class QuickVoiceTTSService {
         player.play();
       });
       if (requestId === this.requestId) this.releaseCurrentAudio();
+      await this.restoreRecordingAudioMode();
       return;
     } catch {
       // Fall back to the system voice when the local TTS server is unavailable.
+      await this.restoreRecordingAudioMode();
     }
 
     // The system voice is the fallback on *both* platforms. Restricting it to
@@ -89,11 +92,39 @@ class QuickVoiceTTSService {
         voice,
       });
     });
+    // The fallback voice takes the session too, so the microphone has to be
+    // handed back on this path as well.
+    await this.restoreRecordingAudioMode();
   }
 
   stop(): void {
     this.requestId += 1;
     this.releaseCurrentAudio();
+  }
+
+  /**
+   * Give the microphone back.
+   *
+   * preparePlaybackAudioMode takes the session with `allowsRecording: false`,
+   * and nothing handed it back afterwards. The recogniser does set its own
+   * category when it next starts, but expo-audio still held the session in a
+   * playback shape, so recording continued -- capturing near-silence. On a real
+   * device that showed up as turn after turn of several hundred KB of audio
+   * that Whisper transcribed as nothing: the first sentence of a session worked
+   * and everything after the first spoken translation came back empty.
+   */
+  private async restoreRecordingAudioMode(): Promise<void> {
+    try {
+      await setAudioModeAsync({
+        allowsRecording: true,
+        interruptionMode: "duckOthers",
+        playsInSilentMode: true,
+        shouldRouteThroughEarpiece: routeThroughEarpiece(),
+      });
+    } catch {
+      // Leave it to the recogniser's own category call rather than failing the
+      // turn over an audio-mode change.
+    }
   }
 
   /**
@@ -107,12 +138,18 @@ class QuickVoiceTTSService {
     // Re-applied on every utterance, not cached: the recognizer reconfigures
     // the session each time it starts, so a mode set once is gone by the
     // second turn of a conversation.
+    // Earpiece routing is a `.playAndRecord` feature on iOS: with
+    // `allowsRecording: false` the session becomes plain playback, which always
+    // goes to the loudspeaker and would silently ignore the setting. So the
+    // earpiece choice keeps recording allowed; the loudspeaker default keeps
+    // the playback-shaped session that fixed the quiet-translations bug above.
+    const earpiece = routeThroughEarpiece();
     try {
       await setAudioModeAsync({
-        allowsRecording: false,
+        allowsRecording: earpiece,
         interruptionMode: "duckOthers",
         playsInSilentMode: true,
-        shouldRouteThroughEarpiece: false,
+        shouldRouteThroughEarpiece: earpiece,
       });
     } catch {
       // A device that rejects the mode change still plays through the

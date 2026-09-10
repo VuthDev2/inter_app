@@ -1,5 +1,6 @@
 "use client";
 
+import { noiseCancellationOn, selectedMicId } from "@/lib/audio-devices";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { quickVoiceWsUrl } from "@/lib/quickvoice-api";
 import { useAuth } from "@/context/AuthContext";
@@ -22,6 +23,14 @@ const BLOCK_SIZE = 1024;
 function blockMsFor(sampleRate: number): number {
   return (BLOCK_SIZE / sampleRate) * 1000;
 }
+
+// A confirmed turn is held on the live line before it moves up to the settled
+// text. Without it the promotion was invisible: the server sends the transcript
+// and then the translation about a tenth of a second later, and the line was
+// promoted the moment the translation landed -- so what you had just said
+// flashed at the bottom too briefly to read and appeared to jump straight to
+// the top.
+const MIN_LIVE_LINE_MS = 600;
 
 // ─── Voice activity detection ────────────────────────────────────────────────
 // This mirrors the mobile WhisperSpeechService. The previous web implementation
@@ -73,6 +82,11 @@ export type InterpretationEntry = {
   id: string;
   original: string;
   translation: string;
+  /** The language actually spoken, as detected by the server. Two-way mode puts
+   *  each turn in its own language column, so it needs this rather than assuming
+   *  every turn was spoken in the configured input language. */
+  sourceLang?: string;
+  targetLang?: string;
   nuances?: { text: string; color: string }[];
 };
 
@@ -149,15 +163,35 @@ const LANGUAGE_MAP: Record<string, string> = {
   Japanese: "ja",
 };
 
+export type LiveUtterance = {
+  original: string;
+  translation: string;
+  sourceLang: string;
+  targetLang: string;
+};
+
 export function useLiveInterpretation(
   sourceLangLabel: string,
-  targetLangLabel: string
+  targetLangLabel: string,
+  /**
+   * Fires once per completed utterance, in addition to the normal `entries`
+   * state. Added so a caller outside this hook's own UI — the video call
+   * page broadcasting captions over LiveKit's data channel — can react to
+   * each turn without duplicating the mic-capture/VAD/WebSocket pipeline
+   * this hook already owns.
+   */
+  onUtterance?: (utterance: LiveUtterance) => void,
 ) {
   const { session } = useAuth();
   const tokenRef = useRef(session?.access_token);
   useEffect(() => {
     tokenRef.current = session?.access_token;
   }, [session?.access_token]);
+
+  const onUtteranceRef = useRef(onUtterance);
+  useEffect(() => {
+    onUtteranceRef.current = onUtterance;
+  }, [onUtterance]);
 
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState("");
@@ -181,6 +215,10 @@ export function useLiveInterpretation(
   const sentAtRef = useRef<number>(0);
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  // When the live line last changed, and the pending move up to the settled
+  // text, so a turn cannot be promoted before it has been seen.
+  const transcriptShownAtRef = useRef(0);
+  const promoteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const silentGainRef = useRef<GainNode | null>(null);
@@ -429,14 +467,29 @@ export function useLiveInterpretation(
         // over http from another device silently removes the whole API.
         throw new DOMException("mediaDevices unavailable", "SecurityError");
       }
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: REQUESTED_SAMPLE_RATE,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
+      // Microphone and noise suppression come from Settings. They used to be
+      // fixed here, so both controls on that page did nothing at all.
+      const micId = selectedMicId();
+      const base: MediaTrackConstraints = {
+        sampleRate: REQUESTED_SAMPLE_RATE,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: noiseCancellationOn(),
+      };
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: micId === "default" ? base : { ...base, deviceId: { exact: micId } },
+        });
+      } catch (constrained) {
+        // A saved microphone that is no longer there -- unplugged, renamed, or
+        // a value stored before these were real device ids -- makes an exact
+        // deviceId throw OverconstrainedError, which read to the user as "could
+        // not open the microphone" on a machine whose microphone was fine.
+        // Fall back to the default device rather than losing the session.
+        if (micId === "default") throw constrained;
+        console.warn("[QuickVoice] saved microphone unavailable, using the default", constrained);
+        stream = await navigator.mediaDevices.getUserMedia({ audio: base });
+      }
     } catch (reason) {
       const insecureOrigin =
         !window.isSecureContext || !navigator.mediaDevices?.getUserMedia;
@@ -534,6 +587,7 @@ export function useLiveInterpretation(
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "transcript") {
+          transcriptShownAtRef.current = performance.now();
           if (sentAtRef.current) {
             // eslint-disable-next-line no-console
             console.log(
@@ -545,18 +599,61 @@ export function useLiveInterpretation(
           setLiveTranslation(msg.text || "");
         } else if (msg.type === "utterance") {
           if (msg.original || msg.translation) {
-            setEntries((prev) => [
-              ...prev,
-              {
+            const original = msg.original || "";
+            // One-way runs in a fixed direction. If what came back is already in
+            // the target language there is nothing to translate -- the model was
+            // being asked to turn Japanese into Japanese, and answered with
+            // something unrelated. Keep the words as they are and label why.
+            const heard = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(original) ? "ja" : "en";
+            const alreadyTarget =
+              Boolean(original) &&
+              Boolean(msg.targetLang) &&
+              heard === msg.targetLang &&
+              msg.sourceLang !== msg.targetLang;
+            const translation = alreadyTarget ? original : msg.translation || "";
+            const sourceLang = alreadyTarget ? heard : msg.sourceLang;
+
+            const entry = {
                 id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                original: msg.original || "",
-                translation: msg.translation || "",
-                nuances: analyzeNuance(msg.translation || msg.original || ""),
-              },
-            ]);
+                original,
+                translation,
+                // The server reports which language it actually heard. Keeping
+                // it is what lets two-way mode file each turn under the right
+                // language instead of assuming the configured input language.
+                sourceLang,
+                targetLang: msg.targetLang,
+                nuances: alreadyTarget
+                  ? [{
+                      text: `Already ${heard === "ja" ? "Japanese" : "English"} — not translated`,
+                      color: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+                    }]
+                  : analyzeNuance(translation || original),
+            };
+
+            // Let the words sit on the live line long enough to be read, then
+            // move them up. Already been there that long? Promote immediately.
+            const shownFor = performance.now() - transcriptShownAtRef.current;
+            const promote = () => {
+              setEntries((prev) => [...prev, entry]);
+              onUtteranceRef.current?.({
+                original,
+                translation,
+                sourceLang: sourceLang || "",
+                targetLang: msg.targetLang || "",
+              });
+              setInterimText("");
+              setLiveTranslation("");
+            };
+            if (promoteTimerRef.current) clearTimeout(promoteTimerRef.current);
+            if (shownFor >= MIN_LIVE_LINE_MS) {
+              promote();
+            } else {
+              promoteTimerRef.current = setTimeout(promote, MIN_LIVE_LINE_MS - shownFor);
+            }
+          } else {
+            setInterimText("");
+            setLiveTranslation("");
           }
-          setInterimText("");
-          setLiveTranslation("");
         } else if (msg.type === "no_speech") {
           // The turn produced no text. Clear the previous turn's interim
           // line so the panel does not look stuck on stale output.
@@ -597,6 +694,12 @@ export function useLiveInterpretation(
   /** Clear the conversation. For starting a genuinely new session, not for
    *  resuming the microphone mid-conversation. */
   const reset = useCallback(() => {
+    // A turn still waiting to move up would otherwise reappear after the
+    // conversation was cleared.
+    if (promoteTimerRef.current) {
+      clearTimeout(promoteTimerRef.current);
+      promoteTimerRef.current = null;
+    }
     setEntries([]);
     setInterimText("");
     setLiveTranslation("");

@@ -122,6 +122,19 @@ export async function saveLiveSessionLocally(session: LiveSession): Promise<void
   await appStorage.setItem(scoped(LIVE_SESSION_KEY_BASE), JSON.stringify(existing.slice(0, 50)));
 }
 
+/**
+ * Remove one saved conversation from History.
+ *
+ * There was no way to delete one at all: sessions could be saved and read but
+ * never removed, so a mistaken save stayed on the phone for good. Local storage
+ * is the copy History reads, so that is what this clears; a cloud copy, if the
+ * sync switch was on when it was saved, stays until it is removed from there.
+ */
+export async function deleteLiveSession(id: string): Promise<void> {
+  const remaining = (await loadLiveSessions()).filter((session) => session.id !== id);
+  await appStorage.setItem(scoped(LIVE_SESSION_KEY_BASE), JSON.stringify(remaining));
+}
+
 export async function saveLiveSession(session: LiveSession): Promise<void> {
   // 1. Save locally first
   await saveLiveSessionLocally(session);

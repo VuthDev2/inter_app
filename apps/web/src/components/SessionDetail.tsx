@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Copy, Download, Play, ChevronDown, FileText, FileSpreadsheet, Printer, Check } from "lucide-react";
-import Navbar from "@/components/Navbar";
 import { getSession, type WebSession } from "@/lib/session-store";
 import { speakWithQuickVoice } from "@/lib/quickvoice-api";
 
@@ -53,8 +52,8 @@ export default function SessionDetail() {
     setShowExportMenu(false);
     setTimeout(() => window.print(), 100);
   };
-  return <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))]"><div className="print:hidden"><Navbar/></div><main className="mx-auto max-w-4xl px-6 py-10 print:py-0 print:px-0"><Link href="/allrecords" className="inline-block mb-8 print:hidden"><ArrowLeft/></Link>
-    {!session ? <div className="rounded-2xl border border-[rgb(var(--border))] p-12 text-center text-[rgba(var(--muted),1)]">Recording not found.</div> : <><div className="mb-8 flex items-start justify-between"><div><h1 className="text-2xl font-semibold">{session.title}</h1><p className="mt-2 text-sm text-[rgba(var(--muted),1)]">{new Date(session.createdAt).toLocaleString()} · {session.utterances.length} segments</p></div>
+  return <div className="flex-1 bg-[rgb(var(--bg))] text-[rgb(var(--text))]"><main className="mx-auto w-full max-w-[800px] px-6 pt-16 pb-24 print:py-0 print:px-0">
+    {!session ? <div className="rounded-2xl border border-[rgb(var(--border))] p-12 text-center text-[rgba(var(--muted),1)]">Recording not found.</div> : <><div className="mb-12 flex items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-3"><Link href="/allrecords" aria-label="Back" className="mt-1.5 shrink-0 text-[rgba(var(--muted),1)] transition-colors hover:text-[rgb(var(--text))] print:hidden"><ArrowLeft size={20}/></Link><div className="min-w-0"><h1 className="text-3xl font-semibold tracking-wide text-[rgba(var(--text),0.9)]">{session.title}</h1><p className="mt-2 text-sm text-[rgba(var(--muted),1)]">{new Date(session.createdAt).toLocaleString()} · {session.utterances.length} segments</p></div></div>
     
     <div className="relative print:hidden">
       <button onClick={() => setShowExportMenu(!showExportMenu)} className="flex items-center gap-2 rounded-xl border border-[rgb(var(--border))] px-4 py-2 hover:bg-[rgba(var(--text),.05)] transition-colors">

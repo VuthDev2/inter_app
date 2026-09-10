@@ -7,11 +7,12 @@ import type { Tab } from "../../App";
 import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
 import { useTranslation } from "../i18n/I18nContext";
-import { loadProtectedNames, saveProtectedNames } from "../services/api";
+import { checkServerUrl, forgetResolvedServers, loadProtectedNames, resolvedServerUrl, saveProtectedNames } from "../services/api";
+import { loadManualServerUrl, normalizeServerUrl, setManualServerUrl } from "../services/serverAddress";
 import { colors } from "../theme/theme";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
-type SettingsDetail = "theme" | "text-size" | "language" | "ui-language";
+type SettingsDetail = "theme" | "text-size" | "language" | "ui-language" | "speaker";
 
 export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveTab: (tab: Tab) => void; onPrivacySecurity?: () => void }) {
   const { t } = useTranslation();
@@ -22,6 +23,9 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
     auto_speak: autoSpeak,
     preferred_source_lang: preferredSource,
     session_alerts: sessionAlerts,
+    haptics_enabled: hapticsEnabled,
+    speaker_output: speakerOutput,
+    noise_cancellation: noiseCancellation,
     cloud_sync: cloudSync,
     text_size: textSize,
     update,
@@ -30,6 +34,10 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
   const dark = appearanceMode === "dark" || (appearanceMode === "system" && systemScheme === "dark");
   const [detail, setDetail] = useState<SettingsDetail | null>(null);
   const [namesOpen, setNamesOpen] = useState(false);
+  const [serverOpen, setServerOpen] = useState(false);
+  const [serverUrl, setServerUrl] = useState<string | null>(null);
+
+  useEffect(() => { void loadManualServerUrl().then(setServerUrl); }, [serverOpen]);
 
   const email = user?.email ?? "quickvoice@example.com";
   const displayName = String(
@@ -124,6 +132,44 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
         />
       </SettingsGroup>
 
+      <SettingsGroup dark={dark} label={t("settings.audio")} note={t("settings.micInputNote")}>
+        <NavigationSettingRow
+          dark={dark}
+          icon="volume-medium-outline"
+          title={t("settings.speakerOutput")}
+          subtitle={t("settings.speakerOutputSubtitle")}
+          value={speakerOutput === "earpiece" ? t("settings.speakerEarpiece") : t("settings.speakerLoud")}
+          onPress={() => setDetail("speaker")}
+        />
+        <SettingRow
+          dark={dark}
+          divider
+          icon="mic-outline"
+          title={t("settings.noiseCancellation")}
+          subtitle={t("settings.noiseCancellationSubtitle")}
+          trailing={
+            <Switch
+              ios_backgroundColor="#D8DCE2"
+              onValueChange={(value) => update({ noise_cancellation: value })}
+              trackColor={{ false: "#D8DCE2", true: "#8AB9F6" }}
+              thumbColor={noiseCancellation ? "#007AFF" : "#FFFFFF"}
+              value={noiseCancellation}
+            />
+          }
+        />
+      </SettingsGroup>
+
+      <SettingsGroup dark={dark} label={t("settings.serverGroup")}>
+        <NavigationSettingRow
+          dark={dark}
+          icon="cloud-outline"
+          title={t("settings.server")}
+          subtitle={t("settings.serverSubtitle")}
+          value={serverUrl ? serverUrl.replace(/^https?:\/\//, "") : t("settings.system")}
+          onPress={() => setServerOpen(true)}
+        />
+      </SettingsGroup>
+
       <SettingsGroup dark={dark} label={t("settings.namesGroup")}>
         <SettingRow
           dark={dark}
@@ -147,6 +193,23 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
               trackColor={{ false: "#D8DCE2", true: "#8AB9F6" }}
               thumbColor={sessionAlerts ? "#007AFF" : "#FFFFFF"}
               value={sessionAlerts}
+            />
+          }
+        />
+        {/* Phone-only, which is why it is here and no longer on the web:
+            the switch there stored a value nothing could ever act on. */}
+        <SettingRow
+          dark={dark}
+          icon="phone-portrait-outline"
+          title={t("settings.hapticsTitle")}
+          subtitle={t("settings.hapticsSubtitle")}
+          trailing={
+            <Switch
+              ios_backgroundColor="#D8DCE2"
+              onValueChange={(value) => update({ haptics_enabled: value })}
+              trackColor={{ false: "#D8DCE2", true: "#8AB9F6" }}
+              thumbColor={hapticsEnabled ? "#007AFF" : "#FFFFFF"}
+              value={hapticsEnabled}
             />
           }
         />
@@ -201,6 +264,7 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
           appearanceMode={appearanceMode}
           uiLanguage={uiLanguage}
           preferredSource={preferredSource}
+          speakerOutput={speakerOutput}
           textSize={textSize}
           onBack={() => setDetail(null)}
           onAppearanceChange={(value) => update({ appearance_mode: value })}
@@ -209,6 +273,7 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
             preferred_source_lang: value,
             preferred_target_lang: value === "en" ? "ja" : "en",
           })}
+          onSpeakerChange={(value) => update({ speaker_output: value })}
           onTextSizeChange={(value) => update({ text_size: value })}
         />
       </Modal>
@@ -220,6 +285,15 @@ export function SettingsScreen({ setActiveTab, onPrivacySecurity }: { setActiveT
         visible={namesOpen}
       >
         <ProtectedNamesScreen dark={dark} onBack={() => setNamesOpen(false)} />
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setServerOpen(false)}
+        presentationStyle="fullScreen"
+        visible={serverOpen}
+      >
+        <ServerAddressScreen dark={dark} onBack={() => setServerOpen(false)} />
       </Modal>
     </View>
   );
@@ -333,6 +407,138 @@ function ProtectedNamesScreen({ dark, onBack }: { dark?: boolean; onBack: () => 
   );
 }
 
+/**
+ * Type in where the model server is.
+ *
+ * Every automatic route to the server is a guess -- Metro's host, the value
+ * baked in at build time, localhost -- and all of them go stale the moment the
+ * laptop joins a different Wi-Fi or the share link is re-issued. On a phone
+ * that means the app is dead until it is rebuilt over a cable. One text field
+ * fixes it in seconds, and Test says whether the address answers before it is
+ * saved, so nobody is left guessing whether the typo was theirs or the
+ * network's.
+ */
+function ServerAddressScreen({ dark, onBack }: { dark?: boolean; onBack: () => void }) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    void loadManualServerUrl().then((url) => {
+      setSaved(url);
+      setDraft(url ?? "");
+    });
+  }, []);
+
+  const inUse = resolvedServerUrl();
+
+  const save = async () => {
+    const url = normalizeServerUrl(draft);
+    if (!url) { setMessage(t("settings.serverInvalid")); return; }
+    await setManualServerUrl(url);
+    // The old winner is remembered until something says otherwise, and it is
+    // exactly the address that stopped working.
+    forgetResolvedServers();
+    setSaved(url);
+    setDraft(url);
+    setMessage(t("settings.serverSaved"));
+  };
+
+  const test = async () => {
+    const url = normalizeServerUrl(draft);
+    if (!url) { setMessage(t("settings.serverInvalid")); return; }
+    setTesting(true);
+    setMessage(t("settings.serverTesting"));
+    const result = await checkServerUrl(url);
+    setTesting(false);
+    setMessage(result.ok ? t("settings.serverReachable", { url }) : t("settings.serverUnreachable"));
+  };
+
+  const clear = async () => {
+    await setManualServerUrl(null);
+    forgetResolvedServers();
+    setSaved(null);
+    setDraft("");
+    setMessage(t("settings.serverSearching"));
+  };
+
+  return (
+    <SafeAreaView style={[styles.detailPage, dark && styles.detailPageDark]}>
+      <View style={styles.detailHeader}>
+        <Pressable accessibilityRole="button" hitSlop={12} onPress={onBack}>
+          <Ionicons name="chevron-back" size={26} color={dark ? "#F2F5F9" : "#101828"} />
+        </Pressable>
+        <Text style={[styles.detailTitle, dark && styles.textDark]}>{t("settings.server")}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <View style={styles.detailContent}>
+        <Text style={[styles.detailBody, dark && styles.secondaryTextDark]}>{t("settings.serverBody")}</Text>
+
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          onChangeText={setDraft}
+          onSubmitEditing={() => void save()}
+          placeholder={t("settings.serverPlaceholder")}
+          placeholderTextColor={dark ? "#78818D" : "#98A2B3"}
+          returnKeyType="done"
+          style={[namesStyles.input, dark && namesStyles.inputDark]}
+          value={draft}
+        />
+
+        <View style={serverStyles.buttonRow}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={testing || !draft.trim()}
+            onPress={() => void test()}
+            style={({ pressed }) => [serverStyles.secondaryButton, dark && serverStyles.secondaryButtonDark, (testing || !draft.trim()) && namesStyles.addButtonDisabled, pressed && namesStyles.addButtonPressed]}
+          >
+            <Text style={[serverStyles.secondaryText, dark && styles.textDark]}>{t("settings.serverTest")}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!draft.trim()}
+            onPress={() => void save()}
+            style={({ pressed }) => [serverStyles.primaryButton, !draft.trim() && namesStyles.addButtonDisabled, pressed && namesStyles.addButtonPressed]}
+          >
+            <Text style={serverStyles.primaryText}>{t("settings.serverSave")}</Text>
+          </Pressable>
+        </View>
+
+        {saved ? (
+          <Pressable accessibilityRole="button" onPress={() => void clear()} style={serverStyles.clearButton}>
+            <Text style={serverStyles.clearText}>{t("settings.serverClear")}</Text>
+          </Pressable>
+        ) : (
+          <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{t("settings.serverSearching")}</Text>
+        )}
+
+        {inUse ? (
+          <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{t("settings.serverInUse", { url: inUse })}</Text>
+        ) : null}
+
+        {message ? <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{message}</Text> : null}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const serverStyles = StyleSheet.create({
+  buttonRow: { flexDirection: "row", gap: 10, marginTop: 14 },
+  clearButton: { alignSelf: "flex-start", marginTop: 16, paddingVertical: 6 },
+  clearText: { color: "#007AFF", fontSize: 14, fontWeight: "600" },
+  note: { color: "#68717D", fontSize: 13, lineHeight: 19, marginTop: 12 },
+  primaryButton: { alignItems: "center", backgroundColor: "#007AFF", borderRadius: 14, flex: 1, justifyContent: "center", paddingVertical: 13 },
+  primaryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
+  secondaryButton: { alignItems: "center", backgroundColor: "#F1F3F6", borderRadius: 14, flex: 1, justifyContent: "center", paddingVertical: 13 },
+  secondaryButtonDark: { backgroundColor: "#1C2430" },
+  secondaryText: { color: "#101828", fontSize: 15, fontWeight: "600" },
+});
+
 const namesStyles = StyleSheet.create({
   addRow: { flexDirection: "row", gap: 10, marginTop: 18 },
   input: {
@@ -357,11 +563,12 @@ const namesStyles = StyleSheet.create({
   error: { color: "#D33A3A", fontSize: 13, marginTop: 14 },
 });
 
-function SettingsGroup({ label, children, dark }: { label: string; children: ReactNode; dark?: boolean }) {
+function SettingsGroup({ label, children, dark, note }: { label: string; children: ReactNode; dark?: boolean; note?: string }) {
   return (
     <View style={styles.groupWrap}>
       <Text style={[styles.groupLabel, dark && styles.secondaryTextDark]}>{label}</Text>
       <View style={[styles.group, dark && styles.surfaceDark]}>{children}</View>
+      {note ? <Text style={[styles.groupNote, dark && styles.secondaryTextDark]}>{note}</Text> : null}
     </View>
   );
 }
@@ -421,9 +628,11 @@ function SettingsDetailScreen({
   onAppearanceChange,
   onBack,
   onLanguageChange,
+  onSpeakerChange,
   onTextSizeChange,
   onUiLanguageChange,
   preferredSource,
+  speakerOutput,
   textSize,
   uiLanguage,
 }: {
@@ -433,9 +642,11 @@ function SettingsDetailScreen({
   onAppearanceChange: (value: "system" | "light" | "dark") => void;
   onBack: () => void;
   onLanguageChange: (value: "en" | "ja") => void;
+  onSpeakerChange: (value: "speaker" | "earpiece") => void;
   onTextSizeChange: (value: "small" | "default" | "large") => void;
   onUiLanguageChange: (value: "en" | "ja") => void;
   preferredSource: string;
+  speakerOutput: "speaker" | "earpiece";
   textSize: "small" | "default" | "large";
   uiLanguage: "en" | "ja";
 }) {
@@ -464,6 +675,16 @@ function SettingsDetailScreen({
             { label: t("settings.large"), value: "large", subtitle: t("settings.largeSubtitle"), icon: "text-outline" as IconName },
           ],
         }
+      : detail === "speaker"
+        ? {
+            title: t("settings.speakerOutput"),
+            body: t("settings.speakerOutputBody"),
+            selected: speakerOutput,
+            options: [
+              { label: t("settings.speakerLoud"), value: "speaker", subtitle: t("settings.speakerLoudSubtitle"), icon: "volume-high-outline" as IconName },
+              { label: t("settings.speakerEarpiece"), value: "earpiece", subtitle: t("settings.speakerEarpieceSubtitle"), icon: "call-outline" as IconName },
+            ],
+          }
       : detail === "ui-language" ? {
           title: t("settings.appLanguage"),
           body: t("settings.appLanguageBody"),
@@ -485,6 +706,7 @@ function SettingsDetailScreen({
   const select = (value: string) => {
     if (detail === "theme") onAppearanceChange(value as "system" | "light" | "dark");
     else if (detail === "text-size") onTextSizeChange(value as "small" | "default" | "large");
+    else if (detail === "speaker") onSpeakerChange(value as "speaker" | "earpiece");
     else if (detail === "ui-language") onUiLanguageChange(value as "en" | "ja");
     else onLanguageChange(value as "en" | "ja");
   };
@@ -550,6 +772,7 @@ const styles = StyleSheet.create({
   detailPageDark: { backgroundColor: "#0E1013" },
   detailTitle: { color: "#171A20", fontSize: 20, fontWeight: "700", letterSpacing: -0.35 },
   group: { backgroundColor: "#FFFFFF", borderRadius: 20, overflow: "hidden", shadowColor: "#182238", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.045, shadowRadius: 10, elevation: 2 },
+  groupNote: { color: "#8B929D", fontSize: 12, lineHeight: 17, marginLeft: 6, marginRight: 6, marginTop: 9 },
   groupLabel: { color: "#8B929D", fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 7, marginLeft: 6 },
   groupWrap: { width: "100%" },
   iconBox: { alignItems: "center", backgroundColor: "#F0F1F3", borderRadius: 11, height: 42, justifyContent: "center", width: 42 },

@@ -1,61 +1,55 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
-import { Folder, Plus, Mic, ChevronRight } from "lucide-react";
+import CreateCategoryDialog, { CategoryIcon } from "@/components/CreateCategoryDialog";
+import { PageShell, PageHeader, PrimaryAction, SectionHeading } from "@/components/PageShell";
+import { Plus, Mic, ChevronRight } from "lucide-react";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import { useState } from "react";
 import { useEffect } from "react";
-import { addFolder, loadFolders, loadSessions, subscribeStorage, type WebFolder, type WebSession } from "@/lib/session-store";
+import { addFolder, isRecordingSession, loadFolders, loadSessions, subscribeStorage, type WebFolder, type WebSession } from "@/lib/session-store";
 
 function PreRecordContent() {
     const [categories, setCategories] = useState<WebFolder[]>([]);
     const [recent, setRecent] = useState<WebSession[]>([]);
     const [adding, setAdding] = useState(false);
-    const [newName, setNewName] = useState("");
     useEffect(() => {
         const refresh = () => {
             setCategories(loadFolders());
-            setRecent(loadSessions().filter((item) => !item.deletedAt).slice(0, 3));
+            setRecent(loadSessions().filter((item) => !item.deletedAt && isRecordingSession(item)).slice(0, 3));
         };
         refresh();
         return subscribeStorage(refresh);
     }, []);
-    const createCategory = () => {
-        addFolder(newName);
-        setNewName("");
-        setAdding(false);
-    };
+    const createCategory = (name: string, icon: string) => addFolder(name, icon);
 
     return (
-        <div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
-            <Navbar />
-            
-            <div className="flex-1 flex flex-col items-center px-6 pt-16 pb-24">
-                <div className="w-full max-w-[800px] flex items-center justify-between mb-12">
-                    <h1 className="text-3xl font-semibold tracking-wide text-[rgba(var(--text),0.9)]">
-                        Pre-Record
-                    </h1>
-                    <Link href="/interpreter" className="flex items-center gap-2 bg-[rgb(var(--primary))] hover:bg-[rgb(var(--primary-pressed))] px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-colors shadow-lg shadow-[rgba(var(--primary),0.2)] text-[rgb(var(--text))]">
-                        <Mic size={16} /> Record
-                    </Link>
-                </div>
+        <div className="flex-1 bg-[rgb(var(--bg))] text-[rgb(var(--text))] flex flex-col font-sans">
+                        
+            <PageShell>
+                <PageHeader
+                    title="Pre-Record"
+                    subtitle="Your recordings, grouped by category"
+                    action={<PrimaryAction href="/record"><Mic size={16} />Record</PrimaryAction>}
+                />
 
-                <div className="w-full max-w-[800px] flex flex-col gap-10">
+                <div className="flex flex-col gap-10">
                     
                     {/* Categories Section */}
                     <div className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-3">
-                            <h2 className="text-lg font-semibold text-[rgba(var(--text),0.9)] tracking-wide">
-                                Categories
-                            </h2>
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => setAdding((value) => !value)} aria-label="Add category" className="w-9 h-9 flex items-center justify-center rounded-full border border-[rgb(var(--border))] bg-[rgb(var(--surface))] hover:bg-[rgba(var(--text),0.1)] transition-colors text-[rgba(var(--text),0.8)]">
-                                    <Plus size={16} />
+                        <SectionHeading
+                            action={
+                                <button
+                                    onClick={() => setAdding(true)}
+                                    aria-label="New category"
+                                    className="rounded-full p-2 text-[rgb(var(--primary))] transition-colors hover:bg-[rgba(var(--text),0.06)]"
+                                >
+                                    <Plus size={20} />
                                 </button>
-                                {adding && <div className="flex gap-2"><input autoFocus value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => event.key === "Enter" && createCategory()} placeholder="Category name" className="rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--surface))] px-3 text-sm outline-none"/><button disabled={!newName.trim()} onClick={createCategory} className="rounded-xl bg-[rgb(var(--primary))] px-3 text-sm disabled:opacity-40">Add</button></div>}
-                            </div>
-                        </div>
+                            }
+                        >
+                            Categories
+                        </SectionHeading>
 
                         {/* Folders List */}
                         <div className="bg-[rgb(var(--surface))] border border-[rgb(var(--border))] rounded-2xl flex flex-col mt-2 overflow-hidden">
@@ -67,8 +61,9 @@ function PreRecordContent() {
                                 categories.map((cat, index) => (
                                     <FolderItem 
                                         key={cat.id} 
-                                        name={cat.name} 
-                                        count={loadSessions().filter((item) => !item.deletedAt && item.folder === cat.name).length}
+                                        name={cat.name}
+                                        icon={cat.icon}
+                                        count={loadSessions().filter((item) => !item.deletedAt && isRecordingSession(item) && item.folder === cat.name).length}
                                         href={`/folder?name=${encodeURIComponent(cat.name)}`}
                                         isLast={index === categories.length - 1} 
                                     />
@@ -88,12 +83,18 @@ function PreRecordContent() {
                         </div>
                     </div>
                 </div>
-            </div>
+            </PageShell>
+
+            <CreateCategoryDialog
+                open={adding}
+                onClose={() => setAdding(false)}
+                onCreate={createCategory}
+            />
         </div>
     );
 }
 
-function FolderItem({ name, count, href = "#", isLast = false }: { name: string; count: number; href?: string; isLast?: boolean }) {
+function FolderItem({ name, count, href = "#", isLast = false, icon }: { name: string; count: number; href?: string; isLast?: boolean; icon?: string }) {
     return (
         <Link 
             href={href} 
@@ -102,7 +103,7 @@ function FolderItem({ name, count, href = "#", isLast = false }: { name: string;
             }`}
         >
             <div className="flex items-center gap-4">
-                <Folder size={18} className="text-[rgb(var(--primary))]" />
+                <CategoryIcon icon={icon} size={18} className="text-[rgb(var(--primary))]" />
                 <span className="text-[14px] font-medium text-[rgba(var(--text),0.9)]">{name}</span>
             </div>
             

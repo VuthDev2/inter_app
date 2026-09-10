@@ -1,3 +1,5 @@
+import wave
+import io
 import os
 import threading
 import time
@@ -250,6 +252,58 @@ class WhisperASRService:
         if not audio:
             return TranscriptionResult(text="", language="unknown")
 
+        # An uploaded WAV already holds the samples transcribe_pcm16 wants, so
+        # take the same shortcut the websocket clients get instead of writing a
+        # temp file and decoding it back. That ceremony measured ~190ms per
+        # turn, which is the whole reason the phone lagged the website (0.60s
+        # against 0.41s on identical audio). Anything else -- m4a, or a WAV this
+        # cannot read -- falls through to the file path below.
+        # Saved before the WAV shortcut below, not after: the shortcut returns
+        # early, so with the save further down every clip that took the fast
+        # path -- which is every clip the phone sends -- went unrecorded, and
+        # there was nothing to inspect when one came back empty.
+        if self.debug_audio_dir:
+            try:
+                debug_dir = Path(self.debug_audio_dir)
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                stamp = time.strftime("%H%M%S") + f"-{int(time.time() * 1000) % 1000:03d}"
+                (debug_dir / f"{stamp}{suffix if suffix.startswith('.') else '.' + suffix}").write_bytes(audio)
+            except Exception:
+                pass
+
+        if suffix.lower().lstrip(".") == "wav" or audio[:4] == b"RIFF":
+            try:
+                with wave.open(io.BytesIO(audio)) as clip:
+                    if clip.getsampwidth() == 2 and clip.getnchannels() == 1:
+                        # Report how loud the upload actually was. An empty
+                        # transcript is ambiguous on its own -- it can mean the
+                        # model heard nothing in real speech, or that the client
+                        # sent silence -- and telling those apart from the log
+                        # is the difference between debugging the model and
+                        # debugging the microphone.
+                        frames = clip.readframes(clip.getnframes())
+                        clip.rewind()
+                        peak = max(
+                            (abs(int.from_bytes(frames[i:i + 2], "little", signed=True))
+                             for i in range(0, len(frames) - 1, 2)),
+                            default=0,
+                        )
+                        print(
+                            f"[asr-level] {clip.getframerate()}Hz "
+                            f"{clip.getnframes() / clip.getframerate():.2f}s "
+                            f"peak={peak / 32768 * 100:.1f}%"
+                            f"{' SILENT' if peak < 328 else ''}",
+                            flush=True,
+                        )
+                        return self.transcribe_pcm16(
+                            clip.readframes(clip.getnframes()),
+                            clip.getframerate(),
+                            language_hint,
+                            expected_language,
+                        )
+            except (wave.Error, EOFError, ValueError):
+                pass
+
         suffix = suffix if suffix.startswith(".") else f".{suffix}"
 
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp:
@@ -361,6 +415,11 @@ class WhisperASRService:
         # mlx-whisper shells out to ffmpeg to read files, which is not
         # installed here — hand it samples directly instead.
         audio = numpy.asarray(decode_audio(str(audio_path), sampling_rate=16000), dtype="float32")
+        # Decoded seconds vs upload bytes is the tell for a sample-rate
+        # mismatch: a phone clip that plays 3x too slow shows up here as a
+        # duration far longer than the speaker was talking, right before VAD
+        # throws it out as non-speech.
+        print(f"[asr-decode] path={audio_path.suffix} decoded_seconds={audio.shape[0] / 16000:.2f}", flush=True)
         return self._transcribe_samples(audio, language, expected_language)
 
     def _transcribe_samples(

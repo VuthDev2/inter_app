@@ -24,6 +24,9 @@ export type LiveInterpretationState = {
   error: string | null;
 };
 
+const echoKey = (text: string) =>
+  text.toLowerCase().replace(/[\s\u3000.,!?、。・！？"'"'"]/g, "");
+
 export function useLiveInterpretation(
   sourceLang: LanguageCode,
   targetLang: LanguageCode,
@@ -48,6 +51,16 @@ export function useLiveInterpretation(
   const segmentTargetRef = useRef<LanguageCode>(targetLang);
   const listeningLanguageRef = useRef<LanguageCode>(sourceLang);
   const suspendedRef = useRef(false);
+  // Consecutive turns where the microphone produced nothing usable. One is
+  // ordinary -- a pause, a cough. Several in a row means no sound is reaching
+  // the app at all, and saying so beats leaving someone talking to a screen
+  // that answers with silence, which is what it used to do.
+  const emptyTurnsRef = useRef(0);
+  // What the app last said out loud. A microphone in the same room as the
+  // speaker hears it, and without this the conversation talks to itself:
+  // "Hello" becomes こんにちは, the app speaks こんにちは, hears it, and
+  // answers "Hi, how are you?" -- forever, with nobody saying anything.
+  const spokenAloudRef = useRef("");
 
   // Both languages stay active for every turn. The pills define the two sides
   // of the conversation; they are not a hidden recognition lock. Passing the
@@ -141,7 +154,25 @@ export function useLiveInterpretation(
   useEffect(() => {
     const transcript = speech.finalTranscript.trim();
     if (!transcript || handledFinalRef.current === transcript) return;
+    // A turn that arrives while the microphone is meant to be closed is the app
+    // hearing its own translation played back.
     if (suspendedRef.current) return;
+
+    // The same thing, caught by content rather than by timing: the speaker is
+    // still audible for a moment after playback reports finishing, and no delay
+    // is reliable on every device. If what came back is what we just said, it
+    // did not come from a person.
+    // Containment, not equality: the microphone often catches only part of the
+    // sentence the app spoke -- "こんにちは" out of "こんにちは。お元気ですか" --
+    // and an exact match lets that through to be translated as if a person had
+    // said it. Guarded by a length floor so a genuine short reply ("はい") is
+    // not mistaken for an echo of a long one.
+    const spoken = echoKey(spokenAloudRef.current);
+    const heard = echoKey(transcript);
+    if (spoken && heard && (spoken.includes(heard) || heard.includes(spoken)) && heard.length >= 3) {
+      setRecognitionTurn((turn) => turn + 1);
+      return;
+    }
 
     handledFinalRef.current = transcript;
     const requestId = requestIdRef.current + 1;
@@ -189,10 +220,22 @@ export function useLiveInterpretation(
     setLiveTranslation("");
     setTranslationError(null);
 
+    // The server usually sends the translation back with the transcript now
+    // (one /interpret request instead of transcribe-then-translate), so the
+    // common path has nothing left to wait for. The call below stays for an
+    // older server, which answers 404 and makes the client do it the long way.
+    const readyTranslation = speech.finalTranslation?.trim();
+    const readyTarget = speech.finalTargetLanguage;
+
     void (async () => {
       try {
-        const translation = await translateTextViaApi(transcript, turnSource, turnTarget);
+        emptyTurnsRef.current = 0;
+        setTranslationError(null);
+        const translation = readyTranslation
+          ? readyTranslation
+          : await translateTextViaApi(transcript, turnSource, turnTarget);
         setLiveTranslation(translation);
+        spokenAloudRef.current = translation;
         setEntries((previous) => [
           ...previous,
           {
@@ -200,7 +243,9 @@ export function useLiveInterpretation(
             original: transcript,
             translation,
             sourceLang: turnSource,
-            targetLang: turnTarget,
+            targetLang: readyTranslation && (readyTarget === "en" || readyTarget === "ja")
+              ? readyTarget
+              : turnTarget,
           },
         ]);
         processingClearTimerRef.current = setTimeout(() => {
@@ -241,10 +286,19 @@ export function useLiveInterpretation(
     // overall session active and immediately open another listening segment
     // instead of silently leaving person two with a stopped microphone.
     if (
-      (speech.error.code === "no_speech" || speech.error.code === "recoverable_interruption") &&
+      (speech.error.code === "no_speech" ||
+        speech.error.code === "no_input" ||
+        speech.error.code === "recoverable_interruption") &&
       sessionActiveRef.current
     ) {
       if (continuous) {
+        emptyTurnsRef.current = speech.error.code === "no_input" ? emptyTurnsRef.current + 1 : 0;
+        if (emptyTurnsRef.current >= 3) {
+          setTranslationError(
+            "No sound is reaching the microphone. Check that no other app is using it, " +
+            "and that QuickVoice has microphone access in Settings.",
+          );
+        }
         // An empty window just means nobody spoke. Recognition is no longer
         // locked to a locale, so there is nothing to switch — simply open the
         // next window and keep waiting.
@@ -275,7 +329,9 @@ export function useLiveInterpretation(
   return {
     isListening: sessionActive,
     listeningLanguage: displayLanguage,
-    // Only ever Whisper-confirmed text.
+    // Whisper's own text throughout: the growing live transcription while the
+    // sentence is still being spoken, replaced by the confirmed turn when it
+    // ends. Nothing here comes from a platform recogniser.
     //
     // `speech.partialTranscript` (the on-device live preview) used to lead
     // here, and it cannot be trusted to name a language: iOS pins its
@@ -297,11 +353,13 @@ export function useLiveInterpretation(
     // last completed turn indefinitely, so the card kept showing the
     // previous sentence instead of returning to the placeholder — that turn
     // is already in `entries`.
-    interimText: processingText,
+    interimText: processingText || speech.partialTranscript,
     liveTranslation,
     entries,
     volume: 0,
-    error: speech.error?.message ?? translationError,
+    // `||` not `??`: no_speech carries an empty message, and with `??` that
+    // empty string won and the screen showed a blank error.
+    error: (speech.error?.message || translationError) ?? null,
     start,
     stop,
     pauseForSpeech,

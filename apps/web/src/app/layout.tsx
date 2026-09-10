@@ -60,6 +60,8 @@ export const metadata: Metadata = {
 };
 import { SettingsProvider } from "@/context/SettingsContext";
 import { AuthProvider } from "@/context/AuthContext";
+import AppChrome from "@/components/AppChrome";
+import ReloadOnStaleBuild from "@/components/ReloadOnStaleBuild";
 
 export default function RootLayout({
   children,
@@ -70,11 +72,28 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.documentElement.classList.add(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')`,
+          }}
+        />
+      </head>
+      <body className="h-full flex flex-col">
         <SettingsProvider>
           <AuthProvider>
-            {children}
+            <ReloadOnStaleBuild />
+            <AppChrome />
+            {/* shrink-0 keeps tall pages (the landing page especially) at their
+                natural height instead of being squashed to fit the window.
+                min-h-0 is what lets a page ask for the opposite: without it a
+                flex child may not go below its content height, so a page trying
+                to be a fixed frame with a scrolling list inside just grew, and
+                the list never scrolled. Together they mean each page chooses --
+                grow, or fill and scroll inside. */}
+            <div className="flex min-h-0 flex-1 shrink-0 flex-col">{children}</div>
           </AuthProvider>
         </SettingsProvider>
       </body>
