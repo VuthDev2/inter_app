@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, X } from "lucide-react";
+import { ArrowRight, Check, Cpu, Languages, Mic, Volume2, X } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
 
 /**
@@ -55,27 +55,71 @@ export default function WhyQuickVoicePage() {
     <div className="min-h-screen w-full bg-[#04070d] text-white">
       <MarketingNav />
 
-      {/* Hero — a single sentence, left-aligned, no glow-and-badge template */}
-      <section className="border-b border-white/[0.06] px-6 py-24 md:py-32">
-        <div className="mx-auto w-full max-w-5xl">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-purple-300">
-            Why QuickVoice
-          </p>
-          <h1 className="mt-8 max-w-4xl text-4xl font-bold leading-[1.08] tracking-tight md:text-[64px]">
-            Most translators are a microphone
-            <br className="hidden md:block" />{" "}
-            <span className="text-gray-600">pointed at someone else&apos;s server.</span>
-          </h1>
-          <p className="mt-8 max-w-xl text-[16px] leading-relaxed text-gray-400">
-            This one runs where you are. That single difference decides what you can afford to say
-            in front of it.
-          </p>
+      {/* Hero — one screen, and the half that was empty now carries the whole
+          argument as a picture: every stage of a turn, inside one box, with the
+          only line that matters drawn underneath it. */}
+      <section className="flex min-h-[calc(100svh-var(--appbar-h,64px))] items-center border-b border-white/[0.06] px-6 py-16">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-14 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-purple-300">
+              Why QuickVoice
+            </p>
+            <h1 className="mt-7 text-[42px] font-bold leading-[1.05] tracking-tight md:text-[58px] xl:text-[64px]">
+              Most translators
+              <br />
+              are a microphone{" "}
+              <span className="text-gray-600">pointed at someone else&apos;s server.</span>
+            </h1>
+            <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
+              This one runs where you are. That single difference decides what you can afford to say
+              in front of it.
+            </p>
+          </div>
+
+          <div className="mx-auto w-full max-w-[400px]">
+            <div className="rounded-2xl border border-white/[0.09] bg-gradient-to-b from-white/[0.045] to-transparent p-6">
+              <p className="mb-6 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Your machine
+              </p>
+
+              <div className="space-y-1.5">
+                {[
+                  { icon: Mic, tint: "text-blue-400", label: "Your voice", meta: "microphone" },
+                  { icon: Cpu, tint: "text-cyan-400", label: "Whisper", meta: "listening" },
+                  { icon: Languages, tint: "text-indigo-400", label: "fugumt", meta: "translating" },
+                  { icon: Volume2, tint: "text-emerald-400", label: "Kokoro", meta: "speaking back" },
+                ].map(({ icon: Icon, tint, label, meta }, index) => (
+                  <div key={label}>
+                    <div className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-[#0b0f18] px-4 py-3">
+                      <Icon size={15} className={`shrink-0 ${tint}`} />
+                      <span className="text-[13.5px] font-medium text-gray-200">{label}</span>
+                      <span className="ml-auto text-[11px] text-gray-600">{meta}</span>
+                    </div>
+                    {index < 3 && (
+                      <span className="ml-[26px] block h-3 w-px bg-white/[0.12]" aria-hidden />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* the line nothing crosses */}
+            <div className="mt-5 flex items-center gap-3 px-1" aria-hidden>
+              <span className="h-px flex-1 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,.22)_0_6px,transparent_6px_12px)]" />
+              <X size={13} className="text-gray-600" />
+              <span className="h-px flex-1 bg-[repeating-linear-gradient(90deg,rgba(255,255,255,.22)_0_6px,transparent_6px_12px)]" />
+            </div>
+            <p className="mt-3 text-center text-[12.5px] text-gray-500">
+              Nothing above this line crosses it
+            </p>
+          </div>
         </div>
       </section>
 
       {/* The comparison that carries the argument */}
       <section className="px-6 py-24">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto w-full max-w-[1240px]">
           <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-b border-white/[0.08] pb-4 text-[11px] font-semibold uppercase tracking-[0.18em] sm:grid-cols-[1.4fr_1fr_1fr] sm:gap-x-8">
             <span className="text-gray-600">&nbsp;</span>
             <span className="text-right text-gray-500 sm:text-left">The usual way</span>
@@ -103,7 +147,7 @@ export default function WhyQuickVoicePage() {
 
       {/* The claims, as full-width rows rather than boxes */}
       <section className="border-t border-white/[0.06] bg-[#070b14] px-6 py-24">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto w-full max-w-[1240px]">
           {CLAIMS.map(({ number, title, body, aside }, index) => (
             <div
               key={number}
