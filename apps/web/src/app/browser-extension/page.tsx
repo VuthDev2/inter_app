@@ -166,8 +166,12 @@ export default function BrowserExtensionPage() {
 
       {/* Reading, rather than listening — the other half of what it does */}
       <section className="flex min-h-[calc(100svh-var(--appbar-h,64px))] items-center border-y border-white/[0.06] px-6 py-16">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-14 lg:grid-cols-[1fr_1.05fr] lg:gap-20">
-          <div>
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-20">
+          {/* Text second on a wide screen, so this reads as a mirror of the
+              section above rather than a repeat of it. It stays first in the
+              markup, which keeps the reading order right on a phone where the
+              two stack. */}
+          <div className="lg:order-2">
             <h2 className="text-[38px] font-bold leading-[1.05] tracking-tight md:text-[48px] xl:text-[54px]">
               Or just highlight
               <br />
@@ -193,7 +197,7 @@ export default function BrowserExtensionPage() {
           </div>
 
             {/* A real page, with the menu open over the paragraph */}
-            <div className="overflow-hidden rounded-xl border border-white/[0.1] bg-[#0a0f1a] shadow-[0_40px_90px_-30px_rgba(0,0,0,1)]">
+            <div className="overflow-hidden rounded-xl border border-white/[0.1] bg-[#0a0f1a] shadow-[0_40px_90px_-30px_rgba(0,0,0,1)] lg:order-1">
               <div className="flex items-center gap-2 border-b border-white/[0.07] bg-white/[0.03] px-3.5 py-2.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
                 <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
