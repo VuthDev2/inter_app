@@ -31,6 +31,7 @@ const BARE_ROUTES = [
   "/why-quickvoice",
   // Scratch page for choosing the navigation mark; delete with it.
   "/nav-animation-lab",
+  "/interpreter-app",
 ];
 
 export default function AppChrome() {
