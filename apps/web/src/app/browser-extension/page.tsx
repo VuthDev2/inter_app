@@ -1,69 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Check,
-  Globe,
-  Languages,
-  MousePointerClick,
-  PanelRight,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, Check, MousePointer2, PanelRight } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
 
 /**
- * A page of its own for the browser extension.
+ * The browser extension.
  *
- * Standalone rather than a section of the welcome page, and standalone rather
- * than a page inside the signed-in app: someone deciding whether to install
- * this has not signed in yet, so it cannot sit behind the auth guard.
+ * Shaped around showing rather than telling: the thing it does is a menu that
+ * appears over a page you are reading, so the page shows that menu instead of
+ * describing it in a card. The "why" page next door makes an argument in rows
+ * of prose — two card grids under one nav read as the same page written twice.
  *
- * Everything claimed here was checked against the built extension running in
- * Chrome. The older in-app page promises tab-audio capture, translating "any
- * language" and typing translations into fields on other sites; the extension
- * does none of that, and a page that oversells it only sets up a
- * disappointment on first use.
+ * The mockups below are plain markup, not screenshots, so they stay sharp and
+ * keep working in both themes. Every word in them matches what the built
+ * extension actually shows in Chrome.
  */
-
-const CAPABILITIES = [
-  {
-    icon: MousePointerClick,
-    tint: "text-blue-400",
-    ring: "bg-blue-500/10",
-    title: "Right-click any selection",
-    body: "Highlight a sentence in an article, an email or a chat, and choose Translate selection with QuickVoice. The answer comes back where you are — no copying it into another window first.",
-  },
-  {
-    icon: PanelRight,
-    tint: "text-cyan-400",
-    ring: "bg-cyan-500/10",
-    title: "A side panel that stays put",
-    body: "For longer passages, open the panel and paste. It sends text either direction, English to Japanese or back, while the page you are reading stays open beside it.",
-  },
-  {
-    icon: ShieldCheck,
-    tint: "text-emerald-400",
-    ring: "bg-emerald-500/10",
-    title: "Answers from your own machine",
-    body: "The extension talks to the QuickVoice server you are running. Whatever you highlight goes to your computer and nowhere else — there is no third-party translation service in the path.",
-  },
-];
 
 const STEPS = [
   {
     step: "01",
     title: "Load it into Chrome",
-    body: "Open chrome://extensions, turn on Developer mode, choose Load unpacked, and pick the extension's dist folder.",
+    body: "chrome://extensions → Developer mode → Load unpacked → pick the extension's dist folder.",
   },
   {
     step: "02",
-    title: "Point it at your server",
-    body: "Open the extension's popup and paste your QuickVoice web address. It finds the model server and its own credentials from there, so a new link never means editing code.",
+    title: "Paste your QuickVoice link",
+    body: "Open the popup and give it your web address. It finds the model server and its credentials from there.",
   },
   {
     step: "03",
-    title: "Highlight something",
-    body: "Right-click a selection on any page. The popup names the server it reached, so you can tell at a glance whether it is connected.",
+    title: "Highlight anything",
+    body: "Right-click a selection on any page. The popup names the server it reached, so connection problems are visible.",
   },
 ];
 
@@ -72,99 +40,165 @@ export default function BrowserExtensionPage() {
     <div className="min-h-screen w-full bg-[#04070d] text-white">
       <MarketingNav />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden px-6 pt-20 pb-24 md:pt-28">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-blue-600/15 blur-[130px]"
-        />
-        <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center text-center">
-          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-300">
-            <Globe size={13} />
-            Browser extension
-          </span>
-          <h1 className="text-4xl font-bold leading-[1.1] tracking-tight md:text-[54px]">
-            Translate the page
-            <br />
-            you are already on
-          </h1>
-          <p className="mt-6 max-w-2xl text-[15px] leading-relaxed text-gray-400 md:text-[16px]">
-            QuickVoice Companion puts the same on-device models behind a right-click. It reads what
-            you highlight, sends it to the QuickVoice server on your own computer, and gives it back
-            in the other language.
-          </p>
-        </div>
-      </section>
-
-      {/* What it does */}
-      <section className="px-6 pb-24">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 md:grid-cols-3">
-          {CAPABILITIES.map(({ icon: Icon, tint, ring, title, body }) => (
-            <div
-              key={title}
-              className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 transition-colors hover:border-gray-700"
-            >
-              <div className={`mb-6 flex h-10 w-10 items-center justify-center rounded-full ${ring}`}>
-                <Icon size={18} className={tint} />
-              </div>
-              <h2 className="mb-4 text-[16px] font-semibold">{title}</h2>
-              <p className="text-[14px] leading-relaxed text-gray-400">{body}</p>
+      {/* Hero: the product, demonstrated */}
+      <section className="px-6 pt-20 pb-24 md:pt-24">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-cyan-300">
+              Browser extension
+            </p>
+            <h1 className="mt-7 text-4xl font-bold leading-[1.08] tracking-tight md:text-[52px]">
+              A translator that
+              <br />
+              lives in the page
+            </h1>
+            <p className="mt-7 max-w-lg text-[16px] leading-relaxed text-gray-400">
+              Highlight a line anywhere — an article, an email, a chat — and read it back in the
+              other language. No new tab, no pasting into a box somewhere else.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3 text-[13px] text-gray-400">
+              {["English → Japanese", "Japanese → English"].map((pair) => (
+                <span
+                  key={pair}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-2"
+                >
+                  <Check size={13} className="text-emerald-400" />
+                  {pair}
+                </span>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Setup */}
-      <section className="border-t border-white/[0.06] bg-[#070b14] px-6 py-24">
-        <div className="mx-auto w-full max-w-6xl">
-          <h2 className="text-center text-3xl font-bold tracking-wide">Three steps to set it up</h2>
-          <p className="mt-4 text-center text-[14px] text-gray-400">
-            About two minutes, and only the middle one is specific to QuickVoice.
-          </p>
-
-          <ol className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3">
-            {STEPS.map(({ step, title, body }) => (
-              <li
-                key={step}
-                className="relative rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-8"
-              >
-                <span className="text-[13px] font-semibold tracking-[0.2em] text-blue-400">{step}</span>
-                <h3 className="mt-4 text-[15px] font-semibold text-gray-100">{title}</h3>
-                <p className="mt-3 text-[14px] leading-relaxed text-gray-400">{body}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {/* Languages, stated plainly */}
-      <section className="px-6 py-24">
-        <div className="mx-auto w-full max-w-3xl rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-10 text-center">
-          <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.05]">
-            <Languages size={22} className="text-gray-300" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">English and Japanese</h2>
-          <p className="mx-auto mt-4 max-w-xl text-[14px] leading-relaxed text-gray-400">
-            Both directions, and no others. The models that run on your machine are trained on that
-            one pair, so the extension offers exactly what it can translate rather than a longer
-            list that fails at the last moment.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-[13px] text-gray-300">
-            {["English → Japanese", "Japanese → English"].map((pair) => (
-              <span
-                key={pair}
-                className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-2"
+
+          {/* A page with a selection and the context menu over it */}
+          <div className="relative">
+            <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0a0f1a] shadow-[0_30px_80px_-20px_rgba(0,0,0,.9)]">
+              <div className="flex items-center gap-2 border-b border-white/[0.07] bg-white/[0.03] px-4 py-3">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                <span className="ml-3 truncate rounded-md bg-black/40 px-3 py-1 text-[11px] text-gray-500">
+                  news.example.jp/article
+                </span>
+              </div>
+
+              <div className="relative p-7">
+                <p className="text-[15px] leading-8 text-gray-400">
+                  次の駅で乗り換えてください。{" "}
+                  <span className="rounded bg-blue-500/35 px-1 py-0.5 text-white">
+                    駅はどこですか？
+                  </span>{" "}
+                  改札は北口にあります。案内板に従って進んでください。
+                </p>
+
+                {/* the menu item that does the work */}
+                <div className="mt-5 w-[280px] overflow-hidden rounded-xl border border-white/[0.1] bg-[#161b26] shadow-2xl">
+                  <div className="px-4 py-2.5 text-[12px] text-gray-500">Copy</div>
+                  <div className="px-4 py-2.5 text-[12px] text-gray-500">Search the web</div>
+                  <div className="flex items-center gap-2.5 border-t border-white/[0.07] bg-blue-500/15 px-4 py-2.5 text-[12px] font-medium text-blue-200">
+                    <MousePointer2 size={13} />
+                    Translate selection with QuickVoice
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-300">Translation</p>
+                  <p className="mt-1.5 text-[15px] text-white">Where is the station?</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* The side panel, shown the same way */}
+      <section className="border-y border-white/[0.06] bg-[#070b14] px-6 py-24">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+          <div className="order-2 lg:order-1">
+            <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0a0f1a] shadow-[0_30px_80px_-20px_rgba(0,0,0,.9)]">
+              <div className="flex items-center justify-between border-b border-white/[0.07] bg-white/[0.03] px-4 py-3">
+                <span className="flex items-center gap-2 text-[12px] font-semibold text-gray-300">
+                  <PanelRight size={14} className="text-cyan-300" />
+                  QuickVoice
+                </span>
+                <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+                  Connected
+                </span>
+              </div>
+              <div className="space-y-4 p-5">
+                <div>
+                  <p className="mb-2 text-[10px] uppercase tracking-widest text-gray-500">English</p>
+                  <div className="rounded-lg border border-white/[0.08] bg-black/30 p-3.5 text-[13px] leading-6 text-gray-300">
+                    Could we move the meeting to Thursday afternoon?
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-gray-600">
+                  <span className="h-px flex-1 bg-white/[0.07]" />
+                  translate
+                  <span className="h-px flex-1 bg-white/[0.07]" />
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] uppercase tracking-widest text-cyan-300">Japanese</p>
+                  <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.07] p-3.5 text-[14px] leading-7 text-white">
+                    会議を木曜日の午後に変更できますか？
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
+              For the longer things
+            </h2>
+            <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-gray-400">
+              A panel that opens beside the page instead of over it. Paste a paragraph, send it
+              either direction, and keep what you were reading in view the whole time.
+            </p>
+            <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-400">
+              It talks to the QuickVoice server you are running, so the words go to your own
+              computer and stop there.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Setup, as a numbered run rather than three boxes */}
+      <section className="px-6 py-24">
+        <div className="mx-auto w-full max-w-5xl">
+          <h2 className="text-3xl font-bold tracking-tight">Two minutes to set up</h2>
+          <div className="mt-14 space-y-px">
+            {STEPS.map(({ step, title, body }) => (
+              <div
+                key={step}
+                className="grid grid-cols-[auto_1fr] items-baseline gap-x-6 border-t border-white/[0.07] py-8 sm:grid-cols-[auto_0.9fr_1.4fr] sm:gap-x-10"
               >
-                <Check size={14} className="text-emerald-400" />
-                {pair}
-              </span>
+                <span className="font-mono text-[13px] text-cyan-400">{step}</span>
+                <h3 className="text-[17px] font-semibold">{title}</h3>
+                <p className="col-span-2 mt-3 text-[14px] leading-relaxed text-gray-400 sm:col-span-1 sm:mt-0">
+                  {body}
+                </p>
+              </div>
             ))}
+          </div>
+
+          <div className="mt-16 flex flex-col items-start justify-between gap-6 border-t border-white/[0.07] pt-10 sm:flex-row sm:items-center">
+            <p className="max-w-md text-[14px] leading-relaxed text-gray-500">
+              English and Japanese only — the pair the on-device models were trained for, so the
+              extension never offers a language it would fail on.
+            </p>
+            <Link
+              href="/why-quickvoice"
+              className="group inline-flex shrink-0 items-center gap-2 text-[14px] font-semibold text-cyan-300 transition-colors hover:text-white"
+            >
+              Why it runs on your machine
+              <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
         </div>
       </section>
 
       <footer className="border-t border-white/[0.06] px-6 py-10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 text-[13px] text-gray-500 sm:flex-row">
+        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-4 text-[13px] text-gray-500 sm:flex-row">
           <span>QuickVoice Companion — runs against your own QuickVoice server.</span>
           <Link href="/landing" className="transition-colors hover:text-white">
             Back to QuickVoice
