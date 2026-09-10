@@ -56,7 +56,7 @@ export default function BrowserExtensionPage() {
       <MarketingNav />
 
       {/* Hero — the panel itself, doing its job */}
-      <section className="px-6 pt-16 pb-20">
+      <section className="flex min-h-[calc(100svh-var(--appbar-h,64px))] items-center px-6 py-16">
         <div className="mx-auto grid w-full max-w-5xl grid-cols-1 items-center gap-12 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-cyan-300">
@@ -165,7 +165,7 @@ export default function BrowserExtensionPage() {
 
 
       {/* Reading, rather than listening — the other half of what it does */}
-      <section className="border-b border-white/[0.06] px-6 py-20">
+      <section className="flex min-h-[calc(100svh-var(--appbar-h,64px))] items-center border-y border-white/[0.06] px-6 py-16">
         <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
             <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
