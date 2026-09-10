@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/supabase";
+import { setStorageUser } from "@/lib/session-store";
 
 /**
  * Coerce whatever an API or SDK put in an `error` field into text safe to
@@ -41,6 +42,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+
+  // Locally stored conversations, folders and drafts are namespaced by account.
+  // Without this they were shared by everyone who used this browser: sign out,
+  // sign in as someone else, and History showed the previous person's data.
+  useEffect(() => {
+    setStorageUser(session?.user?.id ?? null);
+  }, [session?.user?.id]);
   const router = useRouter();
   const pendingOTP = useRef<{ expiresAt: number; email: string } | null>(null);
 

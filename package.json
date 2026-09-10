@@ -22,5 +22,6 @@
   "dependencies": {
     "@react-navigation/stack": "^7.10.17",
     "lightningcss": "^1.33.0"
-  }
+  },
+  "version": "1.0.0"
 }

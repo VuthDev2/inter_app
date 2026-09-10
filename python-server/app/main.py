@@ -89,6 +89,16 @@ class TranscriptionResponse(BaseModel):
     language: str
 
 
+class InterpretationResponse(BaseModel):
+    """One turn: what was heard and what it means, from a single upload."""
+
+    ok: bool
+    text: str
+    language: str
+    translation: str
+    target: str
+
+
 asr_service = WhisperASRService()
 correction_service = TextCorrectionService()
 tts_service = KokoroTTSService(SERVER_ROOT / "tts" / "kokoro_models")
@@ -517,13 +527,7 @@ async def live_interpretation(websocket: WebSocket) -> None:
                 continue
 
             detected_source = "ja" if result.language == "ja" else "en"
-            destination = (
-                configured_target
-                if detected_source != configured_target
-                else configured_source
-            )
-            if destination == detected_source:
-                destination = "ja" if detected_source == "en" else "en"
+            destination = route_turn(detected_source, configured_source, configured_target)
 
             corrected = await asyncio.to_thread(
                 correction_service.correct, original, detected_source
@@ -575,6 +579,23 @@ async def live_interpretation(websocket: WebSocket) -> None:
             })
         except Exception:
             pass
+
+
+def route_turn(detected: str, configured_source: str, configured_target: str) -> str:
+    """Which language this turn should be translated into.
+
+    The websocket and the upload endpoint each had their own version of this,
+    written months apart, and they disagreed about the case that matters most:
+    someone answering in the language the turn was supposed to produce. The
+    phone and the browser then behaved differently on the same sentence. This
+    is the websocket's rule, and now both call it.
+    """
+    destination = (
+        configured_target if detected != configured_target else configured_source
+    )
+    if destination == detected:
+        destination = "ja" if detected == "en" else "en"
+    return destination
 
 
 def run_protected_translation(text: str, source: str, target: str) -> str:
@@ -762,6 +783,66 @@ async def transcribe(
     detected_language = "ja" if result.language == "ja" else "en"
     text = await asyncio.to_thread(correction_service.correct, text, detected_language)
     return TranscriptionResponse(ok=True, text=text, language=detected_language)
+
+
+@app.post("/interpret", response_model=InterpretationResponse, dependencies=[Depends(require_api_key)])
+async def interpret(
+    file: UploadFile = File(...),
+    language: str = Form(default="auto"),
+    expected: str = Form(default=""),
+    source: str = Form(default=""),
+    target: str = Form(default=""),
+) -> InterpretationResponse:
+    """Transcribe and translate one recorded turn in a single request.
+
+    The phone used to call /transcribe and then /translate. Both are fast on
+    their own (~0.8s and ~0.1s warm) but the second one could not start until
+    the first had crossed the network twice, so every turn paid an extra round
+    trip that the web app -- which streams over the websocket and gets both
+    back together -- never pays. This is that same pairing for a client that
+    can only upload a finished clip.
+
+    The direction is decided the way the websocket decides it: by what was
+    actually heard, not by what the caller expected, so answering in the other
+    language still translates the right way.
+    """
+    heard = await transcribe(file=file, language=language, expected=expected)
+    if not heard.text:
+        return InterpretationResponse(ok=True, text="", language=heard.language, translation="", target="")
+
+    detected = "ja" if heard.language == "ja" else "en"
+    configured_source = (source or "").strip().lower()
+    configured_target = (target or "").strip().lower()
+    if configured_source not in {"en", "ja"}:
+        configured_source = "ja" if detected == "en" else "en"
+    if configured_target not in {"en", "ja"}:
+        configured_target = "ja" if detected == "en" else "en"
+    destination = route_turn(detected, configured_source, configured_target)
+
+    # No kana->kanji restoration here. The websocket does not do it, and this
+    # endpoint used to -- so the phone translated a different sentence from the
+    # one it displayed, and from the one the browser would have produced for the
+    # same speech. Whatever is shown is what gets translated.
+    text = heard.text
+
+    try:
+        translation = await asyncio.to_thread(
+            run_protected_translation,
+            text,
+            normalize_language(detected),
+            normalize_language(destination),
+        )
+    except Exception as error:  # noqa: BLE001 - reported to the caller as 503
+        traceback.print_exc()
+        raise HTTPException(status_code=503, detail="Translation is unavailable.") from error
+
+    return InterpretationResponse(
+        ok=True,
+        text=text,
+        language=detected,
+        translation=translation,
+        target=destination,
+    )
 
 
 @app.post(

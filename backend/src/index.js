@@ -8,8 +8,10 @@ import { HOST, PORT, ALLOWED_ORIGINS } from "./config.js";
 import healthRouter from "./routes/health.js";
 import transcribeRouter from "./routes/transcribe.js";
 import translateRouter from "./routes/translate.js";
-import emailRouter from "./routes/email.js";
+import authRouter from "./routes/auth.js";
+import qvTokenRouter from "./routes/qv-token.js";
 import { setupWebSocket } from "./websocket/relay.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
@@ -32,11 +34,17 @@ app.use(generalLimiter);
 app.use(healthRouter);
 app.use(transcribeRouter);
 app.use(translateRouter);
-app.use(emailRouter);
+app.use(authRouter);
+// Mints the short-lived model-server token for the mobile and Mac apps, which
+// cannot hold the master key themselves. Without it every call to the AI
+// server comes back 401 and the app just says "translation failed".
+app.use(qvTokenRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ ok: false, error: "Not found." });
 });
+
+app.use(errorHandler);
 
 const server = http.createServer(app);
 setupWebSocket(server);

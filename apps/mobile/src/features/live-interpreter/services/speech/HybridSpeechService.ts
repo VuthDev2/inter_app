@@ -7,7 +7,7 @@ import {
 } from "expo-speech-recognition";
 import { Platform } from "react-native";
 
-import { transcribeAudioResult } from "../../../../services/api";
+import { interpretAudioResult, transcribeAudioResult } from "../../../../services/api";
 import WhisperSpeechService from "./WhisperSpeechService";
 import {
   type SpeechErrorListener,
@@ -74,6 +74,17 @@ class HybridSpeechService implements SpeechServiceInterface {
   private lastSpeechAt = 0;
   private latestPartial = "";
   private expectedLanguage: "en" | "ja" | undefined;
+
+  /** The two sides of the conversation, as the pills have them. Only a hint:
+   *  the server routes by the language it actually heard, and falls back to
+   *  these when the speaker used the target language. */
+  private get configuredSource(): "en" | "ja" {
+    return this.previewLanguage ?? this.expectedLanguage ?? "en";
+  }
+
+  private get configuredTarget(): "en" | "ja" {
+    return this.configuredSource === "en" ? "ja" : "en";
+  }
   /** Locale for the live preview only; never used as a decoder prior. */
   private previewLanguage: "en" | "ja" | undefined;
   private silenceTimer: ReturnType<typeof setInterval> | null = null;
@@ -180,7 +191,20 @@ class HybridSpeechService implements SpeechServiceInterface {
       requiresOnDeviceRecognition: false,
       addsPunctuation: true,
       // The whole point: keep the audio the recognizer is already capturing.
-      recordingOptions: { persist: true },
+      //
+      // outputSampleRate/outputEncoding are pinned so the persisted WAV is
+      // unambiguously 16 kHz signed 16-bit PCM. Left unset, iOS writes the
+      // header at the hardware rate (44.1/48 kHz) while the recognizer's tap
+      // may deliver 16 kHz samples — the server then "resamples" a file that
+      // needs none, stretching speech into a low drawl that Silero VAD
+      // discards as non-speech. That is the empty-transcript bug: long
+      // English turns came back as `lang=unknown text=''` while short clips
+      // squeaked through.
+      recordingOptions: {
+        persist: true,
+        outputSampleRate: 16_000,
+        outputEncoding: "pcmFormatInt16",
+      },
       androidIntentOptions: {
         EXTRA_LANGUAGE_MODEL: RecognizerIntentExtraLanguageModel.LANGUAGE_MODEL_FREE_FORM,
         EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 4_000,
@@ -283,7 +307,14 @@ class HybridSpeechService implements SpeechServiceInterface {
         AVAudioSessionCategoryOptions.defaultToSpeaker,
         AVAudioSessionCategoryOptions.allowBluetooth,
       ],
-      mode: AVAudioSessionMode.measurement,
+      // `.measurement` turns off every bit of input conditioning -- automatic
+      // gain, noise suppression, the lot -- because it exists for taking
+      // acoustic measurements, not for listening to people. On this iPad that
+      // left the recognizer's own recording at 0.2-0.3% of full scale: the
+      // right length, silent to Whisper, while the same microphone worked
+      // normally in Safari. `.spokenAudio` keeps the processing that makes a
+      // voice audible, which is what a speech recogniser wants.
+      mode: AVAudioSessionMode.spokenAudio,
     });
     ExpoSpeechRecognitionModule.setAudioSessionActiveIOS(true, {
       notifyOthersOnDeactivation: true,
@@ -356,7 +387,17 @@ class HybridSpeechService implements SpeechServiceInterface {
 
     if (uri) {
       try {
-        const result = await transcribeAudioResult(uri, "en-ja", this.expectedLanguage);
+        // Ask for the transcript and the translation together. The screen used
+        // to get the text back, then start a second request for its meaning,
+        // which put a whole round trip between the two halves of every turn.
+        const combined = await interpretAudioResult(
+          uri,
+          "en-ja",
+          this.expectedLanguage,
+          this.configuredSource,
+          this.configuredTarget,
+        );
+        const result = combined ?? await transcribeAudioResult(uri, "en-ja", this.expectedLanguage);
         if (turnId !== this.turnId) return;
         const confirmed = result.text.trim();
         if (confirmed) {
@@ -366,6 +407,8 @@ class HybridSpeechService implements SpeechServiceInterface {
               // Whisper heard the audio; the locale the recognizer was pinned
               // to is only ever a guess.
               language: result.language === "unknown" ? undefined : result.language,
+              translation: combined?.translation || undefined,
+              targetLanguage: combined?.target || undefined,
             }),
           );
           return;

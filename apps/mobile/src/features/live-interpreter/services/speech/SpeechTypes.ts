@@ -9,6 +9,14 @@ export type SpeechResult = {
    * caller can keep the locale recognition was started with.
    */
   language?: "en" | "ja";
+  /**
+   * The translation, when the server produced it in the same request as the
+   * transcript (see interpretAudioResult). Absent means the caller still has
+   * to translate the text itself.
+   */
+  translation?: string;
+  /** Which language `translation` is in. */
+  targetLanguage?: "en" | "ja";
 };
 
 export type SpeechRecognitionError = {

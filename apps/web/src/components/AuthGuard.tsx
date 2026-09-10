@@ -16,8 +16,11 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
 
   if (!initialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[rgb(var(--bg))]">
-        <div className="text-[rgba(var(--text-secondary),1)] text-lg">Loading...</div>
+      // Only the area under the app bar, which the layout keeps on screen.
+      // A full-screen takeover here used to blank the header on every guarded
+      // page, which read as the whole top jumping.
+      <div className="flex-1 flex items-center justify-center bg-[rgb(var(--bg))] text-[rgba(var(--text-secondary),1)] text-lg">
+        Loading...
       </div>
     );
   }

@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, AppState, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { Alert, Animated, AppState, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
 
 import { type SavedRecordingSession } from "../constants/data";
 import { usePreferences } from "../features/preferences/context";
 import { useTranslation } from "../i18n/I18nContext";
 import TTSService from "../features/live-interpreter/services/tts/TTSService";
 import {
+  deleteLiveSession,
   loadLiveSessions,
   loadSavedRecordingSessions,
   type LiveSession,
@@ -38,7 +39,14 @@ function groupByDate<T extends { createdAt: string }>(items: T[]): DateGroup<T>[
     .filter((group) => group.items.length > 0);
 }
 
-export function HistoryScreen({ initialKind = "conversations" }: { initialKind?: HistoryKind }) {
+export function HistoryScreen({
+  onContinue,
+  initialKind = "conversations",
+}: {
+  /** Carry this conversation on in the Live Interpreter. */
+  onContinue?: (session: AnyLiveSession) => void;
+  initialKind?: HistoryKind;
+}) {
   const { t } = useTranslation();
   const { appearance_mode: appearanceMode, tts_speed: ttsSpeed } = usePreferences();
   const systemScheme = useColorScheme();
@@ -148,6 +156,29 @@ export function HistoryScreen({ initialKind = "conversations" }: { initialKind?:
     Animated.spring(detailAnim, { damping: 22, stiffness: 220, toValue: 1, useNativeDriver: true }).start();
   };
 
+  // A conversation could be saved and read but never removed, so anything saved
+  // by mistake stayed for good. Deleting is destructive and the list does not
+  // undo, so it asks first.
+  const deleteConversation = (session: AnyLiveSession) => {
+    Alert.alert(
+      t("history.deleteTitle"),
+      t("history.deleteMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("history.delete"),
+          style: "destructive",
+          onPress: () => {
+            void deleteLiveSession(session.id).then(() => {
+              closeConversation();
+              void load();
+            });
+          },
+        },
+      ],
+    );
+  };
+
   const closeConversation = () => {
     Animated.timing(detailAnim, { duration: 160, toValue: 0, useNativeDriver: true }).start(() => {
       setSelected(null);
@@ -165,13 +196,29 @@ export function HistoryScreen({ initialKind = "conversations" }: { initialKind?:
             <Text style={[styles.detailTitle, dark && styles.detailTitleDark]}>{t(selected.sourceLang === "ja" ? "common.japanese" : "common.english")} ↔ {t(selected.targetLang === "ja" ? "common.japanese" : "common.english")}</Text>
             <Text style={[styles.detailMeta, dark && styles.detailMetaDark]}>{new Date(selected.createdAt).toLocaleString()} · {t("history.messageCount", { count: selected.utterances.length })}</Text>
           </View>
+          <Pressable
+            accessibilityLabel={t("history.delete")}
+            onPress={() => deleteConversation(selected)}
+            style={[styles.backButton, dark && styles.backButtonDark]}
+          >
+            <Ionicons name="trash-outline" size={19} color="#E5484D" />
+          </Pressable>
         </View>
-        <View style={[styles.segmented, dark && styles.segmentedDark]}>
-          <View style={[styles.segment, styles.segmentActive, dark && styles.segmentActiveDark]}><Text style={[styles.segmentText, dark && styles.segmentTextDark, styles.segmentTextActive, dark && styles.segmentTextActiveDark]}>{t("history.conversation")}</Text></View>
-          <View style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark]}>{t("history.voiceRecord")}</Text></View>
-          <View style={styles.segment}><Text style={[styles.segmentText, dark && styles.segmentTextDark]}>{t("history.extension")}</Text></View>
-        </View>
+        {onContinue && selected.utterances.length > 0 ? (
+          <Pressable
+            accessibilityLabel={t("history.continueHere")}
+            onPress={() => onContinue(selected)}
+            style={[styles.continueButton, dark && styles.continueButtonDark]}
+          >
+            <Ionicons name="play-forward-outline" size={17} color="#FFFFFF" />
+            <Text style={styles.continueText}>{t("history.continueHere")}</Text>
+          </Pressable>
+        ) : null}
 
+        {/* No Conversation / Voice Records / Extension switcher here: those
+            pick which kind of history to list, and this is one conversation
+            already open. Showing them inside it implied this page could switch
+            to a recording or an extension session, which it cannot. */}
         {selected.utterances.length === 0 ? (
           <View style={[styles.emptyState, dark && styles.emptyStateDark]}><Ionicons name="chatbubbles-outline" size={28} color={dark ? "#8F98A5" : "#A3AAB5"} /><Text style={[styles.emptyTitle, dark && styles.emptyTitleDark]}>{t("history.noTranscript")}</Text><Text style={[styles.emptyCopy, dark && styles.emptyCopyDark]}>{t("history.noTranscriptMessage")}</Text></View>
         ) : selected.utterances.map((utterance, index) => {
@@ -279,6 +326,19 @@ function RecordingRow({ dark, recording, divider }: { dark: boolean; recording: 
 
 const styles = StyleSheet.create({
   backButton: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 999, height: 40, justifyContent: "center", shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, width: 40 },
+  continueButton: {
+    alignItems: "center",
+    backgroundColor: "#007AFF",
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    marginBottom: 14,
+    marginHorizontal: 16,
+    paddingVertical: 12,
+  },
+  continueButtonDark: { backgroundColor: "#0A84FF" },
+  continueText: { color: "#FFFFFF", fontSize: 15, fontWeight: "600" },
   backButtonDark: { backgroundColor: "#25292F", borderColor: "#3A4049", borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0 },
   detail: { gap: 13 },
   detailDark: { backgroundColor: "#0E1013" },
