@@ -727,7 +727,7 @@ export default function LandingPage() {
           >
             <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-blue-400">A conversation without barriers</p>
             <h2 className="mx-auto mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white md:text-5xl">
-              They speak naturally. QuickVoice handles the rest.
+              You speak naturally. QuickVoice handles the rest.
             </h2>
           </div>
 
