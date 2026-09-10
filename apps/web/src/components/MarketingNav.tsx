@@ -15,6 +15,7 @@ import { useEffect, useRef } from "react";
 export const MARKETING_LINKS = [
   { label: "How it works", href: "/how-it-works" },
   { label: "Why QuickVoice", href: "/why-quickvoice" },
+  { label: "Interpreter", href: "/interpreter-app" },
   { label: "Extension", href: "/browser-extension" },
 ] as const;
 
