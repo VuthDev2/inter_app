@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 /**
  * The bar the three public pages share.
@@ -19,9 +20,24 @@ export const MARKETING_LINKS = [
 
 export default function MarketingNav() {
   const pathname = usePathname();
+  const barRef = useRef<HTMLElement>(null);
+
+  // Publish the bar's height so a section can be exactly one screen tall
+  // without anyone hard-coding a number that changes when the bar wraps to two
+  // rows on a phone.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const publish = () =>
+      document.documentElement.style.setProperty("--appbar-h", `${bar.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-[#04070d]/85 backdrop-blur">
+    <header ref={barRef} className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-[#04070d]/85 backdrop-blur">
       {/* Two rows on a phone. Three names plus the logo and a button need
           about 355px of a 390px screen, so a single row scrolled sideways and
           left "How it works" cut down to a stray "s". */}
