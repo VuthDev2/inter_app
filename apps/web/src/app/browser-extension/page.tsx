@@ -71,7 +71,13 @@ export default function BrowserExtensionPage() {
             </h1>
             <p className="mt-7 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               Open the panel next to a call, a video or a lecture, press Start, and read what is
-              being said as it is said — in the other language, if you want it that way.
+              being said as it is said — in the other language, if you want it that way. Lines land
+              as they are spoken rather than after everyone has finished, so you can follow along
+              instead of catching up.
+            </p>
+            <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
+              It answers from the QuickVoice server on your own machine, which is why it can be
+              pointed at a meeting nobody wants uploaded anywhere.
             </p>
             <div className="mt-9 flex flex-wrap gap-3 text-[14px] text-gray-400">
               {["Japanese → English", "English → Japanese"].map((pair) => (
@@ -262,6 +268,90 @@ export default function BrowserExtensionPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Where it earns its place */}
+      <section className="px-6 py-24">
+        <div className="mx-auto w-full max-w-[1240px]">
+          <h2 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight md:text-[42px]">
+            Where a panel beats an app
+          </h2>
+          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
+            Anything already happening in a browser tab is the case the phone cannot cover. You
+            cannot hold a handset to a laptop speaker for an hour, and you should not have to.
+          </p>
+
+          <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                title: "A lecture you are behind in",
+                body: "Recorded or live, the transcript runs beside the video. Scroll back through what was said instead of scrubbing the timeline hunting for the sentence you missed.",
+              },
+              {
+                title: "A call with someone patient",
+                body: "Read what the other person said while they are still saying it. Notes go in against the line that prompted them, so the follow-up writes itself afterwards.",
+              },
+              {
+                title: "A page you cannot copy from",
+                body: "Text baked into an awkward layout, a form, a viewer that fights selection. Right-click what you can select and read it back without moving it anywhere.",
+              },
+              {
+                title: "Something you only half understand",
+                body: "A shop's checkout, a government form, a support thread. Translating in place keeps you on the page you were trying to use, which is usually the whole difficulty.",
+              },
+            ].map(({ title, body }) => (
+              <div key={title} className="rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-7">
+                <h3 className="text-[16px] font-semibold leading-snug">{title}</h3>
+                <p className="mt-3.5 text-[14px] leading-relaxed text-gray-400">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* What it needs, and what it does not do */}
+      <section className="border-y border-white/[0.06] bg-[#070b14] px-6 py-24">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-14 lg:grid-cols-2 lg:gap-20">
+          <div>
+            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
+              What it needs
+            </h2>
+            <ul className="mt-8 space-y-4">
+              {[
+                ["Chrome, or anything built on it", "Loaded unpacked from a folder — it is not on the Web Store."],
+                ["QuickVoice running somewhere you can reach", "Your own machine on the same network, or a share link."],
+                ["Permission to use the microphone", "Granted once, to the panel, the first time you press Start."],
+              ].map(([title, body]) => (
+                <li key={title} className="flex gap-3.5">
+                  <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-cyan-400" />
+                  <span className="text-[14.5px] leading-relaxed text-gray-400">
+                    <span className="font-semibold text-gray-200">{title}.</span> {body}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
+              What it does not do
+            </h2>
+            <ul className="mt-8 space-y-4">
+              {[
+                ["Translate a page wholesale", "It works on what you select, and on what it hears. It does not rewrite the document."],
+                ["Speak for you", "The panel reads; the app on your phone is the one that talks back in a face-to-face conversation."],
+                ["Work without QuickVoice", "There is no fallback service behind it. If nothing is running, it says so instead of quietly sending your words elsewhere."],
+              ].map(([title, body]) => (
+                <li key={title} className="flex gap-3.5">
+                  <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-gray-700" />
+                  <span className="text-[14.5px] leading-relaxed text-gray-400">
+                    <span className="font-semibold text-gray-200">{title}.</span> {body}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>

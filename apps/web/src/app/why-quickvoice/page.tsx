@@ -71,8 +71,13 @@ export default function WhyQuickVoicePage() {
               <span className="text-gray-600">pointed at someone else&apos;s server.</span>
             </h1>
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
-              This one runs where you are. That single difference decides what you can afford to say
-              in front of it.
+              This one runs where you are. Speech goes to a server you started, on hardware you own,
+              and the sentence comes back without having been anywhere else. That single difference
+              decides what you can afford to say in front of it.
+            </p>
+            <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
+              It is not free of trade-offs, and the ones it makes are further down this page rather
+              than left out of it.
             </p>
           </div>
 
@@ -167,6 +172,76 @@ export default function WhyQuickVoicePage() {
               </span>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* What it costs — stated plainly rather than left out */}
+      <section className="border-t border-white/[0.06] px-6 py-24">
+        <div className="mx-auto w-full max-w-[1240px]">
+          <h2 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight md:text-[42px]">
+            What it costs you
+          </h2>
+          <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
+            Running the models yourself buys the things above. It also buys these, and a page that
+            only listed the first half would not be worth much.
+          </p>
+
+          <div className="mt-14 grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
+            {[
+              {
+                title: "Something has to be running",
+                body: "The models live on a machine, and that machine has to be awake and reachable. Close the laptop and the phone loses its interpreter until you open it again. A cloud service does not have this problem; it has the other one.",
+              },
+              {
+                title: "The first run is a download",
+                body: "Whisper, the translation pair and the voice all have to arrive once — a few gigabytes, and some patience. After that they load from your own disk and the network stops mattering.",
+              },
+              {
+                title: "Two languages, not a hundred",
+                body: "A model trained on one pair beats a general one at that pair, and loses everywhere else. English and Japanese is what these know, so it is all the app offers rather than failing on the ninety-eighth.",
+              },
+              {
+                title: "Your hardware sets the speed",
+                body: "Apple silicon answers in about a second and a half. Something older will be slower, and the honest answer is that the experience changes with the machine rather than being the same everywhere.",
+              },
+            ].map(({ title, body }) => (
+              <div key={title}>
+                <h3 className="text-[17px] font-semibold">{title}</h3>
+                <p className="mt-3 text-[14.5px] leading-relaxed text-gray-400">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Who it is for */}
+      <section className="border-t border-white/[0.06] bg-[#070b14] px-6 py-24">
+        <div className="mx-auto w-full max-w-[1240px]">
+          <h2 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight md:text-[42px]">
+            Who ends up needing this
+          </h2>
+
+          <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {[
+              {
+                who: "Conversations that are nobody else's business",
+                body: "A medical appointment, a legal question, a family matter, an interview about something not yet public. The usual advice is to avoid a translator entirely for these. Running it yourself removes the reason for that advice.",
+              },
+              {
+                who: "Work that came with a promise",
+                body: "Client material, an NDA, a contract still being negotiated. Pasting any of it into a service that logs requests is a decision someone signed something about — and it stops being a decision when nothing leaves the room.",
+              },
+              {
+                who: "Anywhere the network is not a given",
+                body: "A basement meeting room, a train, a venue with hostile wifi, another country with a data plan you would rather not spend. Interpreting keeps working because it was never asking anyone permission.",
+              },
+            ].map(({ who, body }) => (
+              <div key={who} className="rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-8">
+                <h3 className="text-[17px] font-semibold leading-snug">{who}</h3>
+                <p className="mt-4 text-[14.5px] leading-relaxed text-gray-400">{body}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
