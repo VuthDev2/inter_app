@@ -27,6 +27,8 @@ const BARE_ROUTES = [
   // extension has not signed in yet -- so it brings its own header instead of
   // the signed-in app bar.
   "/browser-extension",
+  "/how-it-works",
+  "/why-quickvoice",
 ];
 
 export default function AppChrome() {

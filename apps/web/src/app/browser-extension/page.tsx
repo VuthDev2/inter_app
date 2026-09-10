@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  ArrowLeft,
   Check,
   Globe,
   Languages,
@@ -10,6 +9,7 @@ import {
   PanelRight,
   ShieldCheck,
 } from "lucide-react";
+import MarketingNav from "@/components/MarketingNav";
 
 /**
  * A page of its own for the browser extension.
@@ -70,25 +70,7 @@ const STEPS = [
 export default function BrowserExtensionPage() {
   return (
     <div className="min-h-screen w-full bg-[#04070d] text-white">
-      {/* A bare top bar: this page is reachable without an account, so it
-          carries its own way back rather than the signed-in app chrome. */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-[#04070d]/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <Link
-            href="/landing"
-            className="group inline-flex items-center gap-2 text-[13px] font-medium text-gray-400 transition-colors hover:text-white"
-          >
-            <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-0.5" />
-            QuickVoice
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-full bg-blue-600 px-5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-blue-500"
-          >
-            Open QuickVoice
-          </Link>
-        </div>
-      </header>
+      <MarketingNav />
 
       {/* Hero */}
       <section className="relative overflow-hidden px-6 pt-20 pb-24 md:pt-28">

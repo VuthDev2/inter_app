@@ -41,14 +41,14 @@ const PRODUCT_FEATURES = [
 ] as const;
 
 /**
- * Two kinds of destination, deliberately separated by a divider in the nav.
- * Section links scroll within this page; product links leave it. Mixing them
- * without a visual break made every item look like it scrolled.
+ * Each name is now a page of its own rather than an anchor into this one. The
+ * welcome page still carries all three subjects -- it is the overview -- and
+ * these go to the room where each is covered properly.
  */
 const SECTION_LINKS = [
-  { label: "How it works", hash: "#featuring" },
-  { label: "Why QuickVoice", hash: "#features" },
-  { label: "Extension", hash: "#extension" },
+  { label: "How it works", hash: "/how-it-works" },
+  { label: "Why QuickVoice", hash: "/why-quickvoice" },
+  { label: "Extension", hash: "/browser-extension" },
 ] as const;
 
 const MAN_CONVERSATION_FRAMES = [
@@ -69,7 +69,6 @@ const WOMAN_CONVERSATION_FRAMES = [
 
 export default function LandingPage() {
   const [activeProductFeature, setActiveProductFeature] = useState(0);
-  const [activeNav, setActiveNav] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [navVisible, setNavVisible] = useState(true);
   const [isAtTop, setIsAtTop] = useState(true);
@@ -106,17 +105,6 @@ export default function LandingPage() {
       setActiveProductFeature((current) => (current + 1) % PRODUCT_FEATURES.length);
     }, 6000);
     return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const syncActiveNav = () => {
-      const section = window.location.hash.slice(1);
-      if (section) setActiveNav(section);
-    };
-
-    syncActiveNav();
-    window.addEventListener("hashchange", syncActiveNav);
-    return () => window.removeEventListener("hashchange", syncActiveNav);
   }, []);
 
   useEffect(() => {
@@ -516,8 +504,7 @@ export default function LandingPage() {
                 <Link
                   key={hash}
                   href={hash}
-                  onClick={() => setActiveNav(hash.slice(1))}
-                  className={`pb-1 border-b-2 transition-colors ${activeNav === hash.slice(1) ? "border-blue-500 text-white" : "border-transparent hover:text-white"}`}
+                                    className="border-b-2 border-transparent pb-1 transition-colors hover:border-blue-500 hover:text-white"
                 >
                   {label}
                 </Link>
@@ -557,7 +544,7 @@ export default function LandingPage() {
                 <Link
                   key={hash}
                   href={hash}
-                  onClick={() => { setActiveNav(hash.slice(1)); setMenuOpen(false); }}
+                  onClick={() => setMenuOpen(false)}
                   className="block px-3 py-2.5 rounded-xl text-[15px] text-gray-300 hover:text-white hover:bg-white/[0.06] transition-colors"
                 >
                   {label}
