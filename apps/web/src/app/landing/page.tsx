@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Shield, Sparkles, Zap, Copyright, Globe, Languages, Menu, X, MousePointerClick, PanelRight, ShieldCheck } from "lucide-react";
+import { Shield, Sparkles, Zap, Copyright, Globe, Languages, Menu, X } from "lucide-react";
 import ConversationStory from "@/components/ConversationStory";
 
 const PRODUCT_FEATURES = [
@@ -48,7 +48,6 @@ const PRODUCT_FEATURES = [
 const SECTION_LINKS = [
   { label: "How it works", hash: "#featuring" },
   { label: "Why QuickVoice", hash: "#features" },
-  { label: "Extension", hash: "#extension" },
 ] as const;
 
 const MAN_CONVERSATION_FRAMES = [
@@ -497,107 +496,8 @@ export default function LandingPage() {
         </div>
       </div>
 
-
-      {/* --- BROWSER EXTENSION ---
-           Deliberately plain about what this does. The in-app extension page
-           promises tab-audio capture and "any language"; the extension does
-           neither. Everything claimed below was checked against the built
-           extension running in Chrome: right-click translate, the side panel,
-           and the local server it talks to. */}
-      <div id="extension" className="relative z-10 order-6 flex w-full flex-col items-center bg-[#04070d] py-24">
-        <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-300">
-          <Globe size={13} />
-          Browser extension
-        </span>
-        <h2 className="mb-4 max-w-3xl px-6 text-center text-3xl font-bold tracking-wide md:text-4xl">
-          Translate the page you are already on
-        </h2>
-        <p className="mb-16 max-w-2xl px-6 text-center text-[15px] leading-relaxed text-gray-400">
-          QuickVoice Companion puts the same on-device models behind a right-click. Highlight
-          something in an article, an email or a chat, and read it back in the other language
-          without copying it anywhere.
-        </p>
-
-        <div className="grid w-full max-w-7xl grid-cols-1 gap-8 px-6 md:grid-cols-3">
-          <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 transition-colors hover:border-gray-700">
-            <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
-              <MousePointerClick size={18} className="text-blue-400" />
-            </div>
-            <h3 className="mb-4 text-[16px] font-semibold">Right-click any selection</h3>
-            <p className="text-[14px] leading-relaxed text-gray-400">
-              Select text on any site and choose <span className="text-gray-200">Translate selection
-              with QuickVoice</span>. The translation comes back in place — no new tab, no pasting
-              into another window.
-            </p>
-          </div>
-
-          <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 transition-colors hover:border-gray-700">
-            <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/10">
-              <PanelRight size={18} className="text-cyan-400" />
-            </div>
-            <h3 className="mb-4 text-[16px] font-semibold">A side panel that stays put</h3>
-            <p className="text-[14px] leading-relaxed text-gray-400">
-              Type or paste longer passages and send them either direction, English to Japanese or
-              back, while the page you are reading stays open beside it.
-            </p>
-          </div>
-
-          <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 transition-colors hover:border-gray-700">
-            <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
-              <ShieldCheck size={18} className="text-emerald-400" />
-            </div>
-            <h3 className="mb-4 text-[16px] font-semibold">Answers from your own machine</h3>
-            <p className="text-[14px] leading-relaxed text-gray-400">
-              The extension talks to the QuickVoice server you are running. Whatever you highlight
-              goes to your computer and nowhere else — there is no third-party translation service
-              in the path.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-8 w-full max-w-7xl px-6">
-          <div className="rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-8 md:p-10">
-            <h3 className="mb-8 text-[16px] font-semibold">Three steps to set it up</h3>
-            <ol className="grid grid-cols-1 gap-8 md:grid-cols-3">
-              {[
-                {
-                  step: "01",
-                  title: "Load it into Chrome",
-                  body: "Open chrome://extensions, turn on Developer mode, choose Load unpacked and pick the extension's dist folder.",
-                },
-                {
-                  step: "02",
-                  title: "Point it at your server",
-                  body: "Open the extension popup and paste your QuickVoice web address. It finds the model server and its own credentials from there.",
-                },
-                {
-                  step: "03",
-                  title: "Highlight something",
-                  body: "Right-click a selection on any page. The popup names the server it reached, so you can tell at a glance that it is connected.",
-                },
-              ].map(({ step, title, body }) => (
-                <li key={step} className="flex flex-col gap-3">
-                  <span className="text-[13px] font-semibold tracking-[0.2em] text-blue-400">{step}</span>
-                  <span className="text-[15px] font-semibold text-gray-100">{title}</span>
-                  <span className="text-[14px] leading-relaxed text-gray-400">{body}</span>
-                </li>
-              ))}
-            </ol>
-
-            <p className="mt-10 flex items-start gap-3 border-t border-white/[0.08] pt-6 text-[13px] leading-relaxed text-gray-500">
-              <Languages size={16} className="mt-0.5 shrink-0 text-gray-600" />
-              <span>
-                English and Japanese, in both directions. The models that run on your machine are
-                trained on that pair alone, so the extension offers only what it can genuinely
-                translate rather than a longer list that fails at the last moment.
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* --- FOOTER --- */}
-      <footer id="more" className="relative z-10 order-7 w-full border-t border-white/[0.08] bg-[#04070d]">
+      <footer id="more" className="relative z-10 order-6 w-full border-t border-white/[0.08] bg-[#04070d]">
         <div className="w-full max-w-7xl mx-auto px-6 pt-10 pb-6">
           <div className="grid grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-x-5 sm:gap-x-10 gap-y-8 pb-8">
             <div className="col-span-3 lg:col-span-1 max-w-sm">
