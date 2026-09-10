@@ -2,9 +2,8 @@
 
 import { useRef, useState } from "react";
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform, type MotionStyle } from "framer-motion";
-import { ArrowDown, Loader2, MessageCircle, Play, Volume2 } from "lucide-react";
+import { ArrowDown, MessageCircle, Play, Volume2 } from "lucide-react";
 import { FeatureStepDemo } from "./FeatureStepDemo";
-import { speakWithQuickVoice } from "@/lib/quickvoice-api";
 
 /**
  * Speak the Japanese line on the last step.
@@ -13,63 +12,46 @@ import { speakWithQuickVoice } from "@/lib/quickvoice-api";
  * made the one claim on this page you could actually check the one thing it
  * did not do.
  *
- * It uses the real thing first -- the same /tts the app uses, through a
- * short-lived token the site mints server-side -- and falls back to the
- * browser's own Japanese voice when that is not reachable. A visitor reading
- * this page usually has no QuickVoice server running, and a dead button would
- * be worse than a plainer voice.
+ * The clip is a file, not a live call. It was generated once by the real
+ * QuickVoice voice and committed, so this is genuinely what the app sounds
+ * like -- and it plays for anyone reading the page, whether or not a model
+ * server happens to be running. Calling /tts live meant the button worked on
+ * the machine hosting QuickVoice and nowhere else, which is exactly backwards
+ * for a page whose job is to show visitors what it does.
+ *
+ * Regenerate with the text below if the line or the voice ever changes.
  */
-function SpeakTranslation({ text }: { text: string }) {
-  const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
+const JAPANESE_LINE = "駅はどこですか？";
+const JAPANESE_CLIP = "/audio/station-ja.mp3";
 
-  async function speakInBrowser() {
-    const synth = window.speechSynthesis;
-    if (!synth) return;
-    synth.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "ja-JP";
-    const japanese = synth.getVoices().find((voice) => voice.lang.startsWith("ja"));
-    if (japanese) utterance.voice = japanese;
-    await new Promise<void>((resolve) => {
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
-      synth.speak(utterance);
-    });
-  }
+function SpeakTranslation() {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  async function play() {
-    if (state !== "idle") return;
-    setState("loading");
-    try {
-      await speakWithQuickVoice(text, "ja");
-      setState("playing");
-      // The helper resolves when playback starts, not when it ends; this is
-      // just long enough for the button to read as busy while a short line
-      // plays.
-      window.setTimeout(() => setState("idle"), 2200);
-    } catch {
-      setState("playing");
-      await speakInBrowser();
-      setState("idle");
+  function play() {
+    const audio = audioRef.current ?? new Audio(JAPANESE_CLIP);
+    audioRef.current = audio;
+    if (playing) {
+      audio.pause();
+      audio.currentTime = 0;
+      setPlaying(false);
+      return;
     }
+    audio.currentTime = 0;
+    audio.onended = () => setPlaying(false);
+    audio.onerror = () => setPlaying(false);
+    void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
   }
 
   return (
     <button
       type="button"
-      onClick={() => void play()}
-      disabled={state !== "idle"}
-      aria-label={`Play the Japanese translation: ${text}`}
-      className="mt-4 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-[13px] font-semibold text-blue-200 transition-colors hover:bg-blue-500/25 disabled:opacity-70"
+      onClick={play}
+      aria-label={`Play the Japanese translation: ${JAPANESE_LINE}`}
+      className="mt-4 inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-[13px] font-semibold text-blue-200 transition-colors hover:bg-blue-500/25"
     >
-      {state === "loading" ? (
-        <Loader2 size={15} className="animate-spin" />
-      ) : state === "playing" ? (
-        <Volume2 size={15} />
-      ) : (
-        <Play size={15} />
-      )}
-      {state === "loading" ? "Preparing…" : state === "playing" ? "Speaking…" : "Hear it in Japanese"}
+      {playing ? <Volume2 size={15} className="animate-pulse" /> : <Play size={15} />}
+      {playing ? "Speaking…" : "Hear it in Japanese"}
     </button>
   );
 }
@@ -146,7 +128,7 @@ export default function ConversationStory() {
             <div className="my-6 space-y-4" aria-live="polite">
               <div className="flex items-center gap-2 text-xs text-blue-300"><MessageCircle size={15}/>{steps[active].status}</div>
               <div className="max-w-[92%] rounded-2xl rounded-bl-sm border border-blue-400/20 bg-[#142035] p-5"><p className="mb-3 text-[10px] uppercase tracking-widest text-blue-300">{"English · Speaker"}</p><p className="text-lg">{steps[active].original}</p></div>
-              <div className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm border border-white/10 bg-white/[.04] p-5"><p className="mb-3 text-[10px] uppercase tracking-widest text-gray-400">{active < 2 ? "QuickVoice" : "Japanese · Translation"}</p><p className={active < 2 ? "text-sm text-gray-400" : "text-lg text-white"}>{steps[active].translation}</p>{active === 3 && <SpeakTranslation text={steps[3].translation}/>}</div>
+              <div className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm border border-white/10 bg-white/[.04] p-5"><p className="mb-3 text-[10px] uppercase tracking-widest text-gray-400">{active < 2 ? "QuickVoice" : "Japanese · Translation"}</p><p className={active < 2 ? "text-sm text-gray-400" : "text-lg text-white"}>{steps[active].translation}</p>{active === 3 && <SpeakTranslation/>}</div>
             </div>
             <p className="text-xs text-gray-500">English ↔ Japanese</p>
           </div>
