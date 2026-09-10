@@ -22,7 +22,9 @@ import { ArrowLeft } from "lucide-react";
 
 export function PageShell({ children, fill = false }: { children: ReactNode; fill?: boolean }) {
   // `fill` turns the shell into a fixed frame the height of whatever is left of
-  // the window, for pages whose content is a list that can run to any length.
+  // the window -- measured from the app bar, which publishes --appbar-h, rather
+  // than asked for from the layout. Bounding it in the layout instead squashed
+  // the landing page's 240vh conversation section down to one screen. for pages whose content is a list that can run to any length.
   // The default -- the page gets taller and the whole window scrolls -- is
   // right for a page you read top to bottom and wrong for a list: the header
   // and the tabs scrolled away, and the card holding the rows grew without
@@ -30,7 +32,7 @@ export function PageShell({ children, fill = false }: { children: ReactNode; fil
   // that, and this is what makes the web behave the same way.
   if (fill) {
     return (
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col px-4 pt-6 pb-4 sm:px-6 sm:pt-8 lg:px-8 lg:pt-10">
+      <main className="mx-auto flex h-[calc(100dvh-var(--appbar-h,0px))] min-h-0 w-full max-w-7xl flex-col px-4 pt-6 pb-4 sm:px-6 sm:pt-8 lg:px-8 lg:pt-10">
         {children}
       </main>
     );
