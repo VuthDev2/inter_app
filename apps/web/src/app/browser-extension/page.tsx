@@ -57,27 +57,27 @@ export default function BrowserExtensionPage() {
 
       {/* Hero — the panel itself, doing its job */}
       <section className="flex min-h-[calc(100svh-var(--appbar-h,64px))] items-center px-6 py-16">
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-1 items-center gap-12 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-14 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-20">
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-cyan-300">
               Browser extension
             </p>
-            <h1 className="mt-6 max-w-xl text-4xl font-bold leading-[1.06] tracking-tight md:text-[50px]">
+            <h1 className="mt-7 max-w-2xl text-[42px] font-bold leading-[1.05] tracking-tight md:text-[58px] xl:text-[66px]">
               A live transcript,
               <br />
               beside whatever
               <br />
               you are listening to
             </h1>
-            <p className="mt-6 max-w-md text-[15px] leading-relaxed text-gray-400">
+            <p className="mt-7 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               Open the panel next to a call, a video or a lecture, press Start, and read what is
               being said as it is said — in the other language, if you want it that way.
             </p>
-            <div className="mt-8 flex flex-wrap gap-2.5 text-[13px] text-gray-400">
+            <div className="mt-9 flex flex-wrap gap-3 text-[14px] text-gray-400">
               {["Japanese → English", "English → Japanese"].map((pair) => (
                 <span
                   key={pair}
-                  className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5"
+                  className="rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-2"
                 >
                   {pair}
                 </span>
@@ -86,7 +86,7 @@ export default function BrowserExtensionPage() {
           </div>
 
           {/* The side panel, as it looks in Chrome */}
-          <div className="mx-auto w-full max-w-[340px]">
+          <div className="mx-auto w-full max-w-[400px]">
             <div className="overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0d0f12] shadow-[0_40px_90px_-30px_rgba(0,0,0,1)]">
               <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3.5">
                 <span className="flex items-center gap-2.5">
@@ -166,19 +166,19 @@ export default function BrowserExtensionPage() {
 
       {/* Reading, rather than listening — the other half of what it does */}
       <section className="flex min-h-[calc(100svh-var(--appbar-h,64px))] items-center border-y border-white/[0.06] px-6 py-16">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-14 lg:grid-cols-[1fr_1.05fr] lg:gap-20">
           <div>
-            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
+            <h2 className="text-[38px] font-bold leading-[1.05] tracking-tight md:text-[48px] xl:text-[54px]">
               Or just highlight
               <br />
               something
             </h2>
-            <p className="mt-6 max-w-md text-[15px] leading-relaxed text-gray-400">
+            <p className="mt-7 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               Not everything worth translating is spoken. Select a line in an article, an email or a
               chat, right-click, and read it back in the other language — without leaving the page
               or opening the panel at all.
             </p>
-            <ul className="mt-7 space-y-3 text-[14px] leading-relaxed text-gray-400">
+            <ul className="mt-8 space-y-3.5 text-[15px] leading-relaxed text-gray-400">
               {[
                 "The answer appears where you are, not in another tab",
                 "Same models, same server — nothing new to set up",
@@ -247,7 +247,7 @@ export default function BrowserExtensionPage() {
 
       {/* What it does */}
       <section className="border-y border-white/[0.06] bg-[#070b14] px-6 py-20">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto w-full max-w-[1240px]">
           <div className="grid grid-cols-1 gap-x-14 gap-y-10 sm:grid-cols-2">
             {CAPABILITIES.map(({ icon: Icon, tint, title, body }) => (
               <div key={title} className="flex gap-4">
@@ -264,7 +264,7 @@ export default function BrowserExtensionPage() {
 
       {/* Setup */}
       <section className="px-6 py-20">
-        <div className="mx-auto w-full max-w-4xl">
+        <div className="mx-auto w-full max-w-5xl">
           <div className="flex flex-wrap items-baseline justify-between gap-4">
             <h2 className="text-3xl font-bold tracking-tight">Two minutes to set up</h2>
             <span className="text-[13px] text-gray-500">Only the middle step is QuickVoice-specific</span>
