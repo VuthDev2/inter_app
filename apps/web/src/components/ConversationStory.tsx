@@ -72,7 +72,7 @@ export default function ConversationStory() {
               </article>)}
             </motion.div>
           </div>
-          <div id="conversation" className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[radial-gradient(ellipse_at_top_right,rgba(37,99,235,.16),transparent_70%)] p-6 sm:p-8">
+          <div id="conversation-preview" className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[radial-gradient(ellipse_at_top_right,rgba(37,99,235,.16),transparent_70%)] p-6 sm:p-8">
             <div><p className="text-[10px] uppercase tracking-[.2em] text-blue-300">See it in conversation</p><h3 className="mt-3 max-w-sm text-2xl font-semibold tracking-tight sm:text-3xl">They speak naturally. QuickVoice handles the rest.</h3></div>
             <div className="my-6 space-y-4" aria-live="polite">
               <div className="flex items-center gap-2 text-xs text-blue-300"><MessageCircle size={15}/>{steps[active].status}</div>

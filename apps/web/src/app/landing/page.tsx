@@ -78,6 +78,19 @@ export default function LandingPage() {
   const lastScrollY = useRef(0);
   const scrollingRef = useRef(false);
   const scrollEndTimer = useRef<number | null>(null);
+  // --- Restored: the scroll-driven scene of two people talking. It was dropped
+  // when this page was rewritten; the frame arrays and their preloader survived
+  // but nothing rendered them. ---
+  const [conversationProgress, setConversationProgress] = useState(0);
+  const [conversationSectionVisible, setConversationSectionVisible] = useState(false);
+  const [conversationCharactersEntered, setConversationCharactersEntered] = useState(false);
+  const [conversationContentReady, setConversationContentReady] = useState(false);
+  const conversationRef = useRef<HTMLElement>(null);
+  const conversationStageRef = useRef(0);
+  // True only while the scene fills the viewport, which is when a scroll
+  // gesture should advance a beat instead of moving the page.
+  const pinnedRef = useRef(false);
+  const lastConversationAdvance = useRef(Date.now());
   useEffect(() => {
     [...MAN_CONVERSATION_FRAMES.slice(1), ...WOMAN_CONVERSATION_FRAMES.slice(1)].forEach((src) => {
       const frame = new window.Image();
@@ -170,6 +183,222 @@ export default function LandingPage() {
     observer.observe(hero);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section) return;
+    let frame = 0;
+    const update = () => {
+      const rect = section.getBoundingClientRect();
+      const scrollable = Math.max(section.offsetHeight - window.innerHeight, 1);
+      setConversationProgress(Math.min(1, Math.max(0, -rect.top / scrollable)));
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section || !conversationContentReady) return;
+    let conversationWasActive = false;
+
+    const moveToStage = (targetStage: number) => {
+      const scrollable = Math.max(section.offsetHeight - window.innerHeight, 1);
+      const targetProgress = (targetStage + 0.1) / 5;
+      const sectionTop = section.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: sectionTop + scrollable * targetProgress, behavior: "smooth" });
+    };
+
+    const recordUserInteraction = () => {
+      lastConversationAdvance.current = Date.now();
+    };
+
+    // One scroll gesture = one conversation step, rather than the stage being
+    // read continuously off the scroll offset. While the section is pinned the
+    // page itself does not move; scrolling drives the four beats instead
+    // (Japanese -> English, then English -> Japanese). Control is handed back
+    // to the page at either end so the section can still be scrolled past.
+    // The cooldown matches the 1s CSS transition on the bubbles — without it a
+    // single trackpad flick, which fires dozens of wheel events, would blow
+    // through every stage at once.
+    const STEP_COOLDOWN_MS = 900;
+    let lastStepAt = 0;
+
+    // Read from the observer's cached result — calling getBoundingClientRect
+    // here forced a synchronous layout on every single wheel event.
+    const sectionIsPinned = () => pinnedRef.current;
+
+    /** Returns true when the gesture was consumed as a step. */
+    const stepFromGesture = (goingDown: boolean, preventDefault: () => void) => {
+      if (!sectionIsPinned()) return false;
+
+      const stage = conversationStageRef.current;
+      // At the ends, let the gesture through so the page scrolls normally.
+      if (goingDown && stage >= 4) return false;
+      if (!goingDown && stage <= 0) return false;
+
+      preventDefault();
+
+      const now = Date.now();
+      if (now - lastStepAt < STEP_COOLDOWN_MS) return true;
+      lastStepAt = now;
+      lastConversationAdvance.current = now;
+      moveToStage(stage + (goingDown ? 1 : -1));
+      return true;
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) < 2) return;
+      stepFromGesture(event.deltaY > 0, () => event.preventDefault());
+    };
+
+    let touchStartY: number | null = null;
+    const onTouchStart = (event: TouchEvent) => {
+      recordUserInteraction();
+      touchStartY = event.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchStartY === null) return;
+      const currentY = event.touches[0]?.clientY ?? touchStartY;
+      const delta = touchStartY - currentY;
+      // Ignore the small jitter that starts every swipe.
+      if (Math.abs(delta) < 12) return;
+      if (stepFromGesture(delta > 0, () => event.preventDefault())) {
+        touchStartY = currentY;
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+        recordUserInteraction();
+      }
+      if (!sectionIsPinned()) return;
+      if (event.key === "ArrowDown" || event.key === "PageDown" || event.key === " ") {
+        stepFromGesture(true, () => event.preventDefault());
+      } else if (event.key === "ArrowUp" || event.key === "PageUp") {
+        stepFromGesture(false, () => event.preventDefault());
+      }
+    };
+
+    const autoAdvance = window.setInterval(() => {
+      const rect = section.getBoundingClientRect();
+      const active = rect.top <= 1 && rect.bottom >= window.innerHeight - 1;
+
+      if (!active) {
+        conversationWasActive = false;
+        return;
+      }
+      if (!conversationWasActive) {
+        conversationWasActive = true;
+        lastConversationAdvance.current = Date.now();
+        return;
+      }
+      if (
+        conversationStageRef.current >= 4 ||
+        Date.now() - lastConversationAdvance.current < 3000
+      ) return;
+
+      lastConversationAdvance.current = Date.now();
+      moveToStage(conversationStageRef.current + 1);
+    }, 250);
+
+    // The stepping handlers must be non-passive so they can preventDefault,
+    // but a non-passive wheel/touchmove listener makes the browser wait for
+    // JavaScript before every scroll tick — across the whole page that reads
+    // as lag. So they are attached ONLY while this section is actually
+    // pinned, and removed the moment it is not; everywhere else on the page
+    // scrolling stays fully passive and untouched.
+    let steppingAttached = false;
+    const attachStepping = () => {
+      if (steppingAttached) return;
+      steppingAttached = true;
+      window.addEventListener("wheel", onWheel, { passive: false });
+      window.addEventListener("touchmove", onTouchMove, { passive: false });
+    };
+    const detachStepping = () => {
+      if (!steppingAttached) return;
+      steppingAttached = false;
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+
+    // IntersectionObserver rather than a scroll handler: it reports the
+    // pinned/unpinned transition off the main thread, so nothing here has to
+    // measure layout on every wheel event.
+    const pinObserver = new IntersectionObserver(
+      ([entry]) => {
+        pinnedRef.current = entry.intersectionRatio >= 0.99;
+        if (pinnedRef.current) attachStepping();
+        else detachStepping();
+      },
+      { threshold: [0, 0.99, 1] }
+    );
+    pinObserver.observe(section);
+
+    window.addEventListener("wheel", recordUserInteraction, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      pinObserver.disconnect();
+      detachStepping();
+      window.removeEventListener("wheel", recordUserInteraction);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearInterval(autoAdvance);
+    };
+  }, [conversationContentReady]);
+
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setConversationSectionVisible(entry.isIntersecting),
+      { rootMargin: "-34% 0px -34% 0px", threshold: 0.01 },
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!conversationSectionVisible) {
+      setConversationCharactersEntered(false);
+      setConversationContentReady(false);
+      return;
+    }
+
+    const characterTimer = window.setTimeout(() => setConversationCharactersEntered(true), 450);
+    const contentTimer = window.setTimeout(() => {
+      setConversationContentReady(true);
+      lastConversationAdvance.current = Date.now();
+    }, 1550);
+
+    return () => {
+      window.clearTimeout(characterTimer);
+      window.clearTimeout(contentTimer);
+    };
+  }, [conversationSectionVisible]);
+
+  const conversationStage = Math.min(4, Math.floor(conversationProgress * 5));
+  const manFramesByStage = [1, 2, 3, 1, 4] as const;
+  const womanFramesByStage = [1, 1, 4, 2, 3] as const;
+  const activeManFrame = manFramesByStage[conversationStage];
+  const activeWomanFrame = womanFramesByStage[conversationStage];
+
+  useEffect(() => {
+    conversationStageRef.current = conversationStage;
+  }, [conversationStage]);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#05050A] text-white font-sans selection:bg-blue-500/30">
@@ -386,6 +615,152 @@ export default function LandingPage() {
       </div>
 
       <ConversationStory />
+
+      {/* --- SCROLL-DRIVEN CONVERSATION --- */}
+      <section
+        id="conversation"
+        ref={conversationRef}
+        className="relative order-3 h-[240vh] w-full border-t border-white/[0.06] bg-[#05070c]"
+      >
+        <div className="sticky top-0 h-screen w-full overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,.16),transparent_38%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#05050a] to-transparent" />
+
+          {/* Conversation-only people. These start and end with section three. */}
+          <div className="pointer-events-none absolute inset-0 z-10 hidden overflow-hidden lg:block" aria-hidden="true">
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={`conversation-man-${activeManFrame}`}
+                initial={{ opacity: 0, y: 4, scale: 0.999 }}
+                animate={conversationCharactersEntered
+                  ? {
+                      opacity: 1,
+                      x: 0,
+                      y: [0, -4, 0],
+                      scale: [1, 1.002, 1],
+                    }
+                  : {
+                      opacity: 0,
+                      x: "-24vw",
+                      y: 8,
+                      scale: 0.995,
+                    }}
+                exit={{
+                  opacity: 0,
+                  y: -2,
+                  scale: 1,
+                  transition: { duration: 0.42, ease: [0.4, 0, 0.2, 1] },
+                }}
+                transition={{
+                  opacity: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+                  x: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 4.8, repeat: Infinity, ease: "easeInOut" },
+                  scale: { duration: 4.8, repeat: Infinity, ease: "easeInOut" },
+                }}
+                data-conversation-character="man"
+                className="absolute inset-0 transform-gpu [backface-visibility:hidden] [will-change:opacity,transform]"
+              >
+                <Image
+                  src={MAN_CONVERSATION_FRAMES[activeManFrame]}
+                  alt=""
+                  width={1672}
+                  height={941}
+                  sizes="50vw"
+                  unoptimized
+                  style={{ clipPath: "inset(0 50% 0 0)", transform: "translateX(calc(-50% + 4vw)) scaleX(1.04)" }}
+                  className="absolute -bottom-[12%] left-[46.5%] h-auto w-[98%] max-w-none select-none object-contain object-bottom"
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={`conversation-woman-${activeWomanFrame}`}
+                initial={{ opacity: 0, y: 4, scale: 0.999 }}
+                animate={conversationCharactersEntered
+                  ? {
+                      opacity: 1,
+                      x: 0,
+                      y: [-1, -5, -1],
+                      scale: [1, 1.002, 1],
+                    }
+                  : {
+                      opacity: 0,
+                      x: "24vw",
+                      y: 8,
+                      scale: 0.995,
+                    }}
+                exit={{
+                  opacity: 0,
+                  y: -3,
+                  scale: 1,
+                  transition: { duration: 0.42, ease: [0.4, 0, 0.2, 1] },
+                }}
+                transition={{
+                  opacity: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+                  x: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
+                  scale: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
+                }}
+                data-conversation-character="woman"
+                className="absolute inset-0 transform-gpu [backface-visibility:hidden] [will-change:opacity,transform]"
+              >
+                <Image
+                  src={WOMAN_CONVERSATION_FRAMES[activeWomanFrame]}
+                  alt=""
+                  width={1672}
+                  height={941}
+                  sizes="50vw"
+                  unoptimized
+                  style={{ clipPath: "inset(0 0 0 50%)", transform: "translateX(calc(-50% - 2vw)) scaleX(1.02)" }}
+                  className="absolute -bottom-[10%] left-[53.5%] h-auto w-[92%] max-w-none select-none object-contain object-bottom"
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div
+            data-conversation-heading
+            className={`absolute inset-x-0 top-[11%] z-20 px-6 text-center transition-all duration-700 ease-out ${
+              conversationSectionVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-blue-400">A conversation without barriers</p>
+            <h2 className="mx-auto mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white md:text-5xl">
+              They speak naturally. QuickVoice handles the rest.
+            </h2>
+          </div>
+
+          <div
+            data-conversation-content
+            className={`absolute inset-x-0 top-[31%] z-20 mx-auto w-[min(92vw,620px)] px-4 transition-all duration-700 ease-out ${
+              conversationContentReady
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-5 opacity-0"
+            }`}
+          >
+            <div className={`mx-auto flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-1000 ${conversationStage > 0 && conversationStage < 4 ? "border-blue-400/35 bg-blue-500/15 text-blue-200 opacity-100 shadow-[0_0_35px_rgba(59,130,246,.22)]" : "border-white/10 bg-white/[0.04] text-gray-500 opacity-70"}`}>
+              <Languages className="h-4 w-4" />
+              {conversationStage === 0 ? "Ready to interpret" : conversationStage === 1 ? "Listening to Japanese…" : conversationStage === 2 ? "Translating into English…" : conversationStage === 3 ? "Listening to English…" : "Reply understood"}
+            </div>
+
+            <div className="relative mt-8 h-[250px] md:h-[290px]">
+              <article className={`absolute left-0 top-0 max-w-[78%] rounded-3xl rounded-bl-md border border-blue-400/20 bg-[#101827]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,.38)] backdrop-blur transition-all duration-1000 md:max-w-[68%] ${conversationStage >= 1 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-300"><span>🇯🇵</span> Japanese</div>
+                <p className="mt-3 text-lg font-medium text-white md:text-xl">こんにちは、今日はどうでしたか？</p>
+                <p className={`mt-3 border-t border-white/10 pt-3 text-sm text-blue-300 transition-opacity duration-1000 ${conversationStage >= 2 ? "opacity-100" : "opacity-0"}`}>Hi, how was your day?</p>
+              </article>
+
+              <article className={`absolute bottom-0 right-0 max-w-[78%] rounded-3xl rounded-br-md border border-cyan-300/20 bg-[#111923]/95 p-5 text-right shadow-[0_20px_60px_rgba(0,0,0,.38)] backdrop-blur transition-all duration-1000 md:max-w-[68%] ${conversationStage >= 3 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                <div className="flex items-center justify-end gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200"><span>🇬🇧</span> English</div>
+                <p className="mt-3 text-lg font-medium text-white md:text-xl">It was great, thank you!</p>
+                <p className={`mt-3 border-t border-white/10 pt-3 text-sm text-cyan-300 transition-opacity duration-1000 ${conversationStage >= 4 ? "opacity-100" : "opacity-0"}`}>とても良かったです、ありがとう！</p>
+              </article>
+            </div>
+          </div>
+
+        </div>
+      </section>
 
       {/* --- ORIGINAL PRODUCT FEATURE SHOWCASE --- */}
       <section id="product-showcase" className="relative z-10 order-4 flex w-full flex-col items-center overflow-hidden px-6 py-28 md:py-32">

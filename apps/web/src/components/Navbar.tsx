@@ -31,6 +31,29 @@ export default function Navbar() {
   const initial = displayName.charAt(0).toUpperCase();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLElement>(null);
+
+  // Publish this bar's height so a page can size itself to "the rest of the
+  // window" on its own. Asking the layout to bound it instead is what squashed
+  // the landing page: a flex child's automatic minimum size is the only thing
+  // holding that page's 240vh conversation section at its natural height.
+  // offsetHeight is 0 while the bar is hidden (it is md:block), which is the
+  // right answer -- on a phone there is no bar taking room.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const publish = () => {
+      document.documentElement.style.setProperty("--appbar-h", `${bar.offsetHeight}px`);
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(bar);
+    window.addEventListener("resize", publish);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", publish);
+    };
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -51,7 +74,7 @@ export default function Navbar() {
 
   return (
     <>
-    <header className="hidden w-full border-b border-[rgb(var(--border))] bg-[rgb(var(--bg))] md:block">
+    <header ref={barRef} className="hidden w-full border-b border-[rgb(var(--border))] bg-[rgb(var(--bg))] md:block">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 px-4 sm:gap-3 sm:px-6 py-3 sm:py-4">
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-2 sm:gap-3 shrink-0">
