@@ -37,6 +37,16 @@
         <h2 id="authTitle">Welcome Back!</h2>
         <p id="backendStatus" class="connection-status">Checking backend...</p>
 
+        <!-- The one thing anyone configures. The token and the model server's
+             address are both fetched from this site at runtime, so a re-issued
+             tunnel means pasting a link here, never editing the extension. -->
+        <div class="site-row">
+          <label for="siteUrl">QuickVoice website</label>
+          <input id="siteUrl" type="url" spellcheck="false"
+                 placeholder="http://localhost:3000 or your share link" />
+          <button id="saveSite" type="button">Use this server</button>
+        </div>
+
         <div id="sessionCard" class="session-pill">
           <span id="sessionText">Not signed in</span>
           <button id="signOutBtn" class="signout-link hidden" type="button">Sign Out</button>
@@ -85,6 +95,7 @@
     </main>
 
     <script src="src/config.js"></script>
+    <script src="src/server.js"></script>
     <script src="src/popup.js"></script>
   </body>
 </html>
