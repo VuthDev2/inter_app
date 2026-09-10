@@ -23,6 +23,10 @@ const BARE_ROUTES = [
   "/verify",
   "/verifysuccess",
   "/forgotpassword",
+  // Reachable without an account -- someone deciding whether to install the
+  // extension has not signed in yet -- so it brings its own header instead of
+  // the signed-in app bar.
+  "/browser-extension",
 ];
 
 export default function AppChrome() {
