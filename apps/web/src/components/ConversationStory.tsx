@@ -108,7 +108,12 @@ export default function ConversationStory() {
            at 740-800px tall the content needed more room than the stage had,
            and centring pushed "Real-time voice translation" off the top where
            overflow:hidden cut it away. */
-        .story-stage { position: sticky; top: 0; height: 100svh; padding: 24px 32px; --story-height: clamp(400px, calc(100svh - 216px), 680px); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+        /* Sticks below the bar, not under it. On the welcome page there is no
+           fixed bar and --appbar-h is 0, so this is 100svh as before; on a page
+           that carries the marketing bar, pinning at 0 put the stage's own
+           heading behind it and made the panel look oversized for the space
+           left. */
+        .story-stage { position: sticky; top: var(--appbar-h, 0px); height: calc(100svh - var(--appbar-h, 0px)); padding: 24px 32px; --story-height: clamp(400px, calc(100svh - var(--appbar-h, 0px) - 216px), 680px); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
         .story-track { transform: none; }
         #conversation-preview { height: var(--story-height); }
         .story-track[style] { transform: var(--scroll-transform) !important; }
