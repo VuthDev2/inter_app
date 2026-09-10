@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ChevronDown, Maximize2, Mic, NotebookPen, ShieldCheck } from "lucide-react";
+import { ArrowRight, ChevronDown, Maximize2, Mic, MousePointer2, NotebookPen, ShieldCheck } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
 
 /**
@@ -160,6 +160,88 @@ export default function BrowserExtensionPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+
+      {/* Reading, rather than listening — the other half of what it does */}
+      <section className="border-b border-white/[0.06] px-6 py-20">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
+              Or just highlight
+              <br />
+              something
+            </h2>
+            <p className="mt-6 max-w-md text-[15px] leading-relaxed text-gray-400">
+              Not everything worth translating is spoken. Select a line in an article, an email or a
+              chat, right-click, and read it back in the other language — without leaving the page
+              or opening the panel at all.
+            </p>
+            <ul className="mt-7 space-y-3 text-[14px] leading-relaxed text-gray-400">
+              {[
+                "The answer appears where you are, not in another tab",
+                "Same models, same server — nothing new to set up",
+                "Works on any page, including ones you cannot copy from comfortably",
+              ].map((line) => (
+                <li key={line} className="flex gap-3">
+                  <span className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-cyan-400" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+            {/* A real page, with the menu open over the paragraph */}
+            <div className="overflow-hidden rounded-xl border border-white/[0.1] bg-[#0a0f1a] shadow-[0_40px_90px_-30px_rgba(0,0,0,1)]">
+              <div className="flex items-center gap-2 border-b border-white/[0.07] bg-white/[0.03] px-3.5 py-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                <span className="ml-3 flex-1 truncate rounded bg-black/40 px-2.5 py-1 text-[10px] text-gray-500">
+                  news.example.jp/article/2891
+                </span>
+              </div>
+
+              <div className="relative px-6 pb-6 pt-5">
+                <p className="text-[11px] uppercase tracking-widest text-gray-600">交通・地域</p>
+                <h2 className="mt-2 text-[19px] font-semibold leading-snug text-gray-200">
+                  新しい地下鉄の路線が今月開通します
+                </h2>
+                <p className="mt-3.5 text-[13.5px] leading-7 text-gray-500">
+                  今月末から新路線の運行が始まります。乗り換えは次の駅で行ってください。
+                  観光客からの問い合わせで最も多いのは{" "}
+                  <span className="rounded-[3px] bg-[#2f6bff]/45 px-1 py-[3px] text-white">
+                    駅はどこですか？
+                  </span>{" "}
+                  という一言だといいます。改札は北口にあり、案内板に従って進むと五分ほどで到着します。
+                </p>
+                <p className="mt-3 text-[13.5px] leading-7 text-gray-600">
+                  初日は臨時ダイヤで運行し、主要な駅には案内係が立つ予定です。詳しい時刻は公式サイトをご覧ください。
+                </p>
+
+                {/* the menu, over the text and anchored at the pointer */}
+                <div className="pointer-events-none absolute left-[44%] top-[44%] z-10 w-[228px] overflow-hidden rounded-lg border border-white/[0.12] bg-[#1c212c] py-1 shadow-[0_20px_50px_-10px_rgba(0,0,0,.95)]">
+                  {["Copy", "Search the web for “駅は…”"].map((item) => (
+                    <div key={item} className="truncate px-3 py-[7px] text-[11.5px] text-gray-400">
+                      {item}
+                    </div>
+                  ))}
+                  <div className="my-1 h-px bg-white/[0.08]" />
+                  <div className="flex items-center gap-2 bg-[#2f6bff] px-3 py-[7px] text-[11.5px] font-medium text-white">
+                    <MousePointer2 size={12} />
+                    Translate with QuickVoice
+                  </div>
+                </div>
+
+                <div className="mt-7 flex items-center gap-3 rounded-lg border border-emerald-400/25 bg-emerald-500/[0.09] px-4 py-3">
+                  <span className="rounded bg-emerald-500/20 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-300">
+                    EN
+                  </span>
+                  <p className="text-[14px] text-white">Where is the station?</p>
+                </div>
+              </div>
+            </div>
         </div>
       </section>
 
