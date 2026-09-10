@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform, type MotionStyle } from "framer-motion";
+import { AnimatePresence, motion, useMotionValueEvent, useReducedMotion, useScroll, useSpring, useTransform, type MotionStyle } from "framer-motion";
 import { ArrowDown, MessageCircle, Play, Volume2 } from "lucide-react";
 import { FeatureStepDemo } from "./FeatureStepDemo";
 
@@ -68,9 +68,15 @@ export default function ConversationStory() {
   const reducedMotion = useReducedMotion();
   const [active, setActive] = useState(0);
   const { scrollYProgress } = useScroll({ target: section, offset: ["start start", "end end"] });
+  // A spring between the wheel and the slide. Driving the transform straight
+  // off scroll made every notch of a trackpad a separate little movement, so
+  // the panel twitched its way between steps instead of travelling. The spring
+  // keeps the scroll in charge of where it ends up and takes the jitter out of
+  // how it gets there.
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 90, damping: 24, mass: 0.35, restDelta: 0.0005 });
   // Three short transitions separated by long reading holds. Native scrolling
   // owns the timeline, so reversing or leaving never requires a trapped gesture.
-  const panelY = useTransform(scrollYProgress, [0, .18, .26, .44, .52, .70, .78, 1], ["0%", "0%", "-100%", "-100%", "-200%", "-200%", "-300%", "-300%"]);
+  const panelY = useTransform(smoothProgress, [0, .18, .26, .44, .52, .70, .78, 1], ["0%", "0%", "-100%", "-100%", "-200%", "-200%", "-300%", "-300%"]);
   const scrollTransform = useTransform(panelY, value => `translateY(${value})`);
   useMotionValueEvent(scrollYProgress, "change", (value) => {
     if (!window.matchMedia("(min-width: 1024px) and (min-height: 740px)").matches || reducedMotion) return;
@@ -126,9 +132,29 @@ export default function ConversationStory() {
           <div id="conversation-preview" className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[radial-gradient(ellipse_at_top_right,rgba(37,99,235,.16),transparent_70%)] p-6 sm:p-8">
             <div><p className="text-[10px] uppercase tracking-[.2em] text-blue-300">See it in conversation</p><h3 className="mt-3 max-w-sm text-2xl font-semibold tracking-tight sm:text-3xl">You speak naturally. QuickVoice handles the rest.</h3></div>
             <div className="my-6 space-y-4" aria-live="polite">
-              <div className="flex items-center gap-2 text-xs text-blue-300"><MessageCircle size={15}/>{steps[active].status}</div>
+              <div className="flex items-center gap-2 text-xs text-blue-300"><MessageCircle size={15}/>
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span key={steps[active].status} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: .18 }}>{steps[active].status}</motion.span>
+                </AnimatePresence>
+              </div>
               <div className="max-w-[92%] rounded-2xl rounded-bl-sm border border-blue-400/20 bg-[#142035] p-5"><p className="mb-3 text-[10px] uppercase tracking-widest text-blue-300">{"English · Speaker"}</p><p className="text-lg">{steps[active].original}</p></div>
-              <div className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm border border-white/10 bg-white/[.04] p-5"><p className="mb-3 text-[10px] uppercase tracking-widest text-gray-400">{active < 2 ? "QuickVoice" : "Japanese · Translation"}</p><p className={active < 2 ? "text-sm text-gray-400" : "text-lg text-white"}>{steps[active].translation}</p>{active === 3 && <SpeakTranslation/>}</div>
+              {/* The reply is the line that actually changes between steps, so it
+                  is the one that gets the transition -- a hard swap read as a
+                  glitch rather than as an answer arriving. */}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={active}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: .26, ease: [.22, .61, .36, 1] }}
+                  className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm border border-white/10 bg-white/[.04] p-5"
+                >
+                  <p className="mb-3 text-[10px] uppercase tracking-widest text-gray-400">{active < 2 ? "QuickVoice" : "Japanese · Translation"}</p>
+                  <p className={active < 2 ? "text-sm text-gray-400" : "text-lg text-white"}>{steps[active].translation}</p>
+                  {active === 3 && <SpeakTranslation/>}
+                </motion.div>
+              </AnimatePresence>
             </div>
             <p className="text-xs text-gray-500">English ↔ Japanese</p>
           </div>
