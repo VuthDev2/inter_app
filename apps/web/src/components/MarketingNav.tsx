@@ -34,7 +34,11 @@ export default function MarketingNav() {
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(bar);
-    return () => observer.disconnect();
+    const clear = () => document.documentElement.style.setProperty("--appbar-h", "0px");
+    return () => {
+      observer.disconnect();
+      clear();
+    };
   }, []);
 
   return (

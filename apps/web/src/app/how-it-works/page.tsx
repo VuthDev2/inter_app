@@ -93,10 +93,15 @@ export default function HowItWorksPage() {
             <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-blue-300">
               How it works
             </p>
+            {/* Deliberately not "Four steps. One natural conversation." — the
+                scene below says exactly that, and hearing it twice in one
+                scroll made the page read as itself, repeated. */}
             <h1 className="mt-7 text-[42px] font-bold leading-[1.05] tracking-tight md:text-[58px] xl:text-[64px]">
-              Four steps.
+              A second and a half,
               <br />
-              One natural conversation.
+              from spoken
+              <br />
+              <span className="text-gray-600">to spoken back.</span>
             </h1>
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               You speak. It listens, works out that you have finished, crosses the language and

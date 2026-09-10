@@ -48,10 +48,12 @@ export default function Navbar() {
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(bar);
+    const clear = () => document.documentElement.style.setProperty("--appbar-h", "0px");
     window.addEventListener("resize", publish);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", publish);
+      clear();
     };
   }, []);
 
