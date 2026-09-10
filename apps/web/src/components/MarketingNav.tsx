@@ -22,7 +22,10 @@ export default function MarketingNav() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-[#04070d]/85 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-4 sm:px-6">
+      {/* Two rows on a phone. Three names plus the logo and a button need
+          about 355px of a 390px screen, so a single row scrolled sideways and
+          left "How it works" cut down to a stray "s". */}
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-3 px-5 py-3.5 sm:flex-nowrap sm:px-6 sm:py-4">
         <Link href="/landing" className="flex shrink-0 items-center gap-2">
           <img src="/logo-d.png" alt="" className="h-7 w-auto" />
           <span className="text-[15px] font-bold italic tracking-tight text-white">
@@ -35,7 +38,7 @@ export default function MarketingNav() {
             on every page. */}
         <nav
           aria-label="QuickVoice"
-          className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto text-[13px] font-medium sm:gap-6"
+          className="order-last flex w-full min-w-0 items-center justify-between gap-1 text-[13px] font-medium sm:order-none sm:w-auto sm:flex-1 sm:justify-center sm:gap-6"
         >
           {MARKETING_LINKS.map(({ label, href }) => {
             const active = pathname === href;
@@ -44,7 +47,7 @@ export default function MarketingNav() {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`shrink-0 whitespace-nowrap border-b-2 px-2 pb-1 transition-colors ${
+                className={`shrink-0 whitespace-nowrap border-b-2 pb-1 text-[12.5px] transition-colors sm:px-2 sm:text-[13px] ${
                   active
                     ? "border-blue-500 text-white"
                     : "border-transparent text-gray-400 hover:text-white"
