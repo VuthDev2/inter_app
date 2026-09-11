@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Check, Cpu, Languages, Mic, Volume2, X } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
+import Highlight from "@/components/Highlight";
 
 /**
  * Why QuickVoice.
@@ -72,8 +73,8 @@ export default function WhyQuickVoicePage() {
             </h1>
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               This one runs where you are. Speech goes to a server you started, on hardware you own,
-              and the sentence comes back without having been anywhere else. That single difference
-              decides what you can afford to say in front of it.
+              and <Highlight tone="softEmerald">the sentence comes back without having been anywhere else</Highlight>.
+              That single difference decides <Highlight tone="blue">what you can afford to say in front of it</Highlight>.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
               It is not free of trade-offs, and the ones it makes are further down this page rather
@@ -182,8 +183,8 @@ export default function WhyQuickVoicePage() {
             What it costs you
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Running the models yourself buys the things above. It also buys these, and a page that
-            only listed the first half would not be worth much.
+            Running the models yourself buys the things above. It also buys these —
+            <Highlight tone="amber">a page that only listed the first half would not be worth much</Highlight>.
           </p>
 
           <div className="mt-14 grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">

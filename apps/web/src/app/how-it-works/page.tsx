@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Ear, Languages, Mic, Timer, Volume2 } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
 import ConversationStory from "@/components/ConversationStory";
+import Highlight from "@/components/Highlight";
 
 /**
  * How it works.
@@ -106,12 +107,12 @@ export default function HowItWorksPage() {
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               You speak. It listens, works out that you have finished, crosses the language and
               answers aloud — then hands the microphone back so the other person can reply. The
-              whole round trip takes about a second and a half, and none of it leaves the machine
-              you started it on.
+              whole round trip takes <Highlight tone="blue">about a second and a half</Highlight>, and
+              <Highlight tone="softEmerald">none of it leaves the machine you started it on</Highlight>.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
               What follows is the honest version: what each stage actually is, where the time goes,
-              and the four problems that only appear once two people are really talking.
+              and <Highlight>the four problems that only appear once two people are really talking</Highlight>.
             </p>
           </div>
 
@@ -155,8 +156,8 @@ export default function HowItWorksPage() {
             The same four steps, with the detail put back in
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Each stage is a real piece of software doing one job on your machine. Here is what each
-            of them is, and the decision inside it that mattered most.
+            Each stage is <Highlight tone="soft">a real piece of software doing one job on your machine</Highlight>.
+            Here is what each of them is, and the decision inside it that mattered most.
           </p>
 
           <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -189,8 +190,8 @@ export default function HowItWorksPage() {
             The parts that only show up in a real conversation
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Translating a sentence is the easy half. These four are what stand between a working
-            demo and something two people can actually talk through.
+            <Highlight tone="amber">Translating a sentence is the easy half.</Highlight> These four are what
+            stand between a working demo and something two people can actually talk through.
           </p>
 
           <div className="mt-14">
