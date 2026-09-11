@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Maximize2, Mic, MousePointer2, NotebookPen, ShieldCheck } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
+import Highlight from "@/components/Highlight";
 
 /**
  * The browser extension.
@@ -72,12 +73,12 @@ export default function BrowserExtensionPage() {
             <p className="mt-7 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               Open the panel next to a call, a video or a lecture, press Start, and read what is
               being said as it is said — in the other language, if you want it that way. Lines land
-              as they are spoken rather than after everyone has finished, so you can follow along
-              instead of catching up.
+              <Highlight tone="blue">as they are spoken rather than after everyone has finished</Highlight>, so you
+              can follow along instead of catching up.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
               It answers from the QuickVoice server on your own machine, which is why it can be
-              pointed at a meeting nobody wants uploaded anywhere.
+              <Highlight tone="softEmerald">pointed at a meeting nobody wants uploaded anywhere</Highlight>.
             </p>
             <div className="mt-9 flex flex-wrap gap-3 text-[14px] text-gray-400">
               {["Japanese → English", "English → Japanese"].map((pair) => (
@@ -279,8 +280,9 @@ export default function BrowserExtensionPage() {
             Where a panel beats an app
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Anything already happening in a browser tab is the case the phone cannot cover. You
-            cannot hold a handset to a laptop speaker for an hour, and you should not have to.
+            Anything already happening in a browser tab is the case the phone cannot cover.
+            <Highlight tone="amber">You cannot hold a handset to a laptop speaker for an hour</Highlight>, and you
+            should not have to.
           </p>
 
           <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">

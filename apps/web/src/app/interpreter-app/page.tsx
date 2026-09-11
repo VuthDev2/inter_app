@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeftRight, ArrowRight, Bookmark, Repeat, Tag, Volume2 } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
 import { BrowserMock, IPadMock, IPhoneMock } from "@/components/DeviceMocks";
+import Highlight from "@/components/Highlight";
 
 /**
  * The interpreter itself — the thing the rest of the site is about.
@@ -61,12 +62,12 @@ export default function InterpreterPage() {
             </h1>
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               One side of the screen for each of you. Speak, hear it come back in the other
-              language, and carry on — no pressing a button between turns, no handing the device
-              across the table, no waiting for a menu.
+              language, and carry on — <Highlight tone="blue">no pressing a button between turns</Highlight>,
+              no handing the device across the table, no waiting for a menu.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
-              The same conversation runs on an iPhone, an iPad and in a browser, against the same
-              models on your own machine.
+              The same conversation runs on <Highlight tone="soft">an iPhone, an iPad and in a browser</Highlight>,
+              against the same models on your own machine.
             </p>
           </div>
 
@@ -129,8 +130,8 @@ export default function InterpreterPage() {
             What makes it a conversation rather than a translator
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Translating one sentence is a feature. Four things turn that into two people talking
-            without either of them managing the software.
+            Translating one sentence is a feature. Four things turn that into
+            <Highlight tone="softCyan">two people talking without either of them managing the software</Highlight>.
           </p>
 
           <div className="mt-16 grid grid-cols-1 gap-x-14 gap-y-10 md:grid-cols-2">
