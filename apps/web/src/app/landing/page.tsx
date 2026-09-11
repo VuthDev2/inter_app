@@ -576,13 +576,13 @@ export default function LandingPage() {
 
             <h1 className="hero-rise hero-rise-delay-1 mt-6 text-balance text-[clamp(2.75rem,5.7vw,5.75rem)] font-semibold leading-[0.96] tracking-[-0.058em] text-white drop-shadow-[0_8px_35px_rgba(0,0,0,.72)]">
               Every conversation,
-              <span className="mt-2 block bg-gradient-to-r from-blue-300 via-blue-500 to-cyan-300 bg-clip-text pb-2 text-transparent">
+              <span className="mt-1 block bg-gradient-to-r from-blue-300 via-blue-500 to-cyan-300 bg-clip-text pb-2 text-transparent">
                 understood instantly.
               </span>
             </h1>
 
             <p className="hero-rise hero-rise-delay-2 mt-6 max-w-xl text-balance text-base leading-7 text-gray-300 drop-shadow-[0_3px_15px_rgba(0,0,0,.9)] md:text-lg md:leading-8">
-              Speak naturally in English or Japanese. QuickVoice listens, translates, and responds with a clear voice—so the conversation never loses its flow.
+              Speak naturally. QuickVoice translates between English and Japanese with clear voice playback.
             </p>
 
             <div className="hero-rise hero-rise-delay-3 mt-9 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
@@ -825,7 +825,7 @@ export default function LandingPage() {
         
         <div className="w-full max-w-7xl px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Card 1 */}
-            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
                 <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-6">
                     <Shield size={18} className="text-purple-400" />
                 </div>
@@ -836,7 +836,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 2 */}
-            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
                 <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center mb-6">
                     <Sparkles size={18} className="text-cyan-400" />
                 </div>
@@ -847,7 +847,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 3 */}
-            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
                 <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
                     <Zap size={18} className="text-blue-400" />
                 </div>
@@ -886,7 +886,7 @@ export default function LandingPage() {
           </p>
 
           <div className="mt-16 grid w-full grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 transition-colors hover:border-gray-700">
+            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
               <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
                 <MousePointerClick size={18} className="text-blue-400" />
               </div>
@@ -897,7 +897,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 transition-colors hover:border-gray-700">
+            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
               <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/10">
                 <PanelRight size={18} className="text-cyan-400" />
               </div>
@@ -908,7 +908,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 transition-colors hover:border-gray-700">
+            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
               <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
                 <ShieldCheck size={18} className="text-emerald-400" />
               </div>

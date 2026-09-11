@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeftRight, ArrowRight, Bookmark, Repeat, Tag, Volume2 } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
 import { BrowserMock, IPadMock, IPhoneMock } from "@/components/DeviceMocks";
-import Highlight from "@/components/Highlight";
+import { Card, NumberedList, PillButton } from "@/components/Surface";
 
 /**
  * The interpreter itself — the thing the rest of the site is about.
@@ -62,12 +62,12 @@ export default function InterpreterPage() {
             </h1>
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               One side of the screen for each of you. Speak, hear it come back in the other
-              language, and carry on — <Highlight tone="blue">no pressing a button between turns</Highlight>,
-              no handing the device across the table, no waiting for a menu.
+              language, and carry on — no pressing a button between turns, no handing the device
+              across the table, no waiting for a menu.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
-              The same conversation runs on <Highlight tone="soft">an iPhone, an iPad and in a browser</Highlight>,
-              against the same models on your own machine.
+              The same conversation runs on an iPhone, an iPad and in a browser, against the same
+              models on your own machine.
             </p>
           </div>
 
@@ -130,8 +130,8 @@ export default function InterpreterPage() {
             What makes it a conversation rather than a translator
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Translating one sentence is a feature. Four things turn that into
-            <Highlight tone="softCyan">two people talking without either of them managing the software</Highlight>.
+            Translating one sentence is a feature. Four things turn that into two people talking
+            without either of them managing the software.
           </p>
 
           <div className="mt-16 grid grid-cols-1 gap-x-14 gap-y-10 md:grid-cols-2">
@@ -146,19 +146,16 @@ export default function InterpreterPage() {
             ))}
           </div>
 
-          <div className="mt-16 flex flex-col items-start justify-between gap-6 border-t border-white/[0.07] pt-10 sm:flex-row sm:items-center">
-            <p className="flex items-center gap-3 text-[14px] leading-relaxed text-gray-500">
-              <Volume2 size={16} className="shrink-0 text-gray-600" />
+          <Card className="mt-16 flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center md:p-10">
+            <p className="flex items-center gap-3 text-[15px] leading-relaxed text-gray-300">
+              <Volume2 size={18} className="shrink-0 text-gray-500" />
               English and Japanese, both directions, spoken aloud in a natural voice.
             </p>
-            <Link
-              href="/how-it-works"
-              className="group inline-flex shrink-0 items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-5 py-2.5 text-[14px] font-semibold text-blue-200 transition-colors hover:bg-blue-500/20"
-            >
+            <PillButton href="/how-it-works">
               How a turn actually works
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+              <ArrowRight size={16} />
+            </PillButton>
+          </Card>
         </div>
       </section>
 
