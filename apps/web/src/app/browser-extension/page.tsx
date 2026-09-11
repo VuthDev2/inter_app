@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, ChevronDown, Maximize2, Mic, MousePointer2, NotebookPen, ShieldCheck } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
-import Highlight from "@/components/Highlight";
+import { Card, NumberedList, PillButton } from "@/components/Surface";
 
 /**
  * The browser extension.
@@ -73,12 +73,12 @@ export default function BrowserExtensionPage() {
             <p className="mt-7 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               Open the panel next to a call, a video or a lecture, press Start, and read what is
               being said as it is said — in the other language, if you want it that way. Lines land
-              <Highlight tone="blue">as they are spoken rather than after everyone has finished</Highlight>, so you
-              can follow along instead of catching up.
+              as they are spoken rather than after everyone has finished, so you can follow along
+              instead of catching up.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
               It answers from the QuickVoice server on your own machine, which is why it can be
-              <Highlight tone="softEmerald">pointed at a meeting nobody wants uploaded anywhere</Highlight>.
+              pointed at a meeting nobody wants uploaded anywhere.
             </p>
             <div className="mt-9 flex flex-wrap gap-3 text-[14px] text-gray-400">
               {["Japanese → English", "English → Japanese"].map((pair) => (
@@ -280,9 +280,8 @@ export default function BrowserExtensionPage() {
             Where a panel beats an app
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Anything already happening in a browser tab is the case the phone cannot cover.
-            <Highlight tone="amber">You cannot hold a handset to a laptop speaker for an hour</Highlight>, and you
-            should not have to.
+            Anything already happening in a browser tab is the case the phone cannot cover. You
+            cannot hold a handset to a laptop speaker for an hour, and you should not have to.
           </p>
 
           <div className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -304,10 +303,10 @@ export default function BrowserExtensionPage() {
                 body: "A shop's checkout, a government form, a support thread. Translating in place keeps you on the page you were trying to use, which is usually the whole difficulty.",
               },
             ].map(({ title, body }) => (
-              <div key={title} className="rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-7">
+              <Card key={title} className="p-7">
                 <h3 className="text-[16px] font-semibold leading-snug">{title}</h3>
                 <p className="mt-3.5 text-[14px] leading-relaxed text-gray-400">{body}</p>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -315,9 +314,9 @@ export default function BrowserExtensionPage() {
 
       {/* What it needs, and what it does not do */}
       <section className="border-y border-white/[0.06] bg-[#070b14] px-6 py-24">
-        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-14 lg:grid-cols-2 lg:gap-20">
-          <div>
-            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
+        <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 gap-8 lg:grid-cols-2">
+          <Card className="p-8 md:p-10">
+            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[34px]">
               What it needs
             </h2>
             <ul className="mt-8 space-y-4">
@@ -334,10 +333,10 @@ export default function BrowserExtensionPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
 
-          <div>
-            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[38px]">
+          <Card tone="sunken" className="p-8 md:p-10">
+            <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[34px]">
               What it does not do
             </h2>
             <ul className="mt-8 space-y-4">
@@ -354,45 +353,49 @@ export default function BrowserExtensionPage() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         </div>
       </section>
 
-      {/* Setup */}
-      <section className="px-6 py-20">
-        <div className="mx-auto w-full max-w-5xl">
-          <div className="flex flex-wrap items-baseline justify-between gap-4">
-            <h2 className="text-3xl font-bold tracking-tight">Two minutes to set up</h2>
-            <span className="text-[13px] text-gray-500">Only the middle step is QuickVoice-specific</span>
-          </div>
+      {/* Setup — on a surface, not floating on the page */}
+      <section className="px-6 py-24">
+        <div className="mx-auto w-full max-w-[1240px]">
+          <Card className="overflow-hidden p-8 md:p-12">
+            <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+              <div>
+                <h2 className="text-3xl font-bold leading-tight tracking-tight md:text-[40px]">
+                  Two minutes
+                  <br />
+                  to set up
+                </h2>
+                <p className="mt-6 max-w-sm text-[14.5px] leading-relaxed text-gray-400">
+                  Only the middle step is specific to QuickVoice. Already running it? The extension
+                  needs nothing else installed.
+                </p>
+                <div className="mt-9">
+                  <PillButton href="/why-quickvoice">
+                    Why it runs on your machine
+                    <ArrowRight size={16} />
+                  </PillButton>
+                </div>
+              </div>
 
-          <div className="mt-10 border-t border-white/[0.08]">
-            {STEPS.map(({ step, title, body }) => (
-              <div
-                key={step}
-                className="grid grid-cols-[auto_1fr] gap-x-5 border-b border-white/[0.08] py-6 sm:grid-cols-[auto_16rem_1fr] sm:gap-x-8 sm:py-7"
-              >
-                <span className="font-mono text-[12px] text-cyan-400 sm:pt-1">{step}</span>
-                <h3 className="text-[16px] font-semibold">{title}</h3>
-                <p className="col-span-2 mt-2 text-[14px] leading-relaxed text-gray-400 sm:col-span-1 sm:mt-0 sm:pt-0.5">
-                  {body}
+              <div>
+                <NumberedList
+                  accent="text-cyan-400"
+                  items={[
+                    { n: "01", label: "Load it into Chrome" },
+                    { n: "02", label: "Paste your QuickVoice link" },
+                    { n: "03", label: "Open the panel and press Start" },
+                  ]}
+                />
+                <p className="mt-6 text-[13px] leading-relaxed text-gray-500">
+                  English and Japanese, both directions — the pair the on-device models were
+                  trained for.
                 </p>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-10 flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
-            <p className="max-w-sm text-[13px] leading-relaxed text-gray-500">
-              English and Japanese, both directions — the pair the on-device models were trained for.
-            </p>
-            <Link
-              href="/why-quickvoice"
-              className="group inline-flex shrink-0 items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-5 py-2.5 text-[14px] font-semibold text-cyan-200 transition-colors hover:bg-cyan-500/20"
-            >
-              Why it runs on your machine
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+            </div>
+          </Card>
         </div>
       </section>
 

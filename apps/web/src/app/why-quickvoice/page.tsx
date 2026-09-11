@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Check, Cpu, Languages, Mic, Volume2, X } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
-import Highlight from "@/components/Highlight";
+import { Card, NumberedList, PillButton } from "@/components/Surface";
 
 /**
  * Why QuickVoice.
@@ -73,8 +73,8 @@ export default function WhyQuickVoicePage() {
             </h1>
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               This one runs where you are. Speech goes to a server you started, on hardware you own,
-              and <Highlight tone="softEmerald">the sentence comes back without having been anywhere else</Highlight>.
-              That single difference decides <Highlight tone="blue">what you can afford to say in front of it</Highlight>.
+              and the sentence comes back without having been anywhere else. That single difference
+              decides what you can afford to say in front of it.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
               It is not free of trade-offs, and the ones it makes are further down this page rather
@@ -183,8 +183,8 @@ export default function WhyQuickVoicePage() {
             What it costs you
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Running the models yourself buys the things above. It also buys these —
-            <Highlight tone="amber">a page that only listed the first half would not be worth much</Highlight>.
+            Running the models yourself buys the things above. It also buys these, and a page that
+            only listed the first half would not be worth much.
           </p>
 
           <div className="mt-14 grid grid-cols-1 gap-x-12 gap-y-10 md:grid-cols-2">
@@ -237,10 +237,10 @@ export default function WhyQuickVoicePage() {
                 body: "A basement meeting room, a train, a venue with hostile wifi, another country with a data plan you would rather not spend. Interpreting keeps working because it was never asking anyone permission.",
               },
             ].map(({ who, body }) => (
-              <div key={who} className="rounded-[2rem] border border-white/[0.07] bg-white/[0.02] p-8">
+              <Card key={who} className="p-8">
                 <h3 className="text-[17px] font-semibold leading-snug">{who}</h3>
                 <p className="mt-4 text-[14.5px] leading-relaxed text-gray-400">{body}</p>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -261,14 +261,11 @@ export default function WhyQuickVoicePage() {
           ))}
         </div>
 
-        <div className="mx-auto mt-12 flex w-full max-w-5xl justify-center">
-          <Link
-            href="/how-it-works"
-            className="group inline-flex items-center gap-2 text-[14px] font-semibold text-purple-300 transition-colors hover:text-white"
-          >
+        <div className="mx-auto mt-12 flex w-full max-w-[1240px] justify-center">
+          <PillButton href="/how-it-works">
             See the four steps behind one exchange
-            <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
-          </Link>
+            <ArrowRight size={16} />
+          </PillButton>
         </div>
       </section>
 

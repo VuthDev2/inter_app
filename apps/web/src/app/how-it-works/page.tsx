@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Ear, Languages, Mic, Timer, Volume2 } from "lucide-react";
 import MarketingNav from "@/components/MarketingNav";
 import ConversationStory from "@/components/ConversationStory";
-import Highlight from "@/components/Highlight";
+import { Card, NumberedList, PillButton } from "@/components/Surface";
 
 /**
  * How it works.
@@ -107,12 +107,12 @@ export default function HowItWorksPage() {
             <p className="mt-8 max-w-lg text-[16px] leading-relaxed text-gray-400 md:text-[17px]">
               You speak. It listens, works out that you have finished, crosses the language and
               answers aloud — then hands the microphone back so the other person can reply. The
-              whole round trip takes <Highlight tone="blue">about a second and a half</Highlight>, and
-              <Highlight tone="softEmerald">none of it leaves the machine you started it on</Highlight>.
+              whole round trip takes about a second and a half, and none of it leaves the machine
+              you started it on.
             </p>
             <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-gray-500">
               What follows is the honest version: what each stage actually is, where the time goes,
-              and <Highlight>the four problems that only appear once two people are really talking</Highlight>.
+              and the four problems that only appear once two people are really talking.
             </p>
           </div>
 
@@ -156,8 +156,8 @@ export default function HowItWorksPage() {
             The same four steps, with the detail put back in
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            Each stage is <Highlight tone="soft">a real piece of software doing one job on your machine</Highlight>.
-            Here is what each of them is, and the decision inside it that mattered most.
+            Each stage is a real piece of software doing one job on your machine. Here is what each
+            of them is, and the decision inside it that mattered most.
           </p>
 
           <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -190,8 +190,8 @@ export default function HowItWorksPage() {
             The parts that only show up in a real conversation
           </h2>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-gray-400">
-            <Highlight tone="amber">Translating a sentence is the easy half.</Highlight> These four are what
-            stand between a working demo and something two people can actually talk through.
+            Translating a sentence is the easy half. These four are what stand between a working
+            demo and something two people can actually talk through.
           </p>
 
           <div className="mt-14">
@@ -208,19 +208,16 @@ export default function HowItWorksPage() {
             ))}
           </div>
 
-          <div className="mt-14 flex flex-col items-start justify-between gap-6 border-t border-white/[0.07] pt-10 sm:flex-row sm:items-center">
-            <p className="max-w-md text-[14px] leading-relaxed text-gray-500">
+          <Card className="mt-14 flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center md:p-10">
+            <p className="max-w-lg text-[15px] leading-relaxed text-gray-300">
               All of it runs on the machine you start it on. Nothing is sent to a cloud translator,
               which is the reason the rest of it had to be solved this way.
             </p>
-            <Link
-              href="/why-quickvoice"
-              className="group inline-flex shrink-0 items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-5 py-2.5 text-[14px] font-semibold text-blue-200 transition-colors hover:bg-blue-500/20"
-            >
+            <PillButton href="/why-quickvoice">
               Why that matters
-              <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+              <ArrowRight size={16} />
+            </PillButton>
+          </Card>
         </div>
       </section>
 
