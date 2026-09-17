@@ -86,14 +86,14 @@ export default function RootLayout({
           <AuthProvider>
             <ReloadOnStaleBuild />
             <AppChrome />
-            {/* shrink-0 keeps tall pages (the landing page especially) at their
-                natural height instead of being squashed to fit the window.
-                min-h-0 is what lets a page ask for the opposite: without it a
-                flex child may not go below its content height, so a page trying
-                to be a fixed frame with a scrolling list inside just grew, and
-                the list never scrolled. Together they mean each page chooses --
-                grow, or fill and scroll inside. */}
-            <div className="flex min-h-0 flex-1 shrink-0 flex-col">{children}</div>
+            {/* shrink-0, and no min-h-0. A flex child's automatic minimum size
+                is the only thing keeping tall pages at their natural height
+                here: adding min-h-0 to let one page bound itself squashed the
+                landing page's four-step conversation section from 240vh to a
+                single screen, with its heading colliding with the nav. Pages
+                that want to fill the window and scroll inside size themselves
+                against --appbar-h instead -- see PageShell. */}
+            <div className="flex flex-1 shrink-0 flex-col">{children}</div>
           </AuthProvider>
         </SettingsProvider>
       </body>

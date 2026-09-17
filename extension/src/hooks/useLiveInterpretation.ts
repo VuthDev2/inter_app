@@ -37,14 +37,15 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+// English and Japanese, and nothing else. The models behind this are
+// staka/fugumt-en-ja and fugumt-ja-en; every other entry that used to sit here
+// resolved to a code the server rejects with 422, so offering them could only
+// ever produce a failed translation.
 const LANGUAGE_MAP: Record<string, string> = {
   "English (US)": "en",
+  English: "en",
   Japanese: "ja",
-  Spanish: "es",
-  French: "fr",
-  German: "de",
-  Mandarin: "zh",
-  Korean: "ko",
+  日本語: "ja",
 };
 
 export function useLiveInterpretation(

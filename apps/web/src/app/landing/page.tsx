@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Shield, Sparkles, Zap, Copyright, Globe, Languages, Menu, X } from "lucide-react";
+import { Shield, Sparkles, Zap, Copyright, Globe, Languages, Menu, X, MousePointerClick, PanelRight, ShieldCheck, ArrowRight } from "lucide-react";
 import ConversationStory from "@/components/ConversationStory";
 
 const PRODUCT_FEATURES = [
@@ -41,13 +41,14 @@ const PRODUCT_FEATURES = [
 ] as const;
 
 /**
- * Two kinds of destination, deliberately separated by a divider in the nav.
- * Section links scroll within this page; product links leave it. Mixing them
- * without a visual break made every item look like it scrolled.
+ * Each name is now a page of its own rather than an anchor into this one. The
+ * welcome page still carries all three subjects -- it is the overview -- and
+ * these go to the room where each is covered properly.
  */
 const SECTION_LINKS = [
-  { label: "How it works", hash: "#featuring" },
-  { label: "Why QuickVoice", hash: "#features" },
+  { label: "How it works", hash: "/how-it-works" },
+  { label: "Why QuickVoice", hash: "/why-quickvoice" },
+  { label: "Extension", hash: "/browser-extension" },
 ] as const;
 
 const MAN_CONVERSATION_FRAMES = [
@@ -68,7 +69,6 @@ const WOMAN_CONVERSATION_FRAMES = [
 
 export default function LandingPage() {
   const [activeProductFeature, setActiveProductFeature] = useState(0);
-  const [activeNav, setActiveNav] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [navVisible, setNavVisible] = useState(true);
   const [isAtTop, setIsAtTop] = useState(true);
@@ -78,6 +78,19 @@ export default function LandingPage() {
   const lastScrollY = useRef(0);
   const scrollingRef = useRef(false);
   const scrollEndTimer = useRef<number | null>(null);
+  // --- Restored: the scroll-driven scene of two people talking. It was dropped
+  // when this page was rewritten; the frame arrays and their preloader survived
+  // but nothing rendered them. ---
+  const [conversationProgress, setConversationProgress] = useState(0);
+  const [conversationSectionVisible, setConversationSectionVisible] = useState(false);
+  const [conversationCharactersEntered, setConversationCharactersEntered] = useState(false);
+  const [conversationContentReady, setConversationContentReady] = useState(false);
+  const conversationRef = useRef<HTMLElement>(null);
+  const conversationStageRef = useRef(0);
+  // True only while the scene fills the viewport, which is when a scroll
+  // gesture should advance a beat instead of moving the page.
+  const pinnedRef = useRef(false);
+  const lastConversationAdvance = useRef(Date.now());
   useEffect(() => {
     [...MAN_CONVERSATION_FRAMES.slice(1), ...WOMAN_CONVERSATION_FRAMES.slice(1)].forEach((src) => {
       const frame = new window.Image();
@@ -92,17 +105,6 @@ export default function LandingPage() {
       setActiveProductFeature((current) => (current + 1) % PRODUCT_FEATURES.length);
     }, 6000);
     return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const syncActiveNav = () => {
-      const section = window.location.hash.slice(1);
-      if (section) setActiveNav(section);
-    };
-
-    syncActiveNav();
-    window.addEventListener("hashchange", syncActiveNav);
-    return () => window.removeEventListener("hashchange", syncActiveNav);
   }, []);
 
   useEffect(() => {
@@ -170,6 +172,222 @@ export default function LandingPage() {
     observer.observe(hero);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section) return;
+    let frame = 0;
+    const update = () => {
+      const rect = section.getBoundingClientRect();
+      const scrollable = Math.max(section.offsetHeight - window.innerHeight, 1);
+      setConversationProgress(Math.min(1, Math.max(0, -rect.top / scrollable)));
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section || !conversationContentReady) return;
+    let conversationWasActive = false;
+
+    const moveToStage = (targetStage: number) => {
+      const scrollable = Math.max(section.offsetHeight - window.innerHeight, 1);
+      const targetProgress = (targetStage + 0.1) / 5;
+      const sectionTop = section.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: sectionTop + scrollable * targetProgress, behavior: "smooth" });
+    };
+
+    const recordUserInteraction = () => {
+      lastConversationAdvance.current = Date.now();
+    };
+
+    // One scroll gesture = one conversation step, rather than the stage being
+    // read continuously off the scroll offset. While the section is pinned the
+    // page itself does not move; scrolling drives the four beats instead
+    // (Japanese -> English, then English -> Japanese). Control is handed back
+    // to the page at either end so the section can still be scrolled past.
+    // The cooldown matches the 1s CSS transition on the bubbles — without it a
+    // single trackpad flick, which fires dozens of wheel events, would blow
+    // through every stage at once.
+    const STEP_COOLDOWN_MS = 900;
+    let lastStepAt = 0;
+
+    // Read from the observer's cached result — calling getBoundingClientRect
+    // here forced a synchronous layout on every single wheel event.
+    const sectionIsPinned = () => pinnedRef.current;
+
+    /** Returns true when the gesture was consumed as a step. */
+    const stepFromGesture = (goingDown: boolean, preventDefault: () => void) => {
+      if (!sectionIsPinned()) return false;
+
+      const stage = conversationStageRef.current;
+      // At the ends, let the gesture through so the page scrolls normally.
+      if (goingDown && stage >= 4) return false;
+      if (!goingDown && stage <= 0) return false;
+
+      preventDefault();
+
+      const now = Date.now();
+      if (now - lastStepAt < STEP_COOLDOWN_MS) return true;
+      lastStepAt = now;
+      lastConversationAdvance.current = now;
+      moveToStage(stage + (goingDown ? 1 : -1));
+      return true;
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) < 2) return;
+      stepFromGesture(event.deltaY > 0, () => event.preventDefault());
+    };
+
+    let touchStartY: number | null = null;
+    const onTouchStart = (event: TouchEvent) => {
+      recordUserInteraction();
+      touchStartY = event.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (touchStartY === null) return;
+      const currentY = event.touches[0]?.clientY ?? touchStartY;
+      const delta = touchStartY - currentY;
+      // Ignore the small jitter that starts every swipe.
+      if (Math.abs(delta) < 12) return;
+      if (stepFromGesture(delta > 0, () => event.preventDefault())) {
+        touchStartY = currentY;
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+        recordUserInteraction();
+      }
+      if (!sectionIsPinned()) return;
+      if (event.key === "ArrowDown" || event.key === "PageDown" || event.key === " ") {
+        stepFromGesture(true, () => event.preventDefault());
+      } else if (event.key === "ArrowUp" || event.key === "PageUp") {
+        stepFromGesture(false, () => event.preventDefault());
+      }
+    };
+
+    const autoAdvance = window.setInterval(() => {
+      const rect = section.getBoundingClientRect();
+      const active = rect.top <= 1 && rect.bottom >= window.innerHeight - 1;
+
+      if (!active) {
+        conversationWasActive = false;
+        return;
+      }
+      if (!conversationWasActive) {
+        conversationWasActive = true;
+        lastConversationAdvance.current = Date.now();
+        return;
+      }
+      if (
+        conversationStageRef.current >= 4 ||
+        Date.now() - lastConversationAdvance.current < 3000
+      ) return;
+
+      lastConversationAdvance.current = Date.now();
+      moveToStage(conversationStageRef.current + 1);
+    }, 250);
+
+    // The stepping handlers must be non-passive so they can preventDefault,
+    // but a non-passive wheel/touchmove listener makes the browser wait for
+    // JavaScript before every scroll tick — across the whole page that reads
+    // as lag. So they are attached ONLY while this section is actually
+    // pinned, and removed the moment it is not; everywhere else on the page
+    // scrolling stays fully passive and untouched.
+    let steppingAttached = false;
+    const attachStepping = () => {
+      if (steppingAttached) return;
+      steppingAttached = true;
+      window.addEventListener("wheel", onWheel, { passive: false });
+      window.addEventListener("touchmove", onTouchMove, { passive: false });
+    };
+    const detachStepping = () => {
+      if (!steppingAttached) return;
+      steppingAttached = false;
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+
+    // IntersectionObserver rather than a scroll handler: it reports the
+    // pinned/unpinned transition off the main thread, so nothing here has to
+    // measure layout on every wheel event.
+    const pinObserver = new IntersectionObserver(
+      ([entry]) => {
+        pinnedRef.current = entry.intersectionRatio >= 0.99;
+        if (pinnedRef.current) attachStepping();
+        else detachStepping();
+      },
+      { threshold: [0, 0.99, 1] }
+    );
+    pinObserver.observe(section);
+
+    window.addEventListener("wheel", recordUserInteraction, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      pinObserver.disconnect();
+      detachStepping();
+      window.removeEventListener("wheel", recordUserInteraction);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearInterval(autoAdvance);
+    };
+  }, [conversationContentReady]);
+
+  useEffect(() => {
+    const section = conversationRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setConversationSectionVisible(entry.isIntersecting),
+      { rootMargin: "-34% 0px -34% 0px", threshold: 0.01 },
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!conversationSectionVisible) {
+      setConversationCharactersEntered(false);
+      setConversationContentReady(false);
+      return;
+    }
+
+    const characterTimer = window.setTimeout(() => setConversationCharactersEntered(true), 450);
+    const contentTimer = window.setTimeout(() => {
+      setConversationContentReady(true);
+      lastConversationAdvance.current = Date.now();
+    }, 1550);
+
+    return () => {
+      window.clearTimeout(characterTimer);
+      window.clearTimeout(contentTimer);
+    };
+  }, [conversationSectionVisible]);
+
+  const conversationStage = Math.min(4, Math.floor(conversationProgress * 5));
+  const manFramesByStage = [1, 2, 3, 1, 4] as const;
+  const womanFramesByStage = [1, 1, 4, 2, 3] as const;
+  const activeManFrame = manFramesByStage[conversationStage];
+  const activeWomanFrame = womanFramesByStage[conversationStage];
+
+  useEffect(() => {
+    conversationStageRef.current = conversationStage;
+  }, [conversationStage]);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#05050A] text-white font-sans selection:bg-blue-500/30">
@@ -286,8 +504,7 @@ export default function LandingPage() {
                 <Link
                   key={hash}
                   href={hash}
-                  onClick={() => setActiveNav(hash.slice(1))}
-                  className={`pb-1 border-b-2 transition-colors ${activeNav === hash.slice(1) ? "border-blue-500 text-white" : "border-transparent hover:text-white"}`}
+                                    className="border-b-2 border-transparent pb-1 transition-colors hover:border-blue-500 hover:text-white"
                 >
                   {label}
                 </Link>
@@ -327,7 +544,7 @@ export default function LandingPage() {
                 <Link
                   key={hash}
                   href={hash}
-                  onClick={() => { setActiveNav(hash.slice(1)); setMenuOpen(false); }}
+                  onClick={() => setMenuOpen(false)}
                   className="block px-3 py-2.5 rounded-xl text-[15px] text-gray-300 hover:text-white hover:bg-white/[0.06] transition-colors"
                 >
                   {label}
@@ -359,13 +576,13 @@ export default function LandingPage() {
 
             <h1 className="hero-rise hero-rise-delay-1 mt-6 text-balance text-[clamp(2.75rem,5.7vw,5.75rem)] font-semibold leading-[0.96] tracking-[-0.058em] text-white drop-shadow-[0_8px_35px_rgba(0,0,0,.72)]">
               Every conversation,
-              <span className="mt-2 block bg-gradient-to-r from-blue-300 via-blue-500 to-cyan-300 bg-clip-text pb-2 text-transparent">
+              <span className="mt-1 block bg-gradient-to-r from-blue-300 via-blue-500 to-cyan-300 bg-clip-text pb-2 text-transparent">
                 understood instantly.
               </span>
             </h1>
 
             <p className="hero-rise hero-rise-delay-2 mt-6 max-w-xl text-balance text-base leading-7 text-gray-300 drop-shadow-[0_3px_15px_rgba(0,0,0,.9)] md:text-lg md:leading-8">
-              Speak naturally in English or Japanese. QuickVoice listens, translates, and responds with a clear voice—so the conversation never loses its flow.
+              Speak naturally. QuickVoice translates between English and Japanese with clear voice playback.
             </p>
 
             <div className="hero-rise hero-rise-delay-3 mt-9 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
@@ -386,6 +603,152 @@ export default function LandingPage() {
       </div>
 
       <ConversationStory />
+
+      {/* --- SCROLL-DRIVEN CONVERSATION --- */}
+      <section
+        id="conversation"
+        ref={conversationRef}
+        className="relative order-3 h-[240vh] w-full border-t border-white/[0.06] bg-[#05070c]"
+      >
+        <div className="sticky top-0 h-screen w-full overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,.16),transparent_38%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#05050a] to-transparent" />
+
+          {/* Conversation-only people. These start and end with section three. */}
+          <div className="pointer-events-none absolute inset-0 z-10 hidden overflow-hidden lg:block" aria-hidden="true">
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={`conversation-man-${activeManFrame}`}
+                initial={{ opacity: 0, y: 4, scale: 0.999 }}
+                animate={conversationCharactersEntered
+                  ? {
+                      opacity: 1,
+                      x: 0,
+                      y: [0, -4, 0],
+                      scale: [1, 1.002, 1],
+                    }
+                  : {
+                      opacity: 0,
+                      x: "-24vw",
+                      y: 8,
+                      scale: 0.995,
+                    }}
+                exit={{
+                  opacity: 0,
+                  y: -2,
+                  scale: 1,
+                  transition: { duration: 0.42, ease: [0.4, 0, 0.2, 1] },
+                }}
+                transition={{
+                  opacity: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+                  x: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 4.8, repeat: Infinity, ease: "easeInOut" },
+                  scale: { duration: 4.8, repeat: Infinity, ease: "easeInOut" },
+                }}
+                data-conversation-character="man"
+                className="absolute inset-0 transform-gpu [backface-visibility:hidden] [will-change:opacity,transform]"
+              >
+                <Image
+                  src={MAN_CONVERSATION_FRAMES[activeManFrame]}
+                  alt=""
+                  width={1672}
+                  height={941}
+                  sizes="50vw"
+                  unoptimized
+                  style={{ clipPath: "inset(0 50% 0 0)", transform: "translateX(calc(-50% + 4vw)) scaleX(1.04)" }}
+                  className="absolute -bottom-[12%] left-[46.5%] h-auto w-[98%] max-w-none select-none object-contain object-bottom"
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={`conversation-woman-${activeWomanFrame}`}
+                initial={{ opacity: 0, y: 4, scale: 0.999 }}
+                animate={conversationCharactersEntered
+                  ? {
+                      opacity: 1,
+                      x: 0,
+                      y: [-1, -5, -1],
+                      scale: [1, 1.002, 1],
+                    }
+                  : {
+                      opacity: 0,
+                      x: "24vw",
+                      y: 8,
+                      scale: 0.995,
+                    }}
+                exit={{
+                  opacity: 0,
+                  y: -3,
+                  scale: 1,
+                  transition: { duration: 0.42, ease: [0.4, 0, 0.2, 1] },
+                }}
+                transition={{
+                  opacity: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+                  x: { duration: 1.1, ease: [0.22, 1, 0.36, 1] },
+                  y: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
+                  scale: { duration: 5.2, repeat: Infinity, ease: "easeInOut" },
+                }}
+                data-conversation-character="woman"
+                className="absolute inset-0 transform-gpu [backface-visibility:hidden] [will-change:opacity,transform]"
+              >
+                <Image
+                  src={WOMAN_CONVERSATION_FRAMES[activeWomanFrame]}
+                  alt=""
+                  width={1672}
+                  height={941}
+                  sizes="50vw"
+                  unoptimized
+                  style={{ clipPath: "inset(0 0 0 50%)", transform: "translateX(calc(-50% - 2vw)) scaleX(1.02)" }}
+                  className="absolute -bottom-[10%] left-[53.5%] h-auto w-[92%] max-w-none select-none object-contain object-bottom"
+                />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div
+            data-conversation-heading
+            className={`absolute inset-x-0 top-[11%] z-20 px-6 text-center transition-all duration-700 ease-out ${
+              conversationSectionVisible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-blue-400">A conversation without barriers</p>
+            <h2 className="mx-auto mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-white md:text-5xl">
+              You speak naturally. QuickVoice handles the rest.
+            </h2>
+          </div>
+
+          <div
+            data-conversation-content
+            className={`absolute inset-x-0 top-[31%] z-20 mx-auto w-[min(92vw,620px)] px-4 transition-all duration-700 ease-out ${
+              conversationContentReady
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-5 opacity-0"
+            }`}
+          >
+            <div className={`mx-auto flex w-fit items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-all duration-1000 ${conversationStage > 0 && conversationStage < 4 ? "border-blue-400/35 bg-blue-500/15 text-blue-200 opacity-100 shadow-[0_0_35px_rgba(59,130,246,.22)]" : "border-white/10 bg-white/[0.04] text-gray-500 opacity-70"}`}>
+              <Languages className="h-4 w-4" />
+              {conversationStage === 0 ? "Ready to interpret" : conversationStage === 1 ? "Listening to Japanese…" : conversationStage === 2 ? "Translating into English…" : conversationStage === 3 ? "Listening to English…" : "Reply understood"}
+            </div>
+
+            <div className="relative mt-8 h-[250px] md:h-[290px]">
+              <article className={`absolute left-0 top-0 max-w-[78%] rounded-3xl rounded-bl-md border border-blue-400/20 bg-[#101827]/95 p-5 shadow-[0_20px_60px_rgba(0,0,0,.38)] backdrop-blur transition-all duration-1000 md:max-w-[68%] ${conversationStage >= 1 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-300"><span>🇯🇵</span> Japanese</div>
+                <p className="mt-3 text-lg font-medium text-white md:text-xl">こんにちは、今日はどうでしたか？</p>
+                <p className={`mt-3 border-t border-white/10 pt-3 text-sm text-blue-300 transition-opacity duration-1000 ${conversationStage >= 2 ? "opacity-100" : "opacity-0"}`}>Hi, how was your day?</p>
+              </article>
+
+              <article className={`absolute bottom-0 right-0 max-w-[78%] rounded-3xl rounded-br-md border border-cyan-300/20 bg-[#111923]/95 p-5 text-right shadow-[0_20px_60px_rgba(0,0,0,.38)] backdrop-blur transition-all duration-1000 md:max-w-[68%] ${conversationStage >= 3 ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                <div className="flex items-center justify-end gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200"><span>🇬🇧</span> English</div>
+                <p className="mt-3 text-lg font-medium text-white md:text-xl">It was great, thank you!</p>
+                <p className={`mt-3 border-t border-white/10 pt-3 text-sm text-cyan-300 transition-opacity duration-1000 ${conversationStage >= 4 ? "opacity-100" : "opacity-0"}`}>とても良かったです、ありがとう！</p>
+              </article>
+            </div>
+          </div>
+
+        </div>
+      </section>
 
       {/* --- ORIGINAL PRODUCT FEATURE SHOWCASE --- */}
       <section id="product-showcase" className="relative z-10 order-4 flex w-full flex-col items-center overflow-hidden px-6 py-28 md:py-32">
@@ -462,7 +825,7 @@ export default function LandingPage() {
         
         <div className="w-full max-w-7xl px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Card 1 */}
-            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
                 <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-6">
                     <Shield size={18} className="text-purple-400" />
                 </div>
@@ -473,7 +836,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 2 */}
-            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
                 <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center mb-6">
                     <Sparkles size={18} className="text-cyan-400" />
                 </div>
@@ -484,7 +847,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 3 */}
-            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 hover:border-gray-700 transition-colors">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
                 <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
                     <Zap size={18} className="text-blue-400" />
                 </div>
@@ -496,8 +859,85 @@ export default function LandingPage() {
         </div>
       </div>
 
+
+      {/* --- BROWSER EXTENSION ---
+           An introduction, not the whole story: the detail lives on
+           /browser-extension. Everything claimed here was checked against the
+           built extension running in Chrome, which is why it does not repeat
+           the older in-app page's promises of tab-audio capture or "any
+           language" -- the extension does neither. */}
+      <section id="extension" className="relative z-10 order-6 w-full overflow-hidden border-t border-white/[0.06] bg-[#04070d] px-6 py-28">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-10 h-[360px] w-[720px] -translate-x-1/2 rounded-full bg-blue-600/10 blur-[140px]"
+        />
+
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center">
+          <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-300">
+            <Globe size={13} />
+            Browser extension
+          </span>
+          <h2 className="max-w-3xl text-center text-3xl font-bold tracking-wide md:text-4xl">
+            Translate the page you are already on
+          </h2>
+          <p className="mt-5 max-w-2xl text-center text-[15px] leading-relaxed text-gray-400">
+            The same models, one right-click away. Highlight a line in an article, an email or a
+            chat and read it back in the other language, without leaving the tab.
+          </p>
+
+          <div className="mt-16 grid w-full grid-cols-1 gap-8 md:grid-cols-3">
+            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
+              <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
+                <MousePointerClick size={18} className="text-blue-400" />
+              </div>
+              <h3 className="mb-4 text-[16px] font-semibold">Right-click any selection</h3>
+              <p className="text-[14px] leading-relaxed text-gray-400">
+                Select the text, choose Translate selection with QuickVoice, and the answer comes
+                back where you are. No copying it into another window first.
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
+              <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/10">
+                <PanelRight size={18} className="text-cyan-400" />
+              </div>
+              <h3 className="mb-4 text-[16px] font-semibold">A side panel that stays put</h3>
+              <p className="text-[14px] leading-relaxed text-gray-400">
+                For longer passages, open the panel and paste. It sends text either direction while
+                the page you are reading stays open beside it.
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
+              <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
+                <ShieldCheck size={18} className="text-emerald-400" />
+              </div>
+              <h3 className="mb-4 text-[16px] font-semibold">Answers from your own machine</h3>
+              <p className="text-[14px] leading-relaxed text-gray-400">
+                It talks to the QuickVoice server you are running. What you highlight goes to your
+                computer and nowhere else — no third-party translator in the path.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8 flex w-full flex-col items-center justify-between gap-6 rounded-[2rem] border border-white/[0.08] bg-white/[0.02] px-8 py-7 sm:flex-row">
+            <p className="flex items-center gap-3 text-[13px] leading-relaxed text-gray-400">
+              <Languages size={16} className="shrink-0 text-gray-600" />
+              English and Japanese, both directions — the pair the on-device models know.
+            </p>
+            <Link
+              href="/browser-extension"
+              className="group inline-flex shrink-0 items-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-[14px] font-semibold text-white transition-colors hover:bg-blue-500"
+            >
+              How to set it up
+              <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* --- FOOTER --- */}
-      <footer id="more" className="relative z-10 order-6 w-full border-t border-white/[0.08] bg-[#04070d]">
+      <footer id="more" className="relative z-10 order-7 w-full border-t border-white/[0.08] bg-[#04070d]">
         <div className="w-full max-w-7xl mx-auto px-6 pt-10 pb-6">
           <div className="grid grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-x-5 sm:gap-x-10 gap-y-8 pb-8">
             <div className="col-span-3 lg:col-span-1 max-w-sm">

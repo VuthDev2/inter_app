@@ -1,6 +1,4 @@
-importScripts("config.js");
-
-const cfg = globalThis.QUICKVOICE_CONFIG;
+importScripts("config.js", "server.js");
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -17,7 +15,7 @@ chrome.action.onClicked?.addListener(async (tab) => {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "quickvoice-translate-selection" || !info.selectionText || !tab?.id) return;
   try {
-    const translated = await translate(info.selectionText, "en", "km");
+    const translated = await translate(info.selectionText, "en", "ja");
     await chrome.tabs.sendMessage(tab.id, {
       type: "QV_SHOW_TRANSLATION",
       original: info.selectionText,
@@ -39,7 +37,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "QV_TRANSLATE") {
-    translate(message.text, message.source || "en", message.target || "km")
+    translate(message.text, message.source || "en", message.target || "ja")
       .then((translated) => sendResponse({ ok: true, translated }))
       .catch((err) => sendResponse({ ok: false, error: err.message || "Translation failed" }));
     return true;
@@ -47,23 +45,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-async function authHeaders() {
-  const { quickvoiceSession } = await chrome.storage.local.get("quickvoiceSession");
-  const headers = { "Content-Type": "application/json" };
-  if (quickvoiceSession?.accessToken) {
-    headers.Authorization = `Bearer ${quickvoiceSession.accessToken}`;
-  }
-  return headers;
-}
-
 async function translate(text, source, target) {
-  const res = await fetch(`${cfg.apiBaseUrl}/translate`, {
+  // Address and credential both come from the website -- see src/server.js.
+  const res = await QuickVoiceServer.apiFetch("/translate", {
     method: "POST",
-    headers: await authHeaders(),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, source, target })
   });
-  const data = await res.json();
-  if (res.status === 401) throw new Error("Sign in to QuickVoice first.");
-  if (!res.ok || !data.text) throw new Error(data.error || "Translation failed");
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new Error("QuickVoice server rejected the token. Check the website address in the popup.");
+  // The server names the languages it supports; pass that through rather than
+  // flattening it to "Translation failed", which is what sent someone hunting
+  // for a bug when the real answer was that the model is English<->Japanese.
+  if (res.status === 422) throw new Error(data.detail || "That language pair is not supported.");
+  if (!res.ok || !data.text) throw new Error(data.detail || data.error || "Translation failed");
   return data.text;
 }

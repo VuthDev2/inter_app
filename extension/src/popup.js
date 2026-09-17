@@ -16,7 +16,9 @@ const els = {
   password: document.getElementById("password"),
   authSubmit: document.getElementById("authSubmit"),
   googleLogin: document.getElementById("googleLogin"),
-  authStatus: document.getElementById("authStatus")
+  authStatus: document.getElementById("authStatus"),
+  siteUrl: document.getElementById("siteUrl"),
+  saveSite: document.getElementById("saveSite")
 };
 
 let mode = "signin";
@@ -55,20 +57,47 @@ async function renderSession() {
   els.signOutBtn.classList.toggle("hidden", !email);
 }
 
+/**
+ * Say whether translation will actually work, not merely whether something is
+ * listening.
+ *
+ * This used to call /health on a hard-coded address with no credential. /health
+ * needs no credential, so it answered 200 and the popup said "Backend
+ * connected" while every translation came back 401 -- the single most
+ * misleading thing in the extension. It now goes through the same path a
+ * translation takes: resolve the address and token from the website, then make
+ * an authenticated call.
+ */
 async function checkBackend() {
   try {
-    const res = await fetch(`${cfg.apiBaseUrl}/health`);
-    const data = await res.json();
-    if (res.ok && data.ok) {
-      els.backendStatus.textContent = "Backend connected";
+    const { aiBaseUrl } = await QuickVoiceServer.resolve({ force: true });
+    const res = await QuickVoiceServer.apiFetch("/glossary");
+    if (res.ok) {
+      const host = aiBaseUrl.replace(/^https?:\/\//, "");
+      els.backendStatus.textContent = `Connected to ${host}`;
       els.backendStatus.style.color = "var(--ok)";
       return;
     }
-    throw new Error("Backend health check failed");
-  } catch {
-    els.backendStatus.textContent = "Backend offline";
+    if (res.status === 401) throw new Error("Server rejected the token");
+    throw new Error(`Server answered ${res.status}`);
+  } catch (err) {
+    els.backendStatus.textContent = `Not connected — ${err.message}`;
     els.backendStatus.style.color = "var(--danger)";
   }
+}
+
+async function renderSiteUrl() {
+  els.siteUrl.value = await QuickVoiceServer.getSiteUrl();
+}
+
+async function saveSiteUrl() {
+  const value = els.siteUrl.value.trim();
+  if (!value) return;
+  await QuickVoiceServer.setSiteUrl(value);
+  els.backendStatus.textContent = "Checking backend...";
+  els.backendStatus.style.color = "";
+  await renderSiteUrl();
+  await checkBackend();
 }
 
 async function signIn(email, password) {
@@ -198,5 +227,11 @@ els.authSubmit.addEventListener("click", async () => {
   }
 });
 
+els.saveSite.addEventListener("click", () => void saveSiteUrl());
+els.siteUrl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") void saveSiteUrl();
+});
+
+void renderSiteUrl();
 checkBackend();
 renderSession();

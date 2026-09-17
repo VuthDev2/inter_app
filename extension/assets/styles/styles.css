@@ -973,3 +973,17 @@ body:not(.popup-body) {
   font-size: 12px;
   margin: 0;
 }
+
+/* Where the extension gets its server from. See src/server.js: the model
+   server's address and the token to use with it are both fetched from this
+   site, so a re-issued tunnel is a paste here rather than a code change. */
+.site-row { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+.site-row label { font-size: 11px; opacity: .7; }
+.site-row input {
+  padding: 7px 9px; border-radius: 8px; font-size: 12px; color: inherit;
+  background: transparent; border: 1px solid rgba(128, 128, 128, .35);
+}
+.site-row button {
+  padding: 7px 9px; border-radius: 8px; border: 0; cursor: pointer;
+  background: #2f6bff; color: #fff; font-size: 12px; font-weight: 600;
+}

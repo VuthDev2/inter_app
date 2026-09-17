@@ -13,6 +13,10 @@ const files = [
   "src/config.js",
   "src/contentScript.js",
   "src/popup.js",
+  // Resolves the server address and the token. background.js importScripts it
+  // and both pages load it, so leaving it out of this list ships a dist/ that
+  // throws "QuickVoiceServer is not defined" on every call.
+  "src/server.js",
   "src/sidepanel.js",
 ];
 

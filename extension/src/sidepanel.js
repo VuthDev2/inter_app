@@ -58,24 +58,16 @@ async function useSelectedText() {
   }
 }
 
-async function authHeaders() {
-  const { quickvoiceSession } = await chrome.storage.local.get("quickvoiceSession");
-  const headers = { "Content-Type": "application/json" };
-  if (quickvoiceSession?.accessToken) {
-    headers.Authorization = `Bearer ${quickvoiceSession.accessToken}`;
-  }
-  return headers;
-}
-
 async function translate(text, source, target) {
-  const res = await fetch(`${cfg.apiBaseUrl}/translate`, {
+  const res = await QuickVoiceServer.apiFetch("/translate", {
     method: "POST",
-    headers: await authHeaders(),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, source, target })
   });
-  const data = await res.json();
-  if (res.status === 401) throw new Error("Sign in to QuickVoice first.");
-  if (!res.ok || !data.text) throw new Error(data.error || "Translation failed");
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) throw new Error("QuickVoice server rejected the token. Check the website address in the popup.");
+  if (res.status === 422) throw new Error(data.detail || "That language pair is not supported.");
+  if (!res.ok || !data.text) throw new Error(data.detail || data.error || "Translation failed");
   return data.text;
 }
 
