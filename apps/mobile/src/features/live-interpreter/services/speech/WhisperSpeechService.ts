@@ -276,7 +276,28 @@ class WhisperSpeechService implements SpeechServiceInterface {
     // expo-audio owns the audio session, and nothing else configures it.
     // Re-asserted every turn: playing the previous translation switches the
     // session to a playback-shaped mode.
-    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    //
+    // Right after a translation finishes speaking, iOS can still be tearing
+    // down that playback session, and this throws OSStatus '!int'
+    // (AVAudioSessionErrorCodeCannotInterruptOthers) — which surfaced to the
+    // user as a raw, crash-looking error banner that aborted an otherwise
+    // fine turn. One retry after a short pause is enough; the conflicting
+    // session is almost always gone within a beat.
+    try {
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      // Re-thrown if this second attempt still fails — silently proceeding
+      // here was tried first and made things worse: the recorder still
+      // opened, but against a session that never actually switched to
+      // recording, so it captured near-silence and every turn after the
+      // first came back as "no response" with no visible error at all.
+      // Letting the real failure propagate keeps the existing recoverable-
+      // error handling (useLiveInterpretation's error effect) in charge —
+      // it already knows how to retry a failed turn — instead of masking a
+      // real problem as a silently broken one.
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    }
 
     // iOS records Linear PCM (a .wav), Android keeps the preset's AAC — the
     // MediaRecorder pipeline there has no uncompressed option. Every target

@@ -53,6 +53,14 @@ def _is_repetitive(text: str) -> bool:
 # "hai", "mate", "so" and friends would fire on ordinary English speech.
 _JAPANESE_ENDINGS = ("desu", "desuka", "masu", "masuka", "deshita", "mashita")
 
+# "everyone" and "someone" decompose into four fake open syllables
+# (e-ve-ryo-ne, so-me-o-ne) at exactly the same count as genuinely mangled
+# Japanese ("kinijiwa" is also four) -- raising the syllable threshold to
+# exclude them would exclude that motivating case too. A closed list of the
+# specific English words that share this accidental shape is the narrow fix;
+# it does not touch the count-based check for anything actually unknown.
+_ENGLISH_ONE_COMPOUNDS = frozenset({"everyone", "someone"})
+
 # Ordinary English glue. Two or more of these means the sentence really is
 # English, so the fuzzy ending check stands down.
 _ENGLISH_FUNCTION_WORDS = frozenset({
@@ -109,9 +117,14 @@ def _looks_like_kana_syllables(word: str) -> bool:
 
     This only decides whether to *re-decode* with the Japanese decoder, and
     that result is kept only when it actually contains Japanese characters, so
-    an occasional false positive costs one decode and changes no output.
+    an occasional false positive costs one decode and changes no output --
+    that held until the caller's fallback stopped honoring it (see the
+    comment where this is used), which is why "Hello everyone." came back
+    labelled Japanese while the English text was still correct.
     """
     if len(word) < 7 or not _ROMAJI_WORD_RE.fullmatch(word):
+        return False
+    if word in _ENGLISH_ONE_COMPOUNDS:
         return False
     # Two syllables is far too easy to hit by accident, and six letters lets
     # ordinary English loanwords through ("banana", "tomato", "camera").
@@ -142,6 +155,14 @@ def _within_edits(a: str, b: str, limit: int) -> bool:
 class TranscriptionResult:
     text: str
     language: str
+    # Whisper's own average log-probability across the kept segments, already
+    # computed to decide whether to keep or discard the transcript (see
+    # min_logprob below) and then thrown away -- the client had no way to
+    # show "the app is not sure it heard you" versus "the app heard you
+    # clearly," which is what was actually being asked for as "confidence."
+    # Roughly -0.1 (confident) to -1.0+ (guessing); 0.0 for empty/unknown
+    # results, where there is nothing to be confident about.
+    confidence: float = 0.0
 
 
 class WhisperASRService:
@@ -239,7 +260,7 @@ class WhisperASRService:
             japanese_result = self._transcribe_samples(audio, "ja")
             if self._contains_japanese(japanese_result.text):
                 return japanese_result
-            return TranscriptionResult(text=result.text, language="ja")
+            return TranscriptionResult(text=result.text, language="ja", confidence=result.confidence)
         return result
 
     def transcribe(
@@ -351,7 +372,7 @@ class WhisperASRService:
                 # the only reading available), but the language is reported as
                 # what it actually is, so the turn lands on the Japanese side
                 # and is translated ja->en.
-                return TranscriptionResult(text=result.text, language="ja")
+                return TranscriptionResult(text=result.text, language="ja", confidence=result.confidence)
 
             return result
         finally:
@@ -496,12 +517,18 @@ class WhisperASRService:
         text = " ".join((segment.get("text") or "").strip() for segment in kept).strip()
         if _is_repetitive(text):
             text = ""
+        confidence = 0.0
         if text and kept:
             confidence = sum(s.get("avg_logprob") or 0.0 for s in kept) / len(kept)
             if confidence < self.min_logprob:
                 text = ""
+                confidence = 0.0
 
-        return TranscriptionResult(text=text, language=chosen or result.get("language") or "unknown")
+        return TranscriptionResult(
+            text=text,
+            language=chosen or result.get("language") or "unknown",
+            confidence=confidence,
+        )
 
     def _detect_mlx(self, audio) -> dict[str, float]:
         """EN/JA probabilities from one encoder pass (~60ms on GPU)."""
@@ -584,15 +611,17 @@ class WhisperASRService:
         # options. Emitting that guess is worse than emitting nothing, because
         # the speaker has no idea they were misheard. Dropping it instead lets
         # the next window pick the phrase up cleanly.
+        confidence = 0.0
         if text and kept:
             confidence = sum(
                 getattr(segment, "avg_logprob", 0.0) or 0.0 for segment in kept
             ) / len(kept)
             if confidence < self.min_logprob:
                 text = ""
+                confidence = 0.0
 
         if language is not None:
-            return TranscriptionResult(text=text, language=language)
+            return TranscriptionResult(text=text, language=language, confidence=confidence)
 
         # QuickVoice is an English/Japanese interpreter, so the answer is one of
         # those two even when Whisper's own pick is something else — short
@@ -634,7 +663,7 @@ class WhisperASRService:
             # turns that are actually ambiguous or mis-detected.
             return self._transcribe_path(audio_path, chosen)
 
-        return TranscriptionResult(text=text, language=chosen)
+        return TranscriptionResult(text=text, language=chosen, confidence=confidence)
 
     def _contains_japanese(self, text: str) -> bool:
         return bool(re.search(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]", text))
@@ -693,8 +722,20 @@ class WhisperASRService:
         # Structural pass, for words mangled past any edit allowance
         # ("kinijiwa" for こんにちは). Held back when the sentence reads as
         # real English, on the same reasoning as the fuzzy ending check.
+        #
+        # `squashed` only joins the multi-word candidates here, not the
+        # single-word one: a genuine short Japanese greeting is usually one
+        # recognized word, where `squashed` and `words[0]` are identical, so
+        # excluding it costs nothing there. A real multi-word English
+        # sentence with too few function words to trip the guard above --
+        # "Someone is here." has exactly one ("is") -- joins into one long
+        # run that can *also* parse as fake open syllables purely by chance
+        # ("someoneishere"), which is what mislabelled that sentence Japanese
+        # even after the single-word exclusion above. Per-word candidates
+        # still catch a real multi-word Japanese phrase mangled the same way.
+        candidates = words if len(words) > 1 else (words + [squashed])
         if english_markers < 2:
-            for candidate in words + [squashed]:
+            for candidate in candidates:
                 if _looks_like_kana_syllables(candidate):
                     return True
 

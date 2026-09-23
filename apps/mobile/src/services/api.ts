@@ -1,7 +1,12 @@
 import { File } from "expo-file-system";
 import { NativeModules, Platform } from "react-native";
 
-import { loadManualServerUrl, manualServerUrlSync } from "./serverAddress";
+import {
+  loadManualBackendUrl,
+  loadManualServerUrl,
+  manualBackendUrlSync,
+  manualServerUrlSync,
+} from "./serverAddress";
 
 export type TranslateResult = {
   ok: boolean;
@@ -116,8 +121,13 @@ function candidateBaseUrls(
   // An address typed into Settings beats every guess below it. It is the only
   // one a person chose on purpose, and it is how someone recovers when the
   // laptop's IP changes or the tunnel is re-issued.
-  const manual = manualServerUrlSync();
-  if (manual && port === 8000) candidates.push(manual.replace(/\/+$/, ""));
+  //
+  // Two separate saved addresses, not one: the model server (8000) and the
+  // backend that mints its login token (this port) are different processes
+  // with different tunnels once either leaves the laptop's own LAN, and a
+  // fix to one address does nothing for the other.
+  const manual = port === 8000 ? manualServerUrlSync() : manualBackendUrlSync();
+  if (manual) candidates.push(manual.replace(/\/+$/, ""));
 
   const devHost = devHostFromMetro();
   if (devHost && devHost !== "localhost" && devHost !== "127.0.0.1") {
@@ -197,7 +207,7 @@ async function serverBaseUrl(
 
   // Reads storage on the first call only; after that it answers from memory,
   // so the address the user typed is in hand before the candidates are built.
-  await loadManualServerUrl();
+  await (port === 8000 ? loadManualServerUrl() : loadManualBackendUrl());
 
   const candidates = candidateBaseUrls(variable, port);
   const probe = firstReachable(candidates)
@@ -229,6 +239,11 @@ export function forgetResolvedServers(): void {
  *  Settings shows it so there is something concrete to compare against. */
 export function resolvedServerUrl(): string | null {
   return resolvedBases.get(8000) ?? null;
+}
+
+/** Same, for the backend (auth/signup) address — see resolvedServerUrl. */
+export function resolvedBackendUrl(): string | null {
+  return resolvedBases.get(4000) ?? null;
 }
 
 /** Ask one specific address whether it is a QuickVoice server. Used by the
@@ -403,7 +418,7 @@ export async function interpretAudioResult(
   expectedLanguage: "en" | "ja" | undefined,
   source: "en" | "ja",
   target: "en" | "ja",
-): Promise<{ text: string; language: "en" | "ja" | "unknown"; translation: string; target: "en" | "ja" | "" } | null> {
+): Promise<{ text: string; language: "en" | "ja" | "unknown"; translation: string; target: "en" | "ja" | ""; confidence: number } | null> {
   try {
     const ext = audioUri.split(".").pop()?.toLowerCase() ?? "wav";
     const audioFile = new File(audioUri);
@@ -432,6 +447,7 @@ export async function interpretAudioResult(
       language: json.language === "ja" || json.language === "en" ? json.language : "unknown",
       translation: typeof json.translation === "string" ? json.translation : "",
       target: json.target === "ja" || json.target === "en" ? json.target : "",
+      confidence: typeof json.confidence === "number" ? json.confidence : 0,
     };
   } catch {
     return null;
@@ -447,7 +463,7 @@ export async function transcribeAudioResult(
    * almost identically); a confident detection always overrides it.
    */
   expectedLanguage?: "en" | "ja",
-): Promise<{ text: string; language: "en" | "ja" | "unknown" }> {
+): Promise<{ text: string; language: "en" | "ja" | "unknown"; confidence: number }> {
   try {
     const ext = audioUri.split(".").pop()?.toLowerCase() ?? "wav";
     const audioFile = new File(audioUri);
@@ -468,6 +484,7 @@ export async function transcribeAudioResult(
         return {
           text: typeof json.text === "string" ? json.text : "",
           language: json.language === "ja" || json.language === "en" ? json.language : "unknown",
+          confidence: typeof json.confidence === "number" ? json.confidence : 0,
         };
       }
     }

@@ -87,6 +87,11 @@ export async function saveRecordingSession(session: SavedRecordingSession): Prom
   }
 }
 
+export async function deleteRecordingSession(id: string): Promise<void> {
+  const remaining = (await loadSavedRecordingSessions()).filter((session) => session.id !== id);
+  await appStorage.setItem(scoped(RECORDING_KEY_BASE), JSON.stringify(remaining));
+}
+
 // ─── Live interpretation sessions ────────────────────────────────────────────
 export type LiveSession = {
   id: string;
@@ -100,6 +105,9 @@ export type LiveSession = {
     sourceLang: string;
     targetLang: string;
     createdAt: string;
+    // Optional: sessions saved before this field existed have none on disk,
+    // and old JSON already written is not rewritten to add it.
+    confidence?: number;
   }>;
   createdAt: string;
   endedAt: string | null;

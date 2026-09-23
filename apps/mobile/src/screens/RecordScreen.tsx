@@ -74,6 +74,17 @@ type RecordCategory = {
 };
 type ViewMode = "grid" | "list";
 
+// Same scale as the Live Interpreter screen's indicator: Whisper's own
+// average log-probability for the turn, roughly -0.1 (confident) down past
+// -1.0 (guessing). 0 means an older server sent nothing -- no color, rather
+// than a false claim of certainty nobody measured.
+function confidenceColor(confidence: number): string | null {
+  if (confidence === 0) return null;
+  if (confidence >= -0.35) return "#22a06b";
+  if (confidence >= -0.65) return "#e0a030";
+  return "#e5484d";
+}
+
 // ─── Template Picker ──────────────────────────────────────────────────────────
 export function RecordScreen({
   setActiveTab,
@@ -357,8 +368,12 @@ function RecordingSessionScreen({
   const sourceLabel = t(sourceLang === "ja" ? "common.japanese" : "common.english");
   const targetLabel = t(targetLang === "ja" ? "common.japanese" : "common.english");
   const dropdownIconColor = dark ? "#A6AEBA" : "#66707D";
-  const speechCardHeight = screenHeight >= 880 ? 224 : screenHeight >= 760 ? 208 : 188;
-  const translationCardHeight = screenHeight >= 880 ? 204 : screenHeight >= 760 ? 190 : 172;
+  // Same height for both, and bigger than either used to be. They used to
+  // differ (224 vs 204 at the tallest breakpoint) for no reason tied to
+  // content -- two cards holding one turn each read as mismatched shapes
+  // side by side.
+  const speechCardHeight = screenHeight >= 880 ? 260 : screenHeight >= 760 ? 240 : 220;
+  const translationCardHeight = speechCardHeight;
   const latestEntry = interp.entries[interp.entries.length - 1];
   const originalText = interp.interimText || latestEntry?.original || "";
   const translationText = interp.liveTranslation || latestEntry?.translation || "";
@@ -436,6 +451,9 @@ function RecordingSessionScreen({
       sourceAudio: template.sourceAudio,
       status: "saved" as const,
       createdAt: new Date().toISOString(),
+      // The sentence-by-sentence breakdown, not just the flattened string
+      // above -- see the field's own comment in constants/data.ts for why.
+      entries: interp.entries,
     };
     await saveRecordingSession(session);
     Alert.alert(t("common.saved"), t("record.savedMessage", { name: template.title }), [
@@ -475,7 +493,11 @@ function RecordingSessionScreen({
 
   return (
     <>
-      <ScrollView scrollEnabled={false} style={[atoms.bgBackground, dark && rs.sessionBackgroundDark]} contentContainerStyle={rs.sessionContent} showsVerticalScrollIndicator={false}>
+      {/* Was scrollEnabled={false}: fine while the screen only ever showed
+          the latest turn, but the history list below can grow past one
+          screen the longer someone keeps talking, and locking scroll made
+          the earlier turns permanently unreachable. */}
+      <ScrollView style={[atoms.bgBackground, dark && rs.sessionBackgroundDark]} contentContainerStyle={rs.sessionContent} showsVerticalScrollIndicator={false}>
         <View style={rs.sessionHeader}>
           <View style={atoms.flex1}><Text style={[rs.sessionCategory, dark && rs.sessionCategoryDark]}>{template.title.toUpperCase()}</Text></View>
           <View style={[rs.timerPill, dark && rs.timerPillDark]}><View style={[rs.statusDot, interp.isListening && rs.statusDotLive]} /><Text style={[rs.timerText, dark && rs.timerTextDark]}>{formatTime(elapsed)}</Text></View>
@@ -574,6 +596,34 @@ function RecordingSessionScreen({
           </Text>
         </View>
 
+        {/* Every sentence spoken this session, not just the latest one. The
+            two big cards above only ever showed the most recent turn --
+            correct behavior mid-sentence, but it silently overwrote every
+            earlier one the moment a new sentence landed, even though the
+            recording never actually stopped (continuous mode was already
+            on; nothing here needed to change to keep listening). Newest at
+            the top, since that is the one someone just finished checking. */}
+        {interp.entries.length > 0 ? (
+          <View style={rs.historyList}>
+            {[...interp.entries].reverse().map((entry) => {
+              const color = confidenceColor(entry.confidence);
+              return (
+                <View
+                  key={entry.id}
+                  style={[
+                    rs.historyRow,
+                    dark && rs.historyRowDark,
+                    color ? { borderLeftColor: color, borderLeftWidth: 3 } : null,
+                  ]}
+                >
+                  <Text numberOfLines={2} style={[rs.historyOriginal, dark && rs.historyOriginalDark]}>{entry.original}</Text>
+                  <Text numberOfLines={2} style={rs.historyTranslation}>{entry.translation}</Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
         {interp.entries.length > 0 ? (
           <Pressable onPress={handleSave} style={({ pressed }) => [rs.saveButton, pressed && rs.pressed]}><Ionicons name="checkmark-circle" size={20} color="#FFFFFF" /><Text style={rs.saveText}>{t("record.saveTo", { name: template.title })}</Text></Pressable>
         ) : null}
@@ -603,7 +653,7 @@ const rs = StyleSheet.create({
   categoryAddText: { color: "#007AFF", fontSize: 15, fontWeight: "700" },
   categoryCancelText: { color: "#66707D", fontSize: 15, fontWeight: "600" },
   categoryCancelTextDark: { color: "#A6AEBA" },
-  categoryDialog: { backgroundColor: "#FFFFFF", borderColor: "#DDE1E7", borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, padding: 18, shadowColor: "#111827", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 28, width: "82%" },
+  categoryDialog: { backgroundColor: "#FFFFFF", borderColor: "#DDE1E7", borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, elevation: 10, padding: 18, shadowColor: "#111827", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 28, width: "82%" },
   categoryDialogDark: { backgroundColor: "#25292F", borderColor: "#3A4049" },
   categoryDialogActions: { flexDirection: "row", justifyContent: "flex-end", marginTop: 16 },
   categoryDialogButton: { alignItems: "center", justifyContent: "center", minHeight: 40, minWidth: 72, paddingHorizontal: 10 },
@@ -625,14 +675,20 @@ const rs = StyleSheet.create({
   errorText: { color: "#A5322B", flex: 1, fontSize: 13 },
   errorTextDark: { color: "#F3B9B4" },
   eyebrow: { color: "#007AFF", fontSize: 11, fontWeight: "700", letterSpacing: 1.3 },
+  historyList: { gap: 8 },
+  historyRow: { backgroundColor: "#FFFFFF", borderRadius: 10, elevation: 1, gap: 3, paddingHorizontal: 12, paddingVertical: 9, shadowColor: "#172136", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+  historyRowDark: { backgroundColor: "#25292F", borderColor: "#3A4049", borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0 },
+  historyOriginal: { color: "#171A20", fontSize: 13, fontWeight: "600" },
+  historyOriginalDark: { color: "#F5F7FA" },
+  historyTranslation: { color: "#007AFF", fontSize: 12 },
   languageBar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4 },
   languageMenuAnchor: { width: "30%" },
   languageFlag: { fontSize: 20, lineHeight: 24 },
-  languagePill: { alignItems: "center", backgroundColor: "#FFFFFF", borderColor: "#D7DBE1", borderRadius: 17, borderWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 5, height: 48, justifyContent: "center", paddingHorizontal: 10, shadowColor: "#1B2638", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, width: "100%" },
+  languagePill: { alignItems: "center", backgroundColor: "#FFFFFF", borderColor: "#D7DBE1", borderRadius: 17, borderWidth: StyleSheet.hairlineWidth, elevation: 3, flexDirection: "row", gap: 5, height: 48, justifyContent: "center", paddingHorizontal: 10, shadowColor: "#1B2638", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, width: "100%" },
   languagePillDark: { backgroundColor: "#25292F", borderColor: "#3A4049", shadowOpacity: 0 },
   languageText: { color: "#20242B", flexShrink: 1, fontSize: 13, fontWeight: "600", textAlign: "center" },
   languageTextDark: { color: "#E8EDF5" },
-  micButton: { alignItems: "center", backgroundColor: "#007AFF", borderRadius: 999, height: 66, justifyContent: "center", shadowColor: "#007AFF", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.26, shadowRadius: 16, width: 66 },
+  micButton: { alignItems: "center", backgroundColor: "#007AFF", borderRadius: 999, elevation: 6, height: 66, justifyContent: "center", shadowColor: "#007AFF", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.26, shadowRadius: 16, width: 66 },
   micButtonSmall: { height: 50, width: 50 },
   outputAction: { alignItems: "center", height: 32, justifyContent: "center", width: 32 },
   outputActionDisabled: { opacity: 0.32 },
@@ -646,14 +702,14 @@ const rs = StyleSheet.create({
   placeholderText: { color: "#A0A7B2", fontWeight: "500" },
   placeholderTextDark: { color: "#8F98A5" },
   pillFlag: { fontSize: 16, lineHeight: 20 },
-  pauseButtonInner: { alignItems: "center", backgroundColor: "#FF2435", borderRadius: 999, height: 52, justifyContent: "center", shadowColor: "#FF2435", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.35, shadowRadius: 12, width: 52 },
+  pauseButtonInner: { alignItems: "center", backgroundColor: "#FF2435", borderRadius: 999, elevation: 6, height: 52, justifyContent: "center", shadowColor: "#FF2435", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.35, shadowRadius: 12, width: 52 },
   pauseButtonMiddle: { alignItems: "center", backgroundColor: "rgba(255,45,55,0.22)", borderRadius: 999, height: 64, justifyContent: "center", width: 64 },
   pauseButtonOuter: { alignItems: "center", backgroundColor: "rgba(255,45,55,0.12)", borderColor: "rgba(255,45,55,0.28)", borderRadius: 999, borderWidth: 1, height: 76, justifyContent: "center", width: 76 },
   pauseSquare: { backgroundColor: "#FFFFFF", borderRadius: 3, height: 17, width: 17 },
   pressed: { opacity: 0.65, transform: [{ scale: 0.985 }] },
   recentBorder: { borderBottomColor: "#EBEDF1", borderBottomWidth: 1 },
   recentBorderDark: { borderBottomColor: "#3A4049" },
-  recentCard: { backgroundColor: "#FFFFFF", borderRadius: 20, overflow: "hidden", paddingHorizontal: 15, shadowColor: "#162034", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.05, shadowRadius: 16 },
+  recentCard: { backgroundColor: "#FFFFFF", borderRadius: 20, elevation: 3, overflow: "hidden", paddingHorizontal: 15, shadowColor: "#162034", shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.05, shadowRadius: 16 },
   recentCardDark: { backgroundColor: "#25292F", borderColor: "#3A4049", borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0 },
   recentIcon: { alignItems: "center", backgroundColor: "#EAF3FF", borderRadius: 11, height: 38, justifyContent: "center", width: 38 },
   recentIconDark: { backgroundColor: "#1D3550" },
@@ -675,7 +731,7 @@ const rs = StyleSheet.create({
   sessionBackgroundDark: { backgroundColor: "#0E1013" },
   sessionContent: { gap: 16, paddingBottom: 16, paddingHorizontal: 2, paddingTop: 4 },
   sessionHeader: { alignItems: "center", flexDirection: "row", gap: 12 },
-  speechCard: { backgroundColor: "#FFFFFF", borderRadius: 22, minHeight: 190, padding: 19, shadowColor: "#172136", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.07, shadowRadius: 19 },
+  speechCard: { backgroundColor: "#FFFFFF", borderRadius: 22, elevation: 4, minHeight: 190, padding: 19, shadowColor: "#172136", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.07, shadowRadius: 19 },
   speechCardDark: { backgroundColor: "#25292F", borderColor: "#3A4049", borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0 },
   speechText: { color: "#171A20", fontSize: 19, lineHeight: 29 },
   speechTextDark: { color: "#F5F7FA" },
@@ -689,7 +745,7 @@ const rs = StyleSheet.create({
   timerPillDark: { backgroundColor: "#25292F", borderColor: "#3A4049", borderWidth: StyleSheet.hairlineWidth },
   timerText: { color: "#4F5763", fontSize: 12, fontVariant: ["tabular-nums"], fontWeight: "600" },
   timerTextDark: { color: "#D0D6E0" },
-  translationCard: { backgroundColor: "#FFFFFF", borderRadius: 22, minHeight: 170, padding: 19, shadowColor: "#172136", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.07, shadowRadius: 19 },
+  translationCard: { backgroundColor: "#FFFFFF", borderRadius: 22, elevation: 4, minHeight: 170, padding: 19, shadowColor: "#172136", shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.07, shadowRadius: 19 },
   translationCardDark: { backgroundColor: "#25292F", borderColor: "#3A4049", borderWidth: StyleSheet.hairlineWidth, shadowOpacity: 0 },
   translationText: { color: "#007AFF", fontSize: 19, fontWeight: "500", lineHeight: 29 },
   translationTextDark: { color: "#85C3FF" },

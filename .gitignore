@@ -45,3 +45,9 @@ python-server/models/
 # Timestamped copies of .env made by the start script. The plain `.env` rule
 # above does not match them, so they would otherwise be committed.
 .env.backup-*
+
+# Local model-conversion working files -- large binaries, never meant for git.
+python-server/offline-packs/
+# .env snapshots taken before rebuilding for a new network/device, kept
+# locally for rollback -- not secrets meant to be shared, just noise.
+apps/mobile/.env.before-*

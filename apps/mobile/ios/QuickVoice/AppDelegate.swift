@@ -8,6 +8,9 @@ class AppDelegate: ExpoAppDelegate {
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
+  // Handed to SceneDelegate, which does the actual window creation/RN start
+  // once a UIWindowScene exists — see SceneDelegate.swift for why.
+  var launchOptions: [UIApplication.LaunchOptionsKey: Any]?
 
   public override func application(
     _ application: UIApplication,
@@ -19,17 +22,14 @@ class AppDelegate: ExpoAppDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
-
-#if os(iOS) || os(tvOS)
-    window = UIWindow(frame: UIScreen.main.bounds)
-    factory.startReactNative(
-      withModuleName: "main",
-      in: window,
-      launchOptions: launchOptions)
-#endif
+    self.launchOptions = launchOptions
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
+
+  // Declared in Info.plist (UIApplicationSceneManifest -> SceneDelegate) so
+  // UIKit instantiates SceneDelegate on its own; no configurationForConnecting
+  // override needed here.
 
   // Linking API
   public override func application(

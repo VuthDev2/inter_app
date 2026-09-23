@@ -8,6 +8,7 @@ import { useTranslation } from "../i18n/I18nContext";
 import TTSService from "../features/live-interpreter/services/tts/TTSService";
 import {
   deleteLiveSession,
+  deleteRecordingSession,
   loadLiveSessions,
   loadSavedRecordingSessions,
   type LiveSession,
@@ -17,6 +18,16 @@ import { colors } from "../theme/theme";
 
 type AnyLiveSession = LiveSession;
 export type HistoryKind = "conversations" | "recordings" | "extension";
+
+// Same scale used on the Record and Live Interpreter screens: Whisper's own
+// average log-probability for the turn, roughly -0.1 (confident) down past
+// -1.0 (guessing). 0 means an older save has no score at all.
+function confidenceColor(confidence: number): string | null {
+  if (confidence === 0) return null;
+  if (confidence >= -0.35) return "#22a06b";
+  if (confidence >= -0.65) return "#e0a030";
+  return "#e5484d";
+}
 type DateGroup<T> = { label: "Today" | "Yesterday" | "Last Week" | "Older"; items: T[] };
 
 function groupByDate<T extends { createdAt: string }>(items: T[]): DateGroup<T>[] {
@@ -55,6 +66,7 @@ export function HistoryScreen({
   const [recordings, setRecordings] = useState<SavedRecordingSession[]>([]);
   const [liveSessions, setLiveSessions] = useState<AnyLiveSession[]>([]);
   const [selected, setSelected] = useState<AnyLiveSession | null>(null);
+  const [selectedRecording, setSelectedRecording] = useState<SavedRecordingSession | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [segmentWidth, setSegmentWidth] = useState(0);
@@ -156,6 +168,41 @@ export function HistoryScreen({
     Animated.spring(detailAnim, { damping: 22, stiffness: 220, toValue: 1, useNativeDriver: true }).start();
   };
 
+  const openRecording = (recording: SavedRecordingSession) => {
+    detailAnim.setValue(0);
+    setSelectedRecording(recording);
+    Animated.spring(detailAnim, { damping: 22, stiffness: 220, toValue: 1, useNativeDriver: true }).start();
+  };
+
+  const closeRecording = () => {
+    Animated.timing(detailAnim, { duration: 160, toValue: 0, useNativeDriver: true }).start(() => {
+      setSelectedRecording(null);
+      setExpanded(new Set());
+      detailAnim.setValue(1);
+    });
+  };
+
+  // Same reasoning as deleteConversation: destructive, no undo, so it asks.
+  const deleteRecording = (recording: SavedRecordingSession) => {
+    Alert.alert(
+      t("history.deleteTitle"),
+      t("history.deleteMessage"),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("history.delete"),
+          style: "destructive",
+          onPress: () => {
+            void deleteRecordingSession(recording.id).then(() => {
+              closeRecording();
+              void load();
+            });
+          },
+        },
+      ],
+    );
+  };
+
   // A conversation could be saved and read but never removed, so anything saved
   // by mistake stayed for good. Deleting is destructive and the list does not
   // undo, so it asks first.
@@ -252,6 +299,73 @@ export function HistoryScreen({
     );
   }
 
+  if (selectedRecording) {
+    const entries = selectedRecording.entries ?? [];
+    return (
+      <Animated.View style={[styles.detail, dark && styles.detailDark, { opacity: detailAnim, transform: [{ translateX: detailAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]}>
+        <View style={styles.detailHeader}>
+          <Pressable accessibilityLabel={t("history.back")} onPress={closeRecording} style={[styles.backButton, dark && styles.backButtonDark]}><Ionicons name="chevron-back" size={20} color={dark ? "#F5F7FA" : "#171A20"} /></Pressable>
+          <View style={styles.detailHeading}>
+            <Text style={[styles.detailTitle, dark && styles.detailTitleDark]}>{selectedRecording.title}</Text>
+            <Text style={[styles.detailMeta, dark && styles.detailMetaDark]}>{new Date(selectedRecording.createdAt).toLocaleString()}{entries.length > 0 ? ` · ${t("history.messageCount", { count: entries.length })}` : ""}</Text>
+          </View>
+          <Pressable
+            accessibilityLabel={t("history.delete")}
+            onPress={() => deleteRecording(selectedRecording)}
+            style={[styles.backButton, dark && styles.backButtonDark]}
+          >
+            <Ionicons name="trash-outline" size={19} color="#E5484D" />
+          </Pressable>
+        </View>
+
+        {entries.length === 0 ? (
+          // A recording saved before per-sentence entries existed, or one
+          // where nothing was ever recognized -- the flat transcript is all
+          // there is. Still real content, not an empty state, unless that
+          // string itself is the "nothing recorded" placeholder.
+          <View style={[styles.messageCard, dark && styles.messageCardDark]}>
+            <Text style={[styles.originalText, dark && styles.originalTextDark]}>{selectedRecording.transcript}</Text>
+          </View>
+        ) : entries.map((entry, index) => {
+          const isExpanded = expanded.has(entry.id);
+          const isLong = entry.original.length + entry.translation.length > 240;
+          const isLatest = index === entries.length - 1;
+          const fromJapanese = entry.sourceLang === "ja";
+          const confColor = confidenceColor(entry.confidence);
+          return (
+            <View key={entry.id} style={[styles.messageRow, fromJapanese && styles.messageRowReverse]}>
+              <View
+                style={[
+                  styles.messageCard,
+                  dark && styles.messageCardDark,
+                  isLatest && styles.latestCard,
+                  isLatest && dark && styles.latestCardDark,
+                  confColor ? { borderLeftColor: confColor, borderLeftWidth: 3 } : null,
+                ]}
+              >
+                {isLatest ? <Text style={[styles.latestPill, dark && styles.latestPillDark]}>{t("history.latest").toUpperCase()}</Text> : null}
+                <Text numberOfLines={isExpanded ? undefined : 4} style={[styles.originalText, dark && styles.originalTextDark, entry.sourceLang === "ja" && styles.japaneseText]}>{entry.original}</Text>
+                <View style={[styles.divider, dark && styles.dividerDark]} />
+                <Text numberOfLines={isExpanded ? undefined : 4} style={[styles.translationText, dark && styles.translationTextDark, entry.targetLang !== "ja" && styles.englishText, entry.targetLang !== "ja" && dark && styles.englishTextDark]}>{entry.translation}</Text>
+                {isLong ? <Pressable onPress={() => setExpanded((current) => { const next = new Set(current); next.has(entry.id) ? next.delete(entry.id) : next.add(entry.id); return next; })}><Text style={styles.moreText}>{t(isExpanded ? "history.showLess" : "history.showMore")}</Text></Pressable> : null}
+              </View>
+              <Pressable
+                accessibilityLabel={t("history.playTranslation", { language: t(entry.targetLang === "ja" ? "common.japanese" : "common.english") })}
+                onPress={() => {
+                  const language = entry.targetLang === "ja" ? "ja" : "en";
+                  void TTSService.speak(entry.translation, language, ttsSpeed);
+                }}
+                style={styles.playButton}
+              >
+                <Ionicons name="play" size={13} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          );
+        })}
+      </Animated.View>
+    );
+  }
+
   const groups = kind === "conversations"
     ? groupByDate(liveSessions)
     : groupByDate(kind === "recordings" ? recordings : []);
@@ -286,7 +400,7 @@ export function HistoryScreen({
             {kind === "conversations" ? (group.items as AnyLiveSession[]).map((session, index) => (
               <ConversationRow dark={dark} key={session.id} session={session} divider={index < group.items.length - 1} onPress={() => openConversation(session)} />
             )) : (group.items as SavedRecordingSession[]).map((recording, index) => (
-              <RecordingRow dark={dark} key={recording.id} recording={recording} divider={index < group.items.length - 1} />
+              <RecordingRow dark={dark} key={recording.id} recording={recording} divider={index < group.items.length - 1} onPress={() => openRecording(recording)} />
             ))}
           </View>
         </View>
@@ -315,17 +429,18 @@ function ConversationRow({ dark, session, divider, onPress }: { dark: boolean; s
   );
 }
 
-function RecordingRow({ dark, recording, divider }: { dark: boolean; recording: SavedRecordingSession; divider: boolean }) {
+function RecordingRow({ dark, recording, divider, onPress }: { dark: boolean; recording: SavedRecordingSession; divider: boolean; onPress: () => void }) {
   return (
-    <View style={[styles.historyRow, divider && styles.rowDivider, divider && dark && styles.rowDividerDark]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.historyRow, divider && styles.rowDivider, divider && dark && styles.rowDividerDark, pressed && styles.rowPressed, pressed && dark && styles.rowPressedDark]}>
       <View style={[styles.recordIcon, dark && styles.recordIconDark]}><Ionicons name="mic-outline" size={19} color={dark ? "#B39CFB" : "#7657DB"} /></View>
       <View style={styles.rowCopy}><View style={styles.rowTop}><Text numberOfLines={1} style={[styles.rowTitle, dark && styles.rowTitleDark]}>{recording.title}</Text><Text style={[styles.rowTime, dark && styles.rowTimeDark]}>{new Date(recording.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</Text></View><Text numberOfLines={2} style={[styles.preview, dark && styles.previewDark]}>{recording.transcript}</Text></View>
-    </View>
+      <Ionicons name="chevron-forward" size={16} color={dark ? "#7F8794" : "#A2A9B3"} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  backButton: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 999, height: 40, justifyContent: "center", shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, width: 40 },
+  backButton: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 999, elevation: 2, height: 40, justifyContent: "center", shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, width: 40 },
   continueButton: {
     alignItems: "center",
     backgroundColor: "#007AFF",
@@ -400,9 +515,9 @@ const styles = StyleSheet.create({
   rowTitleDark: { color: "#F5F7FA" },
   rowTop: { alignItems: "center", flexDirection: "row" },
   segment: { alignItems: "center", borderRadius: 999, flex: 1, justifyContent: "center", minHeight: 36, paddingHorizontal: 12 },
-  segmentActive: { backgroundColor: "#FFFFFF", shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 7 },
+  segmentActive: { backgroundColor: "#FFFFFF", elevation: 2, shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 7 },
   segmentActiveDark: { backgroundColor: "#30343A", shadowOpacity: 0 },
-  segmentIndicator: { backgroundColor: "#FFFFFF", borderRadius: 999, bottom: 4, left: 4, position: "absolute", shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 7, top: 4 },
+  segmentIndicator: { backgroundColor: "#FFFFFF", borderRadius: 999, bottom: 4, elevation: 2, left: 4, position: "absolute", shadowColor: "#172033", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 7, top: 4 },
   segmentIndicatorDark: { backgroundColor: "#30343A", shadowOpacity: 0 },
   segmented: { backgroundColor: "#E9ECF1", borderRadius: 999, flexDirection: "row", overflow: "visible", padding: 4 },
   segmentedDark: { backgroundColor: "#20242B" },

@@ -1,5 +1,6 @@
 "use client";
 
+import { LayoutGroup, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -42,25 +43,25 @@ export default function MarketingNav() {
   }, []);
 
   return (
-    <header ref={barRef} className="sticky top-0 z-50 w-full border-b border-white/[0.06] bg-[#04070d]/85 backdrop-blur">
-      {/* Two rows on a phone. Three names plus the logo and a button need
-          about 355px of a 390px screen, so a single row scrolled sideways and
-          left "How it works" cut down to a stray "s". */}
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-3 px-5 py-3.5 sm:flex-nowrap sm:px-6 sm:py-4">
-        <Link href="/landing" className="flex shrink-0 items-center gap-2">
-          <img src="/logo-d.png" alt="" className="h-7 w-auto" />
-          <span className="text-[15px] font-bold italic tracking-tight text-white">
+    // Same shell as the welcome page's bar: a floating rounded pill, not a
+    // full-width slab. Two different nav shapes across pages read as a glitch
+    // when you click between them. Kept `sticky` rather than the welcome
+    // page's `fixed` so --appbar-h still reserves real space -- the sections
+    // below size themselves against it.
+    <header ref={barRef} className="sticky top-0 z-50 w-full px-6 pt-5 md:pt-6 pb-3">
+      <nav
+        aria-label="QuickVoice"
+        className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-x-3 gap-y-3 rounded-[28px] border border-white/[0.09] bg-black/80 px-4 py-4 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-md lg:flex-nowrap lg:rounded-full md:px-6"
+      >
+        <Link href="/landing" className="flex min-w-0 shrink items-center gap-2 pl-1 pr-1 md:gap-3 md:pl-3 md:pr-4">
+          <img src="/logo-d.png" alt="" className="h-7 w-7 shrink-0" />
+          <span className="truncate text-base font-bold italic tracking-tight text-white md:text-lg">
             Quick<span className="text-blue-500">Voice</span>
           </span>
         </Link>
 
-        {/* Scrolls sideways rather than wrapping: three names plus the buttons
-            do not fit a narrow phone, and a second row pushed the content down
-            on every page. */}
-        <nav
-          aria-label="QuickVoice"
-          className="order-last flex w-full min-w-0 items-center justify-between gap-1 text-[13px] font-medium sm:order-none sm:w-auto sm:flex-1 sm:justify-center sm:gap-6"
-        >
+        <LayoutGroup id="marketing-nav">
+        <div className="order-last flex w-full min-w-0 items-center justify-between gap-1 text-[13px] font-medium text-gray-300 lg:order-none lg:w-auto lg:flex-1 lg:justify-center lg:gap-6 xl:gap-8">
           {MARKETING_LINKS.map(({ label, href }) => {
             const active = pathname === href;
             return (
@@ -68,33 +69,42 @@ export default function MarketingNav() {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`shrink-0 whitespace-nowrap border-b-2 pb-1 text-[12.5px] transition-colors sm:px-2 sm:text-[13px] ${
-                  active
-                    ? "border-blue-500 text-white"
-                    : "border-transparent text-gray-400 hover:text-white"
+                className={`relative shrink-0 whitespace-nowrap pb-1 transition-colors duration-200 ${
+                  active ? "text-white" : "hover:text-white"
                 }`}
               >
                 {label}
+                {/* One element that moves between links rather than a border
+                    per link switching on and off: shared layoutId is what lets
+                    it travel instead of blink. */}
+                {active && (
+                  <motion.span
+                    layoutId="marketing-nav-underline"
+                    className="absolute -bottom-0 left-0 right-0 h-[2px] rounded-full bg-blue-500"
+                    transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.8 }}
+                  />
+                )}
               </Link>
             );
           })}
-        </nav>
+        </div>
+        </LayoutGroup>
 
-        <div className="flex shrink-0 items-center gap-2 text-[13px] font-semibold">
+        <div className="flex shrink-0 items-center gap-2 text-[14px] font-semibold md:gap-3 md:pr-1">
           <Link
             href="/signup"
-            className="hidden rounded-full px-4 py-2 text-gray-400 transition-colors hover:text-white sm:inline-block"
+            className="hidden rounded-full px-5 py-2 text-gray-400 transition-all hover:text-white sm:inline-block"
           >
             Sign Up
           </Link>
           <Link
             href="/login"
-            className="rounded-full bg-blue-600 px-5 py-2 text-white transition-colors hover:bg-blue-500"
+            className="rounded-full bg-blue-600 px-4 py-2 text-white shadow-[0_0_20px_rgba(0,195,255,0.4)] transition-colors hover:bg-blue-500 md:px-6 md:py-2.5"
           >
             Login
           </Link>
         </div>
-      </div>
+      </nav>
     </header>
   );
 }

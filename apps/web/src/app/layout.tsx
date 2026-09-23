@@ -62,6 +62,7 @@ import { SettingsProvider } from "@/context/SettingsContext";
 import { AuthProvider } from "@/context/AuthContext";
 import AppChrome from "@/components/AppChrome";
 import ReloadOnStaleBuild from "@/components/ReloadOnStaleBuild";
+import PageTransition from "@/components/PageTransition";
 
 export default function RootLayout({
   children,
@@ -93,7 +94,7 @@ export default function RootLayout({
                 single screen, with its heading colliding with the nav. Pages
                 that want to fill the window and scroll inside size themselves
                 against --appbar-h instead -- see PageShell. */}
-            <div className="flex flex-1 shrink-0 flex-col">{children}</div>
+            <PageTransition>{children}</PageTransition>
           </AuthProvider>
         </SettingsProvider>
       </body>

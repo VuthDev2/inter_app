@@ -195,6 +195,7 @@ export function useLiveInterpretation(
 
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState("");
+  const [pendingTurns, setPendingTurns] = useState<Array<{ id: number; text: string }>>([]);
   const [liveTranslation, setLiveTranslation] = useState("");
   const [entries, setEntries] = useState<InterpretationEntry[]>([]);
   const [volume, setVolume] = useState(0);
@@ -450,6 +451,10 @@ export function useLiveInterpretation(
   }, []);
 
   const start = useCallback(async () => {
+    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+      setError("Finishing the previous turns. Please wait before restarting.");
+      return;
+    }
     setError(null);
     // Deliberately NOT clearing entries: a session is a conversation, and the
     // speaker stops and starts the mic inside one. Wiping here erased what was
@@ -526,7 +531,8 @@ export function useLiveInterpretation(
     streamRef.current = stream;
     // Mic permission is granted by this point, so the preview can open its own
     // recognition session without triggering a second prompt.
-    startPreview(sourceLangRef.current);
+    // A single-language browser recognizer cannot preview both speakers reliably.
+    // The multilingual server publishes each confirmed turn instead.
 
     const audioCtx = new AudioContext({ sampleRate: REQUESTED_SAMPLE_RATE });
     audioCtxRef.current = audioCtx;
@@ -594,7 +600,12 @@ export function useLiveInterpretation(
               `[QuickVoice] transcript in ${Math.round(performance.now() - sentAtRef.current)}ms`,
             );
           }
-          setInterimText(msg.text || "");
+          if (typeof msg.turnId === "number") {
+            setPendingTurns((turns) => [...turns.filter((turn) => turn.id !== msg.turnId),
+              { id: msg.turnId, text: msg.text || "" }].sort((a, b) => a.id - b.id));
+          } else {
+            setInterimText(msg.text || "");
+          }
         } else if (msg.type === "translation") {
           setLiveTranslation(msg.text || "");
         } else if (msg.type === "utterance") {
@@ -630,26 +641,14 @@ export function useLiveInterpretation(
                   : analyzeNuance(translation || original),
             };
 
-            // Let the words sit on the live line long enough to be read, then
-            // move them up. Already been there that long? Promote immediately.
-            const shownFor = performance.now() - transcriptShownAtRef.current;
-            const promote = () => {
-              setEntries((prev) => [...prev, entry]);
-              onUtteranceRef.current?.({
-                original,
-                translation,
-                sourceLang: sourceLang || "",
-                targetLang: msg.targetLang || "",
-              });
-              setInterimText("");
-              setLiveTranslation("");
-            };
-            if (promoteTimerRef.current) clearTimeout(promoteTimerRef.current);
-            if (shownFor >= MIN_LIVE_LINE_MS) {
-              promote();
-            } else {
-              promoteTimerRef.current = setTimeout(promote, MIN_LIVE_LINE_MS - shownFor);
-            }
+            // Commit every result immediately; a shared promotion timer used
+            // to cancel the previous turn when two results arrived together.
+            setEntries((prev) => [...prev, entry]);
+            onUtteranceRef.current?.({ original, translation,
+              sourceLang: sourceLang || "", targetLang: msg.targetLang || "" });
+            setPendingTurns((turns) => turns.filter((turn) => turn.id !== msg.turnId));
+            setInterimText("");
+            setLiveTranslation("");
           } else {
             setInterimText("");
             setLiveTranslation("");
@@ -659,6 +658,8 @@ export function useLiveInterpretation(
           // line so the panel does not look stuck on stale output.
           setInterimText("");
           setLiveTranslation("");
+        } else if (msg.type === "stopped") {
+          ws.close();
         } else if (msg.type === "error") {
           setError(msg.text);
         }
@@ -686,8 +687,10 @@ export function useLiveInterpretation(
     isActiveRef.current = false;
     stopPreview();
     cleanupAudio();
-    wsRef.current?.close();
-    wsRef.current = null;
+    // Stop capture now, but drain all already-sent turns before closing.
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop" }));
+    else ws?.close();
     setIsListening(false);
   }, []);
 
@@ -700,6 +703,7 @@ export function useLiveInterpretation(
       clearTimeout(promoteTimerRef.current);
       promoteTimerRef.current = null;
     }
+    setPendingTurns([]);
     setEntries([]);
     setInterimText("");
     setLiveTranslation("");
@@ -707,7 +711,7 @@ export function useLiveInterpretation(
 
   return {
     isListening,
-    interimText,
+    interimText: pendingTurns.length ? pendingTurns.map((turn) => turn.text).join("\n") : interimText,
     liveTranslation,
     entries,
     volume,

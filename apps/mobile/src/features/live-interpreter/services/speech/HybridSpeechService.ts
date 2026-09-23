@@ -103,6 +103,7 @@ class HybridSpeechService implements SpeechServiceInterface {
    * "Listening…", because no recognizer means no preview *and* no audio file.
    */
   private usingFallback = false;
+  private onDeviceRecognitionSupported = false;
   private fallbackBridged = false;
 
   /** Re-publish the fallback service's events through this service's own
@@ -148,6 +149,14 @@ class HybridSpeechService implements SpeechServiceInterface {
       recognizerUsable = false;
     }
 
+    try {
+      this.onDeviceRecognitionSupported = ExpoSpeechRecognitionModule.supportsOnDeviceRecognition();
+    } catch {
+      // Unknown rather than unsupported: default to the network path already
+      // in use today, not a mode nobody has verified on this device.
+      this.onDeviceRecognitionSupported = false;
+    }
+
     if (recognizerUsable) {
       try {
         const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
@@ -188,6 +197,14 @@ class HybridSpeechService implements SpeechServiceInterface {
       // Keep the stream open — the sentence boundary is decided here, from
       // silence, not by the recognizer closing the session.
       continuous: true,
+      // Forcing on-device here (to stop the preview depending on a second,
+      // unrelated network path -- Apple's cloud dictation, not the
+      // QuickVoice server) traded away something that mattered more: iOS's
+      // on-device recognizer holds words back until it is more sure of
+      // them, where the network path streams interim guesses eagerly. That
+      // is exactly backwards from what a *live preview* is for. Told
+      // directly that seeing something immediately outranks it never
+      // depending on network, so this goes back to the network path.
       requiresOnDeviceRecognition: false,
       addsPunctuation: true,
       // The whole point: keep the audio the recognizer is already capturing.
@@ -409,6 +426,7 @@ class HybridSpeechService implements SpeechServiceInterface {
               language: result.language === "unknown" ? undefined : result.language,
               translation: combined?.translation || undefined,
               targetLanguage: combined?.target || undefined,
+              confidence: result.confidence,
             }),
           );
           return;

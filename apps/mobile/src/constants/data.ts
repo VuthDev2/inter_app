@@ -37,6 +37,22 @@ export type SavedRecordingSession = {
   status: "saved";
   createdAt: string;
   audioId?: string;
+  // Each sentence spoken during the recording, kept separately from the flat
+  // `transcript` string above. That string is still written (search, list
+  // previews, and old saves depend on it), but it collapses every turn into
+  // one block with no way back to which sentence was which or how confident
+  // Whisper was in each one -- which is exactly what a saved recording's
+  // detail view needs to show. Optional: recordings saved before this field
+  // existed have none on disk, and old JSON already written is not rewritten
+  // to add it.
+  entries?: Array<{
+    id: string;
+    original: string;
+    translation: string;
+    sourceLang: LanguageCode;
+    targetLang: LanguageCode;
+    confidence: number;
+  }>;
 };
 
 export const recordingTemplates: RecordingTemplate[] = [

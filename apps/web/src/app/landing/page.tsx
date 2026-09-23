@@ -48,6 +48,7 @@ const PRODUCT_FEATURES = [
 const SECTION_LINKS = [
   { label: "How it works", hash: "/how-it-works" },
   { label: "Why QuickVoice", hash: "/why-quickvoice" },
+  { label: "Interpreter", hash: "/interpreter-app" },
   { label: "Extension", hash: "/browser-extension" },
 ] as const;
 
@@ -425,6 +426,15 @@ export default function LandingPage() {
         .hero-rise-delay-2 { animation-delay: .24s; }
         .hero-rise-delay-3 { animation-delay: .36s; }
         .hero-glow { animation: hero-glow 7s ease-in-out infinite; }
+        @media (min-width: 768px) and (max-width: 1279px) and (orientation: portrait) {
+          .tablet-hero-content { padding-top: 148px; padding-bottom: clamp(300px, 42vw, 470px); }
+          .tablet-hero-art img { position: relative; left: 50%; width: min(118%, 1100px); max-width: none; transform: translateX(-50%); }
+        }
+        @media (min-width: 768px) and (max-width: 1279px) and (orientation: landscape) {
+          .tablet-hero-content { padding-top: 116px; padding-bottom: 48px; }
+          .tablet-hero-art img { width: min(100%, 1180px); max-height: 72svh; object-fit: contain; object-position: bottom; }
+          .tablet-hero-copy { transform: translateY(-2svh); }
+        }
         @keyframes how-card-progress {
           from { transform: scaleX(0); }
           to { transform: scaleX(1); }
@@ -441,7 +451,7 @@ export default function LandingPage() {
       `}} />
 
       {/* --- HERO SECTION --- */}
-      <div ref={heroRef} className="relative order-1 w-full min-h-screen flex flex-col items-center">
+      <div ref={heroRef} className="relative order-1 w-full min-h-[100svh] flex flex-col items-center">
         
         {/* Animated Wave Background SVG & Ambient Light */}
         <div className="absolute inset-0 overflow-hidden [contain:paint] pointer-events-none z-0">
@@ -462,7 +472,7 @@ export default function LandingPage() {
         </div>
 
         {/* Hero-only people. They belong to section one and scroll away with it. */}
-        <div className="pointer-events-none absolute inset-0 z-10 hidden overflow-hidden lg:block" aria-hidden="true">
+        <div className="pointer-events-none absolute inset-0 z-10 hidden overflow-hidden xl:block" aria-hidden="true">
           <Image
             src={MAN_CONVERSATION_FRAMES[0]}
             alt=""
@@ -485,6 +495,18 @@ export default function LandingPage() {
           />
         </div>
 
+        {/* Keep the two speakers visible beneath the message on tablets. */}
+        <div className="tablet-hero-art pointer-events-none absolute inset-x-0 bottom-0 z-10 hidden overflow-hidden md:block xl:hidden" aria-hidden="true">
+          <Image
+            src="/hero-conversation-people.png"
+            alt=""
+            width={1400}
+            height={788}
+            sizes="(max-width: 1279px) 100vw, 0px"
+            className="mx-auto h-auto w-full max-w-[1100px] select-none"
+          />
+        </div>
+
         {/* Top Floating Navbar */}
         <div className={`fixed top-0 left-0 right-0 w-full flex justify-center pt-5 md:pt-6 z-50 px-6 transition-transform duration-500 ease-out transform-gpu [backface-visibility:hidden] ${navVisible ? "translate-y-0" : "-translate-y-[130%]"}`}>
           <nav className={`w-full max-w-[1200px] px-4 md:px-6 py-4 flex items-center justify-between gap-2 rounded-full border transition-all duration-500 ${
@@ -499,7 +521,7 @@ export default function LandingPage() {
               </span>
             </Link>
 
-            <div className="hidden md:flex items-center gap-8 text-[13px] font-medium text-gray-300">
+            <div className="hidden xl:flex items-center gap-6 2xl:gap-8 text-[13px] font-medium text-gray-300">
               {SECTION_LINKS.map(({ label, hash }) => (
                 <Link
                   key={hash}
@@ -518,7 +540,7 @@ export default function LandingPage() {
                 aria-controls="landing-mobile-nav"
                 aria-label={menuOpen ? "Close menu" : "Open menu"}
                 onClick={() => setMenuOpen((open) => !open)}
-                className="md:hidden p-2 -ml-1 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                className="xl:hidden p-2 -ml-1 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
               >
                 {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
@@ -533,9 +555,9 @@ export default function LandingPage() {
         </div>
 
         {/* Mobile navigation. Without this the links were hidden behind
-            `md:` breakpoints and phone visitors saw only the logo. */}
+            `xl:` breakpoints and phone and tablet visitors saw only the logo. */}
         {menuOpen && (
-          <div className={`md:hidden fixed top-[92px] left-0 right-0 w-full flex justify-center px-6 z-50 transition-all duration-300 ${navVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"}`}>
+          <div className={`xl:hidden fixed top-[92px] left-0 right-0 w-full flex justify-center px-6 z-50 transition-all duration-300 ${navVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4"}`}>
             <div
               id="landing-mobile-nav"
               className="w-full max-w-[1200px] rounded-3xl border border-white/[0.08] bg-black/80 backdrop-blur px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
@@ -562,10 +584,10 @@ export default function LandingPage() {
         )}
 
         {/* Hero Content */}
-        <div className="relative z-20 flex w-full flex-1 items-center justify-center overflow-hidden px-6 pb-10 pt-36 md:pb-14 md:pt-44">
+        <div className="tablet-hero-content relative z-20 flex w-full flex-1 items-center justify-center overflow-hidden px-6 pb-10 pt-36 md:pb-[clamp(260px,38vw,390px)] md:pt-36 xl:pb-14 xl:pt-44">
           <div className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[min(850px,90vw)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600/[0.13] blur-[110px] hero-glow" />
 
-          <div className="relative z-[2] mx-auto flex max-w-4xl translate-y-3 flex-col items-center text-center md:translate-y-8">
+          <div className="tablet-hero-copy relative z-[2] mx-auto flex max-w-4xl translate-y-3 flex-col items-center text-center md:translate-y-8">
             <div className="hero-rise inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[0.08] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-300 backdrop-blur">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-60" />
@@ -823,7 +845,7 @@ export default function LandingPage() {
         <h2 className="text-3xl font-bold mb-4 tracking-wide">The Edge</h2>
         <p className="text-[14px] text-gray-400 mb-20 font-medium">The next generation of human connection.</p>
         
-        <div className="w-full max-w-7xl px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="w-full max-w-7xl px-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 xl:gap-8">
             {/* Card 1 */}
             <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
                 <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-6">
@@ -847,7 +869,7 @@ export default function LandingPage() {
             </div>
 
             {/* Card 3 */}
-            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8">
+            <div className="bg-[#0b1221] border border-gray-800/80 rounded-[2rem] p-8 md:col-span-2 xl:col-span-1">
                 <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-6">
                     <Zap size={18} className="text-blue-400" />
                 </div>
@@ -885,7 +907,7 @@ export default function LandingPage() {
             chat and read it back in the other language, without leaving the tab.
           </p>
 
-          <div className="mt-16 grid w-full grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="mt-16 grid w-full grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 xl:gap-8">
             <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
               <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
                 <MousePointerClick size={18} className="text-blue-400" />
@@ -908,7 +930,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8">
+            <div className="rounded-[2rem] border border-gray-800/80 bg-[#0b1221] p-8 md:col-span-2 xl:col-span-1">
               <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10">
                 <ShieldCheck size={18} className="text-emerald-400" />
               </div>

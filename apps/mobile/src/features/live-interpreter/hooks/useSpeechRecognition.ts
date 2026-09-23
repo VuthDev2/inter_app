@@ -26,6 +26,8 @@ export type SpeechRecognitionState = {
   /** Present when the server translated the turn in the same request. */
   finalTranslation?: string;
   finalTargetLanguage?: "en" | "ja";
+  /** Whisper's own confidence for the last finalized turn. See SpeechResult. */
+  finalConfidence?: number;
   finalResultId: number;
   error: SpeechRecognitionError | null;
   startListening: (
@@ -44,6 +46,7 @@ export function useSpeechRecognition(): SpeechRecognitionState {
   const [finalLanguage, setFinalLanguage] = useState<"en" | "ja" | undefined>();
   const [finalTranslation, setFinalTranslation] = useState<string | undefined>();
   const [finalTargetLanguage, setFinalTargetLanguage] = useState<"en" | "ja" | undefined>();
+  const [finalConfidence, setFinalConfidence] = useState<number | undefined>();
   const [finalResultId, setFinalResultId] = useState(0);
   const [error, setError] = useState<SpeechRecognitionError | null>(null);
 
@@ -52,11 +55,12 @@ export function useSpeechRecognition(): SpeechRecognitionState {
       setPartialTranscript(transcript);
       setPartialLanguage(language);
     });
-    const finalSubscription = SpeechService.onFinalResult(({ language, transcript, translation, targetLanguage }) => {
+    const finalSubscription = SpeechService.onFinalResult(({ language, transcript, translation, targetLanguage, confidence }) => {
       setFinalTranscript(transcript);
       setFinalLanguage(language);
       setFinalTranslation(translation);
       setFinalTargetLanguage(targetLanguage);
+      setFinalConfidence(confidence);
       setFinalResultId((current) => current + 1);
       setPartialTranscript("");
       setPartialLanguage(undefined);
@@ -123,6 +127,7 @@ export function useSpeechRecognition(): SpeechRecognitionState {
     finalLanguage,
     finalTranslation,
     finalTargetLanguage,
+    finalConfidence,
     finalResultId,
     error,
     startListening,

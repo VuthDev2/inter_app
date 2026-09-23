@@ -6,12 +6,23 @@ import { getBackendHealth, translateTextViaApi } from "../services/api";
 
 const TRANSCRIPT_CLEAR_AFTER_OUTPUT_MS = 900;
 
+// Hiragana, katakana, and the CJK block kanji actually appear in. The live
+// preview locale is fixed for the whole session (see `start`, below), so it
+// keeps guessing in that one locale no matter who is actually talking -- but
+// when what comes back genuinely contains Japanese script, that is not a
+// guess, it is the literal character on screen. Routing the *box* by what
+// the text actually is, rather than by which locale produced it, is real
+// signal the fixed-locale guess never had access to.
+const JAPANESE_SCRIPT_RE = /[぀-ヿ㐀-䶿一-鿿]/;
+
 export type InterpretationEntry = {
   id: string;
   original: string;
   translation: string;
   sourceLang: LanguageCode;
   targetLang: LanguageCode;
+  /** Whisper's own confidence for this turn. See SpeechResult. */
+  confidence: number;
 };
 
 export type LiveInterpretationState = {
@@ -19,6 +30,7 @@ export type LiveInterpretationState = {
   listeningLanguage: LanguageCode;
   interimText: string;
   liveTranslation: string;
+  liveTranslationLanguage: LanguageCode;
   entries: InterpretationEntry[];
   volume: number;
   error: string | null;
@@ -36,6 +48,13 @@ export function useLiveInterpretation(
   const speech = useSpeechRecognition();
   const [sessionActive, setSessionActive] = useState(false);
   const [liveTranslation, setLiveTranslation] = useState("");
+  // Which language liveTranslation is actually written in. The screen has
+  // two cards (one per language) and used to show liveTranslation in
+  // whichever one was not currently "listening", with no check that the
+  // text was in that card's own language — so a Japanese turn's English
+  // translation appeared inside the Japanese card. This lets the screen
+  // show it only in the card it actually belongs to.
+  const [liveTranslationLanguage, setLiveTranslationLanguage] = useState<LanguageCode>(targetLang);
   const [entries, setEntries] = useState<InterpretationEntry[]>([]);
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [recognitionTurn, setRecognitionTurn] = useState(0);
@@ -234,7 +253,12 @@ export function useLiveInterpretation(
         const translation = readyTranslation
           ? readyTranslation
           : await translateTextViaApi(transcript, turnSource, turnTarget);
+        const resolvedTargetLang: LanguageCode =
+          readyTranslation && (readyTarget === "en" || readyTarget === "ja")
+            ? readyTarget
+            : turnTarget;
         setLiveTranslation(translation);
+        setLiveTranslationLanguage(resolvedTargetLang);
         spokenAloudRef.current = translation;
         setEntries((previous) => [
           ...previous,
@@ -243,9 +267,8 @@ export function useLiveInterpretation(
             original: transcript,
             translation,
             sourceLang: turnSource,
-            targetLang: readyTranslation && (readyTarget === "en" || readyTarget === "ja")
-              ? readyTarget
-              : turnTarget,
+            targetLang: resolvedTargetLang,
+            confidence: speech.finalConfidence ?? 0,
           },
         ]);
         processingClearTimerRef.current = setTimeout(() => {
@@ -272,6 +295,15 @@ export function useLiveInterpretation(
     const restartTimer = setTimeout(() => {
       if (!sessionActiveRef.current) return;
       handledFinalRef.current = "";
+      // The previous turn's translation often finishes arriving *after* this
+      // restart (translation is ~0.5-1s, the restart is 300ms), so it lands
+      // in the target box just as the person starts their next sentence and
+      // then sits there, unchanged, for the whole time they are mid-speech.
+      // It reads as the app being stuck on the old answer rather than
+      // listening. Clearing here, at the moment a fresh turn actually opens
+      // the mic, is what puts the box back to "Waiting..." instead.
+      setLiveTranslation("");
+      setTranslationError(null);
       void listenWithLanguage(listeningLanguageRef.current);
     }, 300);
 
@@ -321,10 +353,30 @@ export function useLiveInterpretation(
     if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
   }, []);
 
-  // Keep partial words in the explicitly selected source-language card.
+  // Which box the live preview lands in, while a sentence is still being
+  // spoken and Whisper has not confirmed anything yet.
+  //
+  // `listeningLanguage` is fixed for the whole session (see `start`), so
+  // trusting it alone put every raw preview in the same box regardless of
+  // who was actually talking -- Japanese speech showing up as Japanese
+  // *text* inside the English card. But the raw preview text itself, once
+  // it exists, is real evidence the fixed locale never had: if it contains
+  // actual Japanese script, the person is unambiguously speaking Japanese
+  // right now, whatever locale the recognizer happened to be guessing in.
+  // Not "else, the fixed default" -- this app is only ever EN/JA, so once
+  // there is text, absence of Japanese script is itself the answer, not a
+  // fallback. A fixed default here is exactly the bug: it is what made the
+  // English card show Japanese script in the first place, whenever the
+  // session's fixed language happened to be English while someone spoke
+  // Japanese. Before any text exists at all, though, there is nothing to
+  // read script from -- that still shows the idle "Listening…" placeholder
+  // in whichever card the fixed language points at, same as before.
+  const previewLanguage: LanguageCode = speech.partialTranscript
+    ? (JAPANESE_SCRIPT_RE.test(speech.partialTranscript) ? "ja" : "en")
+    : listeningLanguage;
   const displayLanguage: LanguageCode = processingText
     ? processingLanguage
-    : listeningLanguage;
+    : previewLanguage;
 
   return {
     isListening: sessionActive,
@@ -353,8 +405,18 @@ export function useLiveInterpretation(
     // last completed turn indefinitely, so the card kept showing the
     // previous sentence instead of returning to the placeholder — that turn
     // is already in `entries`.
+    //
+    // `speech.partialTranscript` has flipped back and forth: it brings the
+    // wrong-language flash back (the on-device recognizer is locked to one
+    // locale for the whole session, so it mis-hears the *other* language on
+    // every turn, not occasionally) -- but its absence means nothing appears
+    // in either card until a sentence finishes, which reads as the app not
+    // listening at all. Both directions were explicitly requested in turn;
+    // this is back to showing it. Do not flip this again without being
+    // asked -- each direction costs a rebuild and reinstall.
     interimText: processingText || speech.partialTranscript,
     liveTranslation,
+    liveTranslationLanguage,
     entries,
     volume: 0,
     // `||` not `??`: no_speech carries an empty message, and with `??` that

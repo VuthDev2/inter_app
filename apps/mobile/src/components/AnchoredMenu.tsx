@@ -213,6 +213,11 @@ const styles = StyleSheet.create({
     borderColor: "#E3E6EA",
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
+    // Android draws stacking order from elevation, not zIndex like iOS --
+    // a floating menu with no elevation at all can render *behind* the
+    // content it is supposed to sit on top of, on top of never getting a
+    // shadow.
+    elevation: 8,
     overflow: "hidden",
     paddingVertical: 4,
     position: "absolute",

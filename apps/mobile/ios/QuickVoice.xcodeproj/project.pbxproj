@@ -11,6 +11,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		7A04B2869F320F0B8E89775F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D0DD63752CCE20A411585376 /* PrivacyInfo.xcprivacy */; };
+		A041D08DAD7C16029D86BE27 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9807789F79405684D3018A9E /* SceneDelegate.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		F41002216A0A933D630D25A3 /* libPods-QuickVoice.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FCDE2415D62F355C0EF2E9D7 /* libPods-QuickVoice.a */; };
@@ -22,6 +23,7 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = QuickVoice/Info.plist; sourceTree = "<group>"; };
 		65D5EDB104944F33D247E7A0 /* Pods-QuickVoice.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-QuickVoice.release.xcconfig"; path = "Target Support Files/Pods-QuickVoice/Pods-QuickVoice.release.xcconfig"; sourceTree = "<group>"; };
 		6FC6288FED0B3303B49B5CC6 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-QuickVoice/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		9807789F79405684D3018A9E /* SceneDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = QuickVoice/SceneDelegate.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = QuickVoice/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		D0DD63752CCE20A411585376 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = QuickVoice/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -54,6 +56,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				D0DD63752CCE20A411585376 /* PrivacyInfo.xcprivacy */,
+				9807789F79405684D3018A9E /* SceneDelegate.swift */,
 			);
 			name = QuickVoice;
 			sourceTree = "<group>";
@@ -373,6 +376,7 @@
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
 				0BC19799A6A1E804D4B9B462 /* ExpoModulesProvider.swift in Sources */,
+				A041D08DAD7C16029D86BE27 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

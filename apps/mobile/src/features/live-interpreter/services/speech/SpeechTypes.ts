@@ -17,6 +17,12 @@ export type SpeechResult = {
   translation?: string;
   /** Which language `translation` is in. */
   targetLanguage?: "en" | "ja";
+  /**
+   * Whisper's own confidence for this turn (its average log-probability,
+   * roughly -0.1 for a clean decode down to -1.0+ for a guess). 0 when the
+   * server predates this field or the turn produced no usable score.
+   */
+  confidence?: number;
 };
 
 export type SpeechRecognitionError = {

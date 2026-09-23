@@ -1,14 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
-import { Alert, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, useColorScheme, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useColorScheme, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { Tab } from "../../App";
 import { useAuth } from "../features/auth/auth";
 import { usePreferences } from "../features/preferences/context";
 import { useTranslation } from "../i18n/I18nContext";
-import { checkServerUrl, forgetResolvedServers, loadProtectedNames, resolvedServerUrl, saveProtectedNames } from "../services/api";
-import { loadManualServerUrl, normalizeServerUrl, setManualServerUrl } from "../services/serverAddress";
+import { checkServerUrl, forgetResolvedServers, loadProtectedNames, resolvedBackendUrl, resolvedServerUrl, saveProtectedNames } from "../services/api";
+import {
+  loadManualBackendUrl,
+  loadManualServerUrl,
+  normalizeServerUrl,
+  setManualBackendUrl,
+  setManualServerUrl,
+} from "../services/serverAddress";
 import { colors } from "../theme/theme";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -406,7 +412,6 @@ function ProtectedNamesScreen({ dark, onBack }: { dark?: boolean; onBack: () => 
     </SafeAreaView>
   );
 }
-
 /**
  * Type in where the model server is.
  *
@@ -417,8 +422,32 @@ function ProtectedNamesScreen({ dark, onBack }: { dark?: boolean; onBack: () => 
  * fixes it in seconds, and Test says whether the address answers before it is
  * saved, so nobody is left guessing whether the typo was theirs or the
  * network's.
+ *
+ * Two of these render on this screen, not one: the model server (transcribe,
+ * translate, tts) and the backend that mints its login token (auth, signup)
+ * are separate processes with separate tunnels the moment either leaves the
+ * laptop's own LAN. A saved fix to one used to silently do nothing for the
+ * other -- this field existed for the model server alone, so someone could
+ * fix the server they could see failing and the app would still be stuck on
+ * the token request underneath it, with no field anywhere to fix that one.
  */
-function ServerAddressScreen({ dark, onBack }: { dark?: boolean; onBack: () => void }) {
+function ServerAddressField({
+  dark,
+  title,
+  body,
+  placeholder,
+  loadManual,
+  setManual,
+  resolvedInUse,
+}: {
+  dark?: boolean;
+  title: string;
+  body: string;
+  placeholder: string;
+  loadManual: () => Promise<string | null>;
+  setManual: (url: string | null) => Promise<void>;
+  resolvedInUse: () => string | null;
+}) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
@@ -426,18 +455,21 @@ function ServerAddressScreen({ dark, onBack }: { dark?: boolean; onBack: () => v
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
-    void loadManualServerUrl().then((url) => {
+    void loadManual().then((url) => {
       setSaved(url);
       setDraft(url ?? "");
     });
-  }, []);
+    // Re-read whenever this field's own loader identity changes (i.e. once,
+    // per which address this instance manages) -- not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadManual]);
 
-  const inUse = resolvedServerUrl();
+  const inUse = resolvedInUse();
 
   const save = async () => {
     const url = normalizeServerUrl(draft);
     if (!url) { setMessage(t("settings.serverInvalid")); return; }
-    await setManualServerUrl(url);
+    await setManual(url);
     // The old winner is remembered until something says otherwise, and it is
     // exactly the address that stopped working.
     forgetResolvedServers();
@@ -457,7 +489,7 @@ function ServerAddressScreen({ dark, onBack }: { dark?: boolean; onBack: () => v
   };
 
   const clear = async () => {
-    await setManualServerUrl(null);
+    await setManual(null);
     forgetResolvedServers();
     setSaved(null);
     setDraft("");
@@ -465,69 +497,115 @@ function ServerAddressScreen({ dark, onBack }: { dark?: boolean; onBack: () => v
   };
 
   return (
+    <View style={serverStyles.field}>
+      <Text style={[styles.detailTitle, serverStyles.fieldTitle, dark && styles.textDark]}>{title}</Text>
+      <Text style={[styles.detailBody, dark && styles.secondaryTextDark]}>{body}</Text>
+
+      <TextInput
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        onChangeText={setDraft}
+        onSubmitEditing={() => void save()}
+        placeholder={placeholder}
+        placeholderTextColor={dark ? "#78818D" : "#98A2B3"}
+        returnKeyType="done"
+        style={[namesStyles.input, dark && namesStyles.inputDark]}
+        value={draft}
+      />
+
+      <View style={serverStyles.buttonRow}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={testing || !draft.trim()}
+          onPress={() => void test()}
+          style={({ pressed }) => [serverStyles.secondaryButton, dark && serverStyles.secondaryButtonDark, (testing || !draft.trim()) && namesStyles.addButtonDisabled, pressed && namesStyles.addButtonPressed]}
+        >
+          <Text style={[serverStyles.secondaryText, dark && styles.textDark]}>{t("settings.serverTest")}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={!draft.trim()}
+          onPress={() => void save()}
+          style={({ pressed }) => [serverStyles.primaryButton, !draft.trim() && namesStyles.addButtonDisabled, pressed && namesStyles.addButtonPressed]}
+        >
+          <Text style={serverStyles.primaryText}>{t("settings.serverSave")}</Text>
+        </Pressable>
+      </View>
+
+      {saved ? (
+        <Pressable accessibilityRole="button" onPress={() => void clear()} style={serverStyles.clearButton}>
+          <Text style={serverStyles.clearText}>{t("settings.serverClear")}</Text>
+        </Pressable>
+      ) : (
+        <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{t("settings.serverSearching")}</Text>
+      )}
+
+      {inUse ? (
+        <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{t("settings.serverInUse", { url: inUse })}</Text>
+      ) : null}
+
+      {message ? <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{message}</Text> : null}
+    </View>
+  );
+}
+
+function ServerAddressScreen({ dark, onBack }: { dark?: boolean; onBack: () => void }) {
+  const { t } = useTranslation();
+  // See the same fix on SettingsDetailScreen: SafeAreaView's automatic top
+  // inset is unreliable inside a fullScreen Modal on iOS, and this screen is
+  // mounted the same way.
+  const insets = useSafeAreaInsets();
+
+  return (
     <SafeAreaView style={[styles.detailPage, dark && styles.detailPageDark]}>
-      <View style={styles.detailHeader}>
+      {/* Header sits outside the scroll view on purpose: two fields stacked
+          are taller than one screen, and a header that scrolled away with
+          them took the back button with it -- there was then no way off this
+          screen without force-quitting the app. */}
+      <View style={[styles.detailHeader, { paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable accessibilityRole="button" hitSlop={12} onPress={onBack}>
           <Ionicons name="chevron-back" size={26} color={dark ? "#F2F5F9" : "#101828"} />
         </Pressable>
-        <Text style={[styles.detailTitle, dark && styles.textDark]}>{t("settings.server")}</Text>
+        <Text style={[styles.detailTitle, dark && styles.textDark]}>{t("settings.serverGroup")}</Text>
         <View style={{ width: 26 }} />
       </View>
 
-      <View style={styles.detailContent}>
-        <Text style={[styles.detailBody, dark && styles.secondaryTextDark]}>{t("settings.serverBody")}</Text>
-
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          onChangeText={setDraft}
-          onSubmitEditing={() => void save()}
-          placeholder={t("settings.serverPlaceholder")}
-          placeholderTextColor={dark ? "#78818D" : "#98A2B3"}
-          returnKeyType="done"
-          style={[namesStyles.input, dark && namesStyles.inputDark]}
-          value={draft}
-        />
-
-        <View style={serverStyles.buttonRow}>
-          <Pressable
-            accessibilityRole="button"
-            disabled={testing || !draft.trim()}
-            onPress={() => void test()}
-            style={({ pressed }) => [serverStyles.secondaryButton, dark && serverStyles.secondaryButtonDark, (testing || !draft.trim()) && namesStyles.addButtonDisabled, pressed && namesStyles.addButtonPressed]}
-          >
-            <Text style={[serverStyles.secondaryText, dark && styles.textDark]}>{t("settings.serverTest")}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            disabled={!draft.trim()}
-            onPress={() => void save()}
-            style={({ pressed }) => [serverStyles.primaryButton, !draft.trim() && namesStyles.addButtonDisabled, pressed && namesStyles.addButtonPressed]}
-          >
-            <Text style={serverStyles.primaryText}>{t("settings.serverSave")}</Text>
-          </Pressable>
-        </View>
-
-        {saved ? (
-          <Pressable accessibilityRole="button" onPress={() => void clear()} style={serverStyles.clearButton}>
-            <Text style={serverStyles.clearText}>{t("settings.serverClear")}</Text>
-          </Pressable>
-        ) : (
-          <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{t("settings.serverSearching")}</Text>
-        )}
-
-        {inUse ? (
-          <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{t("settings.serverInUse", { url: inUse })}</Text>
-        ) : null}
-
-        {message ? <Text style={[serverStyles.note, dark && styles.secondaryTextDark]}>{message}</Text> : null}
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.detailContentFlex}
+      >
+        <ScrollView
+          contentContainerStyle={styles.detailContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <ServerAddressField
+            dark={dark}
+            title={t("settings.server")}
+            body={t("settings.serverBody")}
+            placeholder={t("settings.serverPlaceholder")}
+            loadManual={loadManualServerUrl}
+            setManual={setManualServerUrl}
+            resolvedInUse={resolvedServerUrl}
+          />
+          <ServerAddressField
+            dark={dark}
+            title={t("settings.backendServer")}
+            body={t("settings.backendServerBody")}
+            placeholder={t("settings.backendServerPlaceholder")}
+            loadManual={loadManualBackendUrl}
+            setManual={setManualBackendUrl}
+            resolvedInUse={resolvedBackendUrl}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const serverStyles = StyleSheet.create({
+  field: { marginBottom: 28 },
+  fieldTitle: { fontSize: 15, marginBottom: 6 },
   buttonRow: { flexDirection: "row", gap: 10, marginTop: 14 },
   clearButton: { alignSelf: "flex-start", marginTop: 16, paddingVertical: 6 },
   clearText: { color: "#007AFF", fontSize: 14, fontWeight: "600" },
@@ -711,9 +789,17 @@ function SettingsDetailScreen({
     else onLanguageChange(value as "en" | "ja");
   };
 
+  // `SafeAreaView`'s own edge detection is unreliable for a screen mounted
+  // inside a React Native `Modal` (`presentationStyle="fullScreen"`) on iOS --
+  // it can report zero top inset there, which put this header's back button
+  // directly under the status bar with no real height for a tap to land in.
+  // Reading the inset directly and adding it as real padding does not depend
+  // on that detection working.
+  const insets = useSafeAreaInsets();
+
   return (
     <SafeAreaView style={[styles.detailPage, dark && styles.detailPageDark]}>
-      <View style={styles.detailHeader}>
+      <View style={[styles.detailHeader, { paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable accessibilityLabel={t("privacy.back")} onPress={onBack} style={({ pressed }) => [styles.backButton, dark && styles.backButtonDark, pressed && styles.profilePressed]}>
           <Ionicons name="chevron-back" size={23} color={dark ? "#F5F7FA" : "#171A20"} />
         </Pressable>
@@ -766,8 +852,12 @@ const styles = StyleSheet.create({
   backButtonDark: { backgroundColor: "#25292F", borderColor: "#3A4049" },
   backButtonPlaceholder: { height: 42, width: 42 },
   detailBody: { color: "#727B88", fontSize: 15, lineHeight: 22, marginBottom: 22 },
-  detailContent: { paddingHorizontal: 20, paddingTop: 22 },
-  detailHeader: { alignItems: "center", flexDirection: "row", height: 64, justifyContent: "space-between", paddingHorizontal: 18 },
+  detailContent: { paddingBottom: 40, paddingHorizontal: 20, paddingTop: 22 },
+  detailContentFlex: { flex: 1 },
+  // minHeight, not height: the inline paddingTop these headers add for the
+  // safe-area inset needs room to grow into, not to be clipped out of a
+  // fixed box.
+  detailHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", minHeight: 64, paddingHorizontal: 18 },
   detailPage: { backgroundColor: "#F5F6F8", flex: 1 },
   detailPageDark: { backgroundColor: "#0E1013" },
   detailTitle: { color: "#171A20", fontSize: 20, fontWeight: "700", letterSpacing: -0.35 },

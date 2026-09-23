@@ -15,9 +15,16 @@ import { appStorage } from "./nativeStorage";
  * now, which is a fact about the network it is on, not about the account.
  */
 const KEY = "quickvoice.serverUrl.v1";
+// The model server (transcribe/translate/tts, port 8000) and the backend that
+// mints its login token (auth/signup, port 5001) are two separate processes
+// with two separate tunnels once either one leaves the laptop's own LAN --
+// fixing one address never fixes the other, so each needs its own override.
+const BACKEND_KEY = "quickvoice.backendUrl.v1";
 
 let manual: string | null = null;
 let loading: Promise<string | null> | null = null;
+let manualBackend: string | null = null;
+let loadingBackend: Promise<string | null> | null = null;
 
 /** Trim a pasted address into something fetch can use, or null if it cannot be
  *  one. A bare host is assumed to be plain HTTP on the model server's port,
@@ -65,4 +72,29 @@ export async function setManualServerUrl(url: string | null): Promise<void> {
   loading = Promise.resolve(manual || null);
   if (url) await appStorage.setItem(KEY, url);
   else await appStorage.removeItem(KEY);
+}
+
+/** Same three functions, for the backend (auth/signup) address instead of the
+ *  model server. Kept as a parallel set rather than a parameter so neither
+ *  Settings row can accidentally overwrite the other's saved value. */
+export function loadManualBackendUrl(): Promise<string | null> {
+  if (manualBackend !== null) return Promise.resolve(manualBackend);
+  if (!loadingBackend) {
+    loadingBackend = appStorage.getItem(BACKEND_KEY).then((value) => {
+      manualBackend = value ?? "";
+      return manualBackend || null;
+    });
+  }
+  return loadingBackend.then(() => manualBackend || null);
+}
+
+export function manualBackendUrlSync(): string | null {
+  return manualBackend || null;
+}
+
+export async function setManualBackendUrl(url: string | null): Promise<void> {
+  manualBackend = url ?? "";
+  loadingBackend = Promise.resolve(manualBackend || null);
+  if (url) await appStorage.setItem(BACKEND_KEY, url);
+  else await appStorage.removeItem(BACKEND_KEY);
 }

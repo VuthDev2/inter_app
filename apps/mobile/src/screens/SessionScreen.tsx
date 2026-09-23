@@ -63,6 +63,21 @@ const FLAGS: Record<string, string> = {
 };
 const getFlag = (c: string) => FLAGS[c] ?? "🌐";
 const getLabel = (c: string) => languages.find((l) => l.code === c)?.label ?? c;
+
+// Whisper's own average log-probability for the turn, roughly -0.1 (clean
+// decode) down past -1.0 (guessing) -- this is exactly the score already
+// used server-side to decide whether to keep a transcript at all, just made
+// visible instead of thrown away. 0 means an older server sent nothing, in
+// which case showing a color would claim a certainty nobody measured.
+const CONFIDENT = "#22a06b";
+const UNCERTAIN = "#e0a030";
+const LOW_CONFIDENCE = "#e5484d";
+function confidenceColor(confidence: number): string | null {
+  if (confidence === 0) return null;
+  if (confidence >= -0.35) return CONFIDENT;
+  if (confidence >= -0.65) return UNCERTAIN;
+  return LOW_CONFIDENCE;
+}
 const INPUT_PROMPTS: Partial<Record<LanguageCode, string>> = {
   en: "Type something…",
   ja: "日本語を入力…",
@@ -219,6 +234,10 @@ type Utterance = {
   targetLang: string;
   lane: "left" | "right";
   createdAt: string;
+  /** Whisper's own average log-probability for this turn: roughly -0.1
+   *  (confident) down to -1.0 or lower (guessing). 0 for turns from a
+   *  server that predates this field -- treated as "unknown", not "perfect". */
+  confidence: number;
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -333,6 +352,7 @@ export function SessionScreen({
                     lane: (u.sourceLang === unfinished.targetLang
                       ? "right"
                       : "left") as "left" | "right",
+                    confidence: u.confidence ?? 0,
                   })),
                 );
                 sessionId.current = unfinished.id;
@@ -390,12 +410,14 @@ export function SessionScreen({
     translation,
     sourceLang,
     targetLang,
+    confidence,
   }: {
     id: string;
     original: string;
     translation: string;
     sourceLang: LanguageCode;
     targetLang: LanguageCode;
+    confidence: number;
   }) => {
     const utterance: Utterance = {
       id,
@@ -408,6 +430,7 @@ export function SessionScreen({
       // live source-language box is on the left.
       lane: sourceLang === tgtRef.current ? "right" : "left",
       createdAt: new Date().toISOString(),
+      confidence,
     };
 
     setUtterances((prev) => {
@@ -455,6 +478,9 @@ export function SessionScreen({
         translation,
         sourceLang: effectiveSource,
         targetLang: effectiveTarget,
+        // Typed, not spoken -- there is no ASR confidence to report, not a
+        // low one. 0 means "no indicator," matching that distinction.
+        confidence: 0,
       });
 
       if (speakRef.current && translation) {
@@ -490,6 +516,7 @@ export function SessionScreen({
       translation: latest.translation,
       sourceLang: s,
       targetLang: t,
+      confidence: latest.confidence,
     });
 
     if (speakRef.current && latest.translation) {
@@ -576,6 +603,7 @@ export function SessionScreen({
       session.utterances.map((u) => ({
         ...u,
         lane: (u.sourceLang === session.targetLang ? "right" : "left") as "left" | "right",
+        confidence: u.confidence ?? 0,
       })),
     );
     setSrc(session.sourceLang as LanguageCode);
@@ -778,10 +806,23 @@ export function SessionScreen({
 
         <View style={ss.conversationTopSpacer} />
 
-        {utterances.map((u) => (
-          <View key={`solid-card-${u.id}`} style={[ss.card, dark && ss.cardDark, laneStyle(u.lane)]}>
+        {utterances.map((u) => {
+          const confColor = confidenceColor(u.confidence);
+          return (
+          <View
+            key={`solid-card-${u.id}`}
+            style={[
+              ss.card,
+              dark && ss.cardDark,
+              laneStyle(u.lane),
+              confColor ? { borderLeftWidth: 4, borderLeftColor: confColor } : null,
+            ]}
+          >
             <View style={[ss.cardHeader, u.lane === "right" && ss.cardHeaderRight]}>
-              <Text numberOfLines={1} style={[ss.cardLanguage, u.lane === "right" && ss.cardLanguageRight, dark && ss.secondaryTextDark]}>{getLabel(u.sourceLang)}</Text>
+              <View style={ss.cardLanguageRow}>
+                {confColor ? <View style={[ss.confidenceDot, { backgroundColor: confColor }]} /> : null}
+                <Text numberOfLines={1} style={[ss.cardLanguage, u.lane === "right" && ss.cardLanguageRight, dark && ss.secondaryTextDark]}>{getLabel(u.sourceLang)}</Text>
+              </View>
               <Pressable
                 onPress={() => {
                   void TTSService.speak(
@@ -806,7 +847,8 @@ export function SessionScreen({
             <Text style={[ss.translationLabel, dark && ss.secondaryTextDark]}>{getLabel(u.targetLang)}</Text>
             <Text style={[ss.cardTranslation, { fontSize: 20 * textScale, fontWeight: largeTextWeight, lineHeight: 28 * textScale }]}>{u.translation}</Text>
           </View>
-        ))}
+          );
+        })}
 
         <View style={ss.controlsArea}>
           <View style={ss.liveStatus}>
@@ -845,7 +887,9 @@ export function SessionScreen({
                 >
                   {targetIsListening
                     ? live.interimText || t(tgt === "ja" ? "live.listeningJapanese" : "live.listeningEnglish")
-                    : live.liveTranslation || t(tgt === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
+                    : live.liveTranslationLanguage === tgt && live.liveTranslation
+                    ? live.liveTranslation
+                    : t(tgt === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
                 </Animated.Text>
               )}
             </View>
@@ -889,7 +933,9 @@ export function SessionScreen({
                 >
                   {sourceIsListening
                     ? live.interimText || t(src === "ja" ? "live.listeningJapanese" : "live.listeningEnglish")
-                    : live.liveTranslation || t(src === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
+                    : live.liveTranslationLanguage === src && live.liveTranslation
+                    ? live.liveTranslation
+                    : t(src === "ja" ? "live.waitingJapanese" : "live.waitingEnglish")}
                 </Animated.Text>
               )}
               </View>
@@ -950,11 +996,13 @@ const ss = StyleSheet.create({
   cardDark: { backgroundColor: "#25292F", shadowColor: "#000000" },
   cardLanguage: { color: "#69717E", flex: 1, fontSize: 12, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase" },
   cardLanguageRight: { textAlign: "right" },
+  cardLanguageRow: { alignItems: "center", flex: 1, flexDirection: "row", gap: 6 },
+  confidenceDot: { borderRadius: 4, height: 7, width: 7 },
   cardLeft: { alignSelf: "flex-start" },
   cardOriginal: { color: "#15181E", fontSize: 21, fontWeight: "600", letterSpacing: -0.25, lineHeight: 29 },
   cardRight: { alignSelf: "flex-end" },
   cardTranslation: { color: INDIGO, fontSize: 20, fontWeight: "600", lineHeight: 28 },
-  circleButton: { alignItems: "center", backgroundColor: WHITE, borderColor: "#D7DBE1", borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 },
+  circleButton: { alignItems: "center", backgroundColor: WHITE, borderColor: "#D7DBE1", borderRadius: 999, borderWidth: StyleSheet.hairlineWidth, elevation: 2, height: 40, justifyContent: "center", shadowColor: "#202838", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, width: 40 },
   circleButtonPlaceholder: { height: 40, width: 40 },
   circleButtonDark: { backgroundColor: "#25292F", borderColor: "#424953", shadowColor: "#000000" },
   conversation: { flexGrow: 1, paddingBottom: 0, paddingHorizontal: 20, paddingTop: 18 },
@@ -977,11 +1025,11 @@ const ss = StyleSheet.create({
   liveStatus: { flexShrink: 0, justifyContent: "center", paddingHorizontal: 20, paddingTop: 2 },
   liveDot: { backgroundColor: "#30C574", borderRadius: 99, height: 7, marginRight: 4, width: 7 },
   liveLabel: { color: "#27985B", fontSize: 10, fontWeight: "800", letterSpacing: 0.7 },
-  micButton: { alignItems: "center", backgroundColor: INDIGO, borderRadius: 999, height: 72, justifyContent: "center", shadowColor: INDIGO, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8, width: 72 },
+  micButton: { alignItems: "center", backgroundColor: INDIGO, borderRadius: 999, elevation: 4, height: 72, justifyContent: "center", shadowColor: INDIGO, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8, width: 72 },
   micButtonActive: { backgroundColor: "#FF3B30", shadowColor: "#FF3B30", top: 30 },
   micLayer: { alignItems: "center", left: 0, position: "absolute", right: 0, top: 14 },
   modeButton: { borderRadius: 999, paddingHorizontal: 15, paddingVertical: 7 },
-  modeButtonActive: { backgroundColor: WHITE, shadowColor: "#222A38", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 5 },
+  modeButtonActive: { backgroundColor: WHITE, elevation: 2, shadowColor: "#222A38", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 5 },
   modeControl: { alignSelf: "center", backgroundColor: "#E9ECF1", borderRadius: 999, flexDirection: "row", marginTop: 12, padding: 3 },
   modeText: { color: "#737B87", fontSize: 12, fontWeight: "600" },
   modeTextActive: { color: "#171A20" },
@@ -999,7 +1047,7 @@ const ss = StyleSheet.create({
   // Matches cardLanguage so the source label above the divider and the target
   // label below it read as one consistent system, not two different styles.
   translationLabel: { color: "#69717E", fontSize: 12, fontWeight: "700", letterSpacing: 0.4, marginBottom: 6, textTransform: "uppercase" },
-  waitingCard: { backgroundColor: WHITE, borderRadius: 20, marginVertical: 6, maxWidth: "76%", minWidth: "54%", padding: 14, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 18 },
+  waitingCard: { backgroundColor: WHITE, borderRadius: 20, elevation: 3, marginVertical: 6, maxWidth: "76%", minWidth: "54%", padding: 14, shadowColor: "#182238", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 18 },
   waitingLanguage: { color: "#68717D", fontSize: 12, fontWeight: "700", marginBottom: 8 },
   transitionText: { left: 0, position: "absolute", right: 0, top: 0 },
   textDark: { color: "#F5F7FA" },

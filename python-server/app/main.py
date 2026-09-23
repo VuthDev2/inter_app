@@ -87,6 +87,13 @@ class TranscriptionResponse(BaseModel):
     ok: bool
     text: str
     language: str
+    # Whisper's own average log-probability for this turn, already computed
+    # server-side to decide whether to keep the text at all (see min_logprob
+    # in whisper_service.py) and previously discarded after that. Roughly
+    # -0.1 (confident) to -1.0+ (guessing); the client can use it to show
+    # "the app is not sure it heard you" instead of presenting every turn
+    # with equal, unearned certainty.
+    confidence: float = 0.0
 
 
 class InterpretationResponse(BaseModel):
@@ -97,6 +104,7 @@ class InterpretationResponse(BaseModel):
     language: str
     translation: str
     target: str
+    confidence: float = 0.0
 
 
 asr_service = WhisperASRService()
@@ -429,7 +437,37 @@ async def live_interpretation(websocket: WebSocket) -> None:
     await websocket.accept()
     configured_source = "en"
     configured_target = "ja"
+    sequence = 0
+    # Recognition may continue while the previous turn is translating. One
+    # consumer preserves microphone arrival order in both language directions.
+    translations: asyncio.Queue = asyncio.Queue(maxsize=32)
 
+    async def translate_pending() -> None:
+        while True:
+            turn_id, corrected, detected_source, destination = await translations.get()
+            try:
+                translated = await asyncio.to_thread(
+                    run_protected_translation, corrected,
+                    normalize_language(detected_source), normalize_language(destination),
+                )
+                await websocket.send_json({
+                    "type": "translation", "turnId": turn_id, "text": translated,
+                    "language": destination, "final": True,
+                })
+                await websocket.send_json({
+                    "type": "utterance", "turnId": turn_id, "original": corrected,
+                    "translation": translated, "sourceLang": detected_source,
+                    "targetLang": destination,
+                })
+            except Exception:
+                await websocket.send_json({
+                    "type": "error", "turnId": turn_id,
+                    "text": "Could not translate this turn. Its transcript has been kept.",
+                })
+            finally:
+                translations.task_done()
+
+    translator = asyncio.create_task(translate_pending())
     try:
         while True:
             # A single unparseable frame used to fall through to the handler's
@@ -472,12 +510,15 @@ async def live_interpretation(websocket: WebSocket) -> None:
                 continue
 
             if message_type == "stop":
+                await translations.join()
                 await websocket.send_json({"type": "stopped"})
                 continue
 
             if message_type != "audio" or not message.get("data"):
                 continue
 
+            sequence += 1
+            turn_id = sequence
             try:
                 pcm = base64.b64decode(message["data"], validate=True)
             except (ValueError, TypeError):
@@ -538,36 +579,13 @@ async def live_interpretation(websocket: WebSocket) -> None:
             # into the other panel as soon as generation completes.
             await websocket.send_json({
                 "type": "transcript",
+                "turnId": turn_id,
                 "text": corrected,
                 "language": detected_source,
                 "final": True,
+                "confidence": result.confidence,
             })
-            translated = await asyncio.to_thread(
-                run_protected_translation,
-                corrected,
-                normalize_language(detected_source),
-                normalize_language(destination),
-            )
-            translation_ready_at = time.perf_counter()
-            await websocket.send_json({
-                "type": "translation",
-                "text": translated,
-                "language": destination,
-                "final": True,
-            })
-            await websocket.send_json({
-                "type": "utterance",
-                "original": corrected,
-                "translation": translated,
-                "sourceLang": detected_source,
-                "targetLang": destination,
-            })
-            print(
-                "[live-timing] "
-                f"translation={translation_ready_at - transcript_ready_at:.3f}s "
-                f"text={corrected[:80]!r}",
-                flush=True,
-            )
+            await translations.put((turn_id, corrected, detected_source, destination))
     except WebSocketDisconnect:
         return
     except Exception:
@@ -579,6 +597,9 @@ async def live_interpretation(websocket: WebSocket) -> None:
             })
         except Exception:
             pass
+    finally:
+        translator.cancel()
+        await asyncio.gather(translator, return_exceptions=True)
 
 
 def route_turn(detected: str, configured_source: str, configured_target: str) -> str:
@@ -782,7 +803,7 @@ async def transcribe(
 
     detected_language = "ja" if result.language == "ja" else "en"
     text = await asyncio.to_thread(correction_service.correct, text, detected_language)
-    return TranscriptionResponse(ok=True, text=text, language=detected_language)
+    return TranscriptionResponse(ok=True, text=text, language=detected_language, confidence=result.confidence)
 
 
 @app.post("/interpret", response_model=InterpretationResponse, dependencies=[Depends(require_api_key)])
@@ -842,6 +863,7 @@ async def interpret(
         language=detected,
         translation=translation,
         target=destination,
+        confidence=heard.confidence,
     )
 
 
