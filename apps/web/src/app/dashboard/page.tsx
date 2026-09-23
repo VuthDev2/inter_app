@@ -41,7 +41,7 @@ function DashboardContent() {
                                         <Mic size={18} />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">One-Way</span>
+                                        <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">One-Way Interpreter</span>
                                         <span className="text-[13px] text-[rgba(var(--muted),1)]">Speeches and uninterrupted listening</span>
                                     </div>
                                 </div>
@@ -55,7 +55,7 @@ function DashboardContent() {
                                         <MessageSquare size={18} />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">Two-Way</span>
+                                        <span className="text-[15px] font-medium text-[rgba(var(--text),0.9)]">Two-Way Conversation</span>
                                         <span className="text-[13px] text-[rgba(var(--muted),1)]">Real-time bilingual conversation</span>
                                     </div>
                                 </div>
