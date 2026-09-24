@@ -18,7 +18,10 @@ export const sendOtpSchema = z.object({
 
 export const verifyOtpSchema = z.object({
   email: gmailEmail,
-  token: z.string().min(1, "Verification code is required.").transform((val) => val.trim()),
+  token: z
+    .string()
+    .min(1, "Verification code is required.")
+    .transform((val) => val.trim()),
 });
 
 export const resetPasswordSchema = z.object({

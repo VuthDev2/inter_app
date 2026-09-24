@@ -13,6 +13,12 @@ const upload = multer({
 
 const router = Router();
 
-router.post("/transcribe", requireAuth, upload.single("file"), validate(transcribeSchema), transcribe);
+router.post(
+  "/transcribe",
+  requireAuth,
+  upload.single("file"),
+  validate(transcribeSchema),
+  transcribe,
+);
 
 export default router;

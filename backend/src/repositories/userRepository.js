@@ -9,9 +9,7 @@ class UserRepository {
         : null;
 
     this.publicClient =
-      SUPABASE_URL && SUPABASE_ANON_KEY
-        ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-        : null;
+      SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
   }
 
   get isConfigured() {
@@ -48,9 +46,12 @@ class UserRepository {
     let page = 1;
     let hasMore = true;
     while (hasMore) {
-      const { data: { users }, error } = await this.adminClient.auth.admin.listUsers({ page, perPage: 1000 });
+      const {
+        data: { users },
+        error,
+      } = await this.adminClient.auth.admin.listUsers({ page, perPage: 1000 });
       if (error) throw error;
-      const user = users.find(u => u.email === email);
+      const user = users.find((u) => u.email === email);
       if (user) return user;
       if (users.length < 1000) hasMore = false;
       page++;
@@ -59,8 +60,11 @@ class UserRepository {
   }
 
   async updateUserPassword(userId, newPassword) {
-    if (!this.adminClient) throw new Error("Admin client required for password reset without old password.");
-    const { error } = await this.adminClient.auth.admin.updateUserById(userId, { password: newPassword });
+    if (!this.adminClient)
+      throw new Error("Admin client required for password reset without old password.");
+    const { error } = await this.adminClient.auth.admin.updateUserById(userId, {
+      password: newPassword,
+    });
     if (error) throw error;
   }
 }

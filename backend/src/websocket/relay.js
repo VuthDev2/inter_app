@@ -9,9 +9,7 @@ const ipConnections = new Map();
 setInterval(() => ipConnections.clear(), 60_000);
 
 const supabase =
-  SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+  SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 class ConnectionManager {
   constructor() {
@@ -70,7 +68,7 @@ export function setupWebSocket(server) {
     handleProtocols: (protocols) => {
       if (protocols.has("access_token")) return "access_token";
       return Array.from(protocols)[0] || false;
-    }
+    },
   });
 
   wss.on("connection", async (ws, req) => {
@@ -88,7 +86,7 @@ export function setupWebSocket(server) {
 
     let token = null;
     if (req.headers["sec-websocket-protocol"]) {
-      const protocols = req.headers["sec-websocket-protocol"].split(",").map(p => p.trim());
+      const protocols = req.headers["sec-websocket-protocol"].split(",").map((p) => p.trim());
       const tokenIdx = protocols.indexOf("access_token");
       if (tokenIdx !== -1 && protocols.length > tokenIdx + 1) {
         token = protocols[tokenIdx + 1];

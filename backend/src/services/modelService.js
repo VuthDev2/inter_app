@@ -17,7 +17,10 @@ class ModelService {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw Object.assign(new Error(errData.detail || "Transcription failed on local model server."), { status: response.status });
+        throw Object.assign(
+          new Error(errData.detail || "Transcription failed on local model server."),
+          { status: response.status },
+        );
       }
 
       const data = await response.json();
@@ -36,7 +39,10 @@ class ModelService {
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw Object.assign(new Error(errData.detail || "Translation failed on local model server."), { status: response.status });
+      throw Object.assign(
+        new Error(errData.detail || "Translation failed on local model server."),
+        { status: response.status },
+      );
     }
 
     const data = await response.json();

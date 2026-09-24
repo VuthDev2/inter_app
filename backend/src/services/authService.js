@@ -5,15 +5,18 @@ import { sendOTPEmail, sendWelcomeEmail } from "./email.js";
 const otpStore = new Map(); // email -> { otpHash, expiresAt, attempts }
 const resetTokenStore = new Map(); // email -> { tokenHash, userId, expiresAt }
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of otpStore.entries()) {
-    if (now > val.expiresAt) otpStore.delete(key);
-  }
-  for (const [key, val] of resetTokenStore.entries()) {
-    if (now > val.expiresAt) resetTokenStore.delete(key);
-  }
-}, 5 * 60 * 1000);
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, val] of otpStore.entries()) {
+      if (now > val.expiresAt) otpStore.delete(key);
+    }
+    for (const [key, val] of resetTokenStore.entries()) {
+      if (now > val.expiresAt) resetTokenStore.delete(key);
+    }
+  },
+  5 * 60 * 1000,
+);
 
 function safeCompare(strA, strB) {
   const bufA = Buffer.from(String(strA));
@@ -33,7 +36,9 @@ class AuthService {
     }
     const name = (displayName || email.split("@")[0]).trim();
     await userRepository.createUser(email, password, name);
-    sendWelcomeEmail({ to: email, name }).catch((err) => console.error("Welcome email failed", err));
+    sendWelcomeEmail({ to: email, name }).catch((err) =>
+      console.error("Welcome email failed", err),
+    );
   }
 
   async sendOtp(email) {
@@ -52,7 +57,10 @@ class AuthService {
   async verifyOtp(email, token) {
     const stored = otpStore.get(email);
     if (!stored) {
-      throw Object.assign(new Error("No code requested or code expired. Please request a new code."), { status: 400 });
+      throw Object.assign(
+        new Error("No code requested or code expired. Please request a new code."),
+        { status: 400 },
+      );
     }
     if (Date.now() > stored.expiresAt) {
       otpStore.delete(email);
@@ -64,7 +72,10 @@ class AuthService {
       stored.attempts = (stored.attempts || 0) + 1;
       if (stored.attempts >= 5) {
         otpStore.delete(email);
-        throw Object.assign(new Error("Too many failed attempts. Code invalidated. Please request a new code."), { status: 400 });
+        throw Object.assign(
+          new Error("Too many failed attempts. Code invalidated. Please request a new code."),
+          { status: 400 },
+        );
       }
       throw Object.assign(new Error("Invalid verification code."), { status: 400 });
     }
@@ -86,17 +97,24 @@ class AuthService {
   async resetPassword(email, password, resetToken) {
     const storedToken = resetTokenStore.get(email);
     if (!storedToken) {
-      throw Object.assign(new Error("Invalid or expired authorization token. Please verify code again."), { status: 401 });
+      throw Object.assign(
+        new Error("Invalid or expired authorization token. Please verify code again."),
+        { status: 401 },
+      );
     }
 
     const inputTokenHash = hashToken(resetToken);
     if (!safeCompare(storedToken.tokenHash, inputTokenHash)) {
-      throw Object.assign(new Error("Invalid authorization token. Please verify code again."), { status: 401 });
+      throw Object.assign(new Error("Invalid authorization token. Please verify code again."), {
+        status: 401,
+      });
     }
 
     if (Date.now() > storedToken.expiresAt) {
       resetTokenStore.delete(email);
-      throw Object.assign(new Error("Authorization token has expired. Please verify code again."), { status: 401 });
+      throw Object.assign(new Error("Authorization token has expired. Please verify code again."), {
+        status: 401,
+      });
     }
 
     let userId = storedToken.userId;

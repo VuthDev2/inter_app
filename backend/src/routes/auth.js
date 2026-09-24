@@ -2,7 +2,12 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { signup, sendOtp, verifyOtp, resetPassword } from "../controllers/authController.js";
 import { validate } from "../middleware/validate.js";
-import { signupSchema, sendOtpSchema, verifyOtpSchema, resetPasswordSchema } from "../schemas/authSchemas.js";
+import {
+  signupSchema,
+  sendOtpSchema,
+  verifyOtpSchema,
+  resetPasswordSchema,
+} from "../schemas/authSchemas.js";
 
 const router = Router();
 
